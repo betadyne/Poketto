@@ -65,7 +65,6 @@ pub fn set_discord_rpc_buttons(
     github: bool,
     state: State<AppState>,
 ) -> AppResult<()> {
-    // Count active buttons (max 2 allowed by Discord)
     let active_count = [vndb_game, vndb_profile, github].iter().filter(|&&x| x).count();
     if active_count > 2 {
         return Err(crate::error::AppError::Validation(

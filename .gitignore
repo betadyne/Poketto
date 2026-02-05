@@ -37,3 +37,7 @@ Progress
 # Tauri bundler tools (auto-downloaded)
 src-tauri/WixTools
 src-tauri/NSIS
+
+# Agent tooling secrets
+tools/agents/.env
+tools/agents/*.env

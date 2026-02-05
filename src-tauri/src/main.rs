@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    alka_launcher_lib::run();
+    poketto_lib::run();
 }

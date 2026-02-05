@@ -14,7 +14,7 @@ pub const CHAR_CACHE: TableDefinition<&str, &[u8]> = TableDefinition::new("char_
 pub fn get_data_dir() -> PathBuf {
     let data_dir = dirs::data_local_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("AlkaLauncher");
+        .join("Poketto");
     fs::create_dir_all(&data_dir).ok();
     data_dir
 }

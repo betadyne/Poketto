@@ -3,15 +3,28 @@ import { Router, Route, useNavigate, useParams } from "@solidjs/router";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Search, X, User, RefreshCw } from "lucide-solid";
 
-import type { VndbImage, VndbSearchResult } from "./bindings";
+import type {
+  VndbImage,
+  VndbSearchResult,
+  GameType,
+  WineSettings,
+} from "./bindings";
 import { useLibraryFilters } from "./hooks/useLibraryFilters";
 import { useUpdater } from "./hooks/useUpdater";
 
-import { GameProvider, SettingsProvider, VndbProvider, useGame, useSettings, useVndb } from "./context";
+import {
+  GameProvider,
+  SettingsProvider,
+  VndbProvider,
+  useGame,
+  useSettings,
+  useVndb,
+} from "./context";
 import { Library } from "./views/Library";
 import { Detail } from "./views/Detail";
 import { TitleBar } from "./components/TitleBar";
 import { UpdateDialog } from "./components/UpdateDialog";
+import { WineSettingsModal } from "./components/WineSettingsModal";
 import * as api from "./api";
 
 function LibraryPage() {
@@ -21,25 +34,72 @@ function LibraryPage() {
   const navigate = useNavigate();
 
   const [showSettings, setShowSettings] = createSignal(false);
-  const [searchModal, setSearchModal] = createSignal<{ id: string; title: string } | null>(null);
+  const [searchModal, setSearchModal] = createSignal<{
+    id: string;
+    title: string;
+  } | null>(null);
   const [searchQuery, setSearchQuery] = createSignal("");
   const [tokenInput, setTokenInput] = createSignal("");
+
+  const [platform, setPlatform] = createSignal<string>("windows");
+  const [wineModal, setWineModal] = createSignal<{
+    id: string;
+    title: string;
+  } | null>(null);
 
   const libraryFilters = useLibraryFilters(() => game.games());
   const updater = useUpdater();
 
+  onMount(async () => {
+    const p = await api.getPlatform();
+    setPlatform(p);
+  });
+
   const addGame = async () => {
+    const isLinux = platform() === "linux";
     const sel = await open({
       multiple: false,
-      filters: [{ name: "Executable", extensions: ["exe"] }],
+      filters: isLinux
+        ? [
+            {
+              name: "Executable",
+              extensions: ["exe", "sh", "x86_64", "x86", ""],
+            },
+          ]
+        : [{ name: "Executable", extensions: ["exe"] }],
     });
     if (sel) {
       const g = await game.addGame(sel as string);
       if (g) {
-        setSearchModal({ id: g.id, title: g.title });
-        setSearchQuery(g.title);
+        if (isLinux) {
+          setWineModal({ id: g.id, title: g.title });
+        } else {
+          setSearchModal({ id: g.id, title: g.title });
+          setSearchQuery(g.title);
+        }
       }
     }
+  };
+
+  const handleWineSettingsSave = async (
+    gameType: GameType,
+    wineSettings: WineSettings | null,
+  ) => {
+    const modal = wineModal();
+    if (!modal) return;
+
+    const g = game.games().find((x) => x.id === modal.id);
+    if (!g) return;
+
+    await game.updateGame({
+      ...g,
+      game_type: gameType,
+      wine_settings: wineSettings,
+    });
+
+    setWineModal(null);
+    setSearchModal({ id: modal.id, title: modal.title });
+    setSearchQuery(modal.title);
   };
 
   let searchDebounceTimer: ReturnType<typeof setTimeout> | undefined;
@@ -76,7 +136,11 @@ function LibraryPage() {
   };
 
   const shouldBlur = (img: VndbImage | null): boolean =>
-    !!(settings.settings().blur_nsfw && img && (img.sexual >= 1 || img.violence >= 1));
+    !!(
+      settings.settings().blur_nsfw &&
+      img &&
+      ((img.sexual ?? 0) >= 1 || (img.violence ?? 0) >= 1)
+    );
 
   const formatPlayTime = (m: number) =>
     m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`;
@@ -137,6 +201,22 @@ function LibraryPage() {
         />
       </Show>
 
+      <Show when={wineModal()}>
+        <WineSettingsModal
+          gameId={wineModal()!.id}
+          gameTitle={wineModal()!.title}
+          onSave={handleWineSettingsSave}
+          onClose={() => {
+            const modal = wineModal();
+            setWineModal(null);
+            if (modal) {
+              setSearchModal({ id: modal.id, title: modal.title });
+              setSearchQuery(modal.title);
+            }
+          }}
+        />
+      </Show>
+
       <UpdateDialog
         status={updater.status()}
         updateInfo={updater.updateInfo()}
@@ -161,11 +241,14 @@ function DetailPage() {
   const [showSpoilers, setShowSpoilers] = createSignal(false);
   const [isRefreshing, setIsRefreshing] = createSignal(false);
   const [tokenInput, setTokenInput] = createSignal("");
-  const [currentTab, setCurrentTab] = createSignal<"detail" | "detail-chars">("detail");
+  const [currentTab, setCurrentTab] = createSignal<"detail" | "detail-chars">(
+    "detail",
+  );
 
   const updater = useUpdater();
 
-  const currentGame = () => game.games().find((g) => g.id === params.id) || null;
+  const currentGame = () =>
+    game.games().find((g) => g.id === params.id) || null;
 
   const loadDetail = async (forceRefresh = false) => {
     const g = currentGame();
@@ -210,7 +293,11 @@ function DetailPage() {
   };
 
   const shouldBlur = (img: VndbImage | null): boolean =>
-    !!(settings.settings().blur_nsfw && img && (img.sexual >= 1 || img.violence >= 1));
+    !!(
+      settings.settings().blur_nsfw &&
+      img &&
+      ((img.sexual ?? 0) >= 1 || (img.violence ?? 0) >= 1)
+    );
 
   const formatPlayTime = (m: number) =>
     m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`;
@@ -231,7 +318,14 @@ function DetailPage() {
 
   return (
     <>
-      <Show when={vndb.vnDetail() && currentGame()} fallback={<div class="flex-1 flex items-center justify-center text-slate-400">Loading...</div>}>
+      <Show
+        when={vndb.vnDetail() && currentGame()}
+        fallback={
+          <div class="flex-1 flex items-center justify-center text-slate-400">
+            Loading...
+          </div>
+        }
+      >
         <Detail
           page={currentTab()}
           setPage={setCurrentTab}
@@ -286,21 +380,57 @@ function SettingsModal(props: {
 }) {
   const settings = useSettings();
 
+  const [platform, setPlatform] = createSignal<string>("windows");
+  const [wineVersions, setWineVersions] = createSignal<api.WineVersion[]>([]);
+  const [steamRuntimeAvailable, setSteamRuntimeAvailable] = createSignal(false);
+  const [defaultWineBinary, setDefaultWineBinary] = createSignal<string>("");
+  const [useSteamRuntime, setUseSteamRuntime] = createSignal(false);
+
+  onMount(async () => {
+    const p = await api.getPlatform();
+    setPlatform(p);
+    if (p === "linux") {
+      const versions = await api.getAvailableWineVersions();
+      setWineVersions(versions);
+      const steamAvail = await api.isSteamRuntimeAvailable();
+      setSteamRuntimeAvailable(steamAvail);
+      const defaults = await api.getDefaultWineSettings();
+      setDefaultWineBinary(defaults.wine_version || "");
+      setUseSteamRuntime(defaults.use_steam_runtime);
+    }
+  });
+
+  const saveWineDefaults = async () => {
+    await api.saveGlobalWineDefaults(
+      null,
+      defaultWineBinary() || null,
+      useSteamRuntime(),
+    );
+  };
+
   return (
     <div
       class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
       onClick={props.onClose}
     >
-      <div class="bg-slate-800 rounded-lg w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+      <div
+        class="bg-slate-800 rounded-lg w-full max-w-md"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div class="flex items-center justify-between p-3 border-b border-slate-700">
           <h2 class="text-lg font-bold text-white">Settings</h2>
-          <button onClick={props.onClose} class="text-gray-400 hover:text-white">
+          <button
+            onClick={props.onClose}
+            class="text-gray-400 hover:text-white"
+          >
             <X class="w-5 h-5" />
           </button>
         </div>
         <div class="p-4 space-y-4">
           <div>
-            <label class="text-sm text-gray-300 mb-1 block">VNDB API Token</label>
+            <label class="text-sm text-gray-300 mb-1 block">
+              VNDB API Token
+            </label>
             <Show
               when={settings.authUser()}
               fallback={
@@ -330,12 +460,17 @@ function SettingsModal(props: {
                 <span class="text-white flex items-center gap-2">
                   <User class="w-4 h-4" /> {settings.authUser()}
                 </span>
-                <button onClick={settings.clearToken} class="text-red-400 hover:text-red-300 text-sm">
+                <button
+                  onClick={settings.clearToken}
+                  class="text-red-400 hover:text-red-300 text-sm"
+                >
                   Logout
                 </button>
               </div>
             </Show>
-            <p class="text-xs text-gray-500 mt-1">Get token from vndb.org/u/tokens</p>
+            <p class="text-xs text-gray-500 mt-1">
+              Get token from vndb.org/u/tokens
+            </p>
           </div>
           <div class="flex items-center justify-between">
             <span class="text-sm text-gray-300">Blur NSFW Content</span>
@@ -358,7 +493,9 @@ function SettingsModal(props: {
             >
               Clear VNDB Cache
             </button>
-            <p class="text-xs text-gray-500 mt-1">Remove all cached VN and character data</p>
+            <p class="text-xs text-gray-500 mt-1">
+              Remove all cached VN and character data
+            </p>
           </div>
           <div class="pt-2 border-t border-slate-700">
             <button
@@ -366,10 +503,16 @@ function SettingsModal(props: {
               disabled={props.updater.status() === "checking"}
               class="w-full px-3 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 rounded text-sm text-gray-300 flex items-center justify-center gap-2"
             >
-              <RefreshCw class={`w-4 h-4 ${props.updater.status() === "checking" ? "animate-spin" : ""}`} />
-              {props.updater.status() === "checking" ? "Checking..." : "Check for Updates"}
+              <RefreshCw
+                class={`w-4 h-4 ${props.updater.status() === "checking" ? "animate-spin" : ""}`}
+              />
+              {props.updater.status() === "checking"
+                ? "Checking..."
+                : "Check for Updates"}
             </button>
-            <p class="text-xs text-gray-500 mt-1">Current version: v{__APP_VERSION__}</p>
+            <p class="text-xs text-gray-500 mt-1">
+              Current version: v{__APP_VERSION__}
+            </p>
           </div>
           <div class="pt-2 border-t border-slate-700">
             <div class="flex items-center justify-between">
@@ -383,15 +526,22 @@ function SettingsModal(props: {
                 />
               </button>
             </div>
-            <p class="text-xs text-gray-500 mt-1">Show currently playing game in Discord activity status</p>
+            <p class="text-xs text-gray-500 mt-1">
+              Show currently playing game in Discord activity status
+            </p>
 
             <Show when={settings.settings().discord_rpc_enabled}>
               <div class="mt-3 pl-2 border-l-2 border-slate-600 space-y-2">
                 <p class="text-xs text-gray-400 mb-2">
-                  Buttons to show (max 2): {
-                    [settings.settings().discord_btn_vndb_game, settings.settings().discord_btn_vndb_profile, settings.settings().discord_btn_github]
-                      .filter(Boolean).length
-                  }/2
+                  Buttons to show (max 2):{" "}
+                  {
+                    [
+                      settings.settings().discord_btn_vndb_game,
+                      settings.settings().discord_btn_vndb_profile,
+                      settings.settings().discord_btn_github,
+                    ].filter(Boolean).length
+                  }
+                  /2
                 </p>
 
                 <label class="flex items-center gap-2 cursor-pointer">
@@ -400,11 +550,19 @@ function SettingsModal(props: {
                     checked={settings.settings().discord_btn_vndb_game ?? true}
                     onChange={(e) => {
                       const newValue = e.currentTarget.checked;
-                      const profile = settings.settings().discord_btn_vndb_profile ?? false;
-                      const github = settings.settings().discord_btn_github ?? false;
-                      const count = [newValue, profile, github].filter(Boolean).length;
+                      const profile =
+                        settings.settings().discord_btn_vndb_profile ?? false;
+                      const github =
+                        settings.settings().discord_btn_github ?? false;
+                      const count = [newValue, profile, github].filter(
+                        Boolean,
+                      ).length;
                       if (count <= 2) {
-                        settings.updateDiscordButtons(newValue, profile, github);
+                        settings.updateDiscordButtons(
+                          newValue,
+                          profile,
+                          github,
+                        );
                       } else {
                         e.currentTarget.checked = !newValue;
                       }
@@ -415,18 +573,30 @@ function SettingsModal(props: {
                   <span class="text-xs text-gray-500">(game page)</span>
                 </label>
 
-                <label class={`flex items-center gap-2 ${settings.settings().vndb_token ? "cursor-pointer" : "opacity-50 cursor-not-allowed"}`}>
+                <label
+                  class={`flex items-center gap-2 ${settings.settings().vndb_token ? "cursor-pointer" : "opacity-50 cursor-not-allowed"}`}
+                >
                   <input
                     type="checkbox"
-                    checked={settings.settings().discord_btn_vndb_profile ?? false}
+                    checked={
+                      settings.settings().discord_btn_vndb_profile ?? false
+                    }
                     disabled={!settings.settings().vndb_token}
                     onChange={(e) => {
                       const newValue = e.currentTarget.checked;
-                      const vndbGame = settings.settings().discord_btn_vndb_game ?? true;
-                      const github = settings.settings().discord_btn_github ?? false;
-                      const count = [vndbGame, newValue, github].filter(Boolean).length;
+                      const vndbGame =
+                        settings.settings().discord_btn_vndb_game ?? true;
+                      const github =
+                        settings.settings().discord_btn_github ?? false;
+                      const count = [vndbGame, newValue, github].filter(
+                        Boolean,
+                      ).length;
                       if (count <= 2) {
-                        settings.updateDiscordButtons(vndbGame, newValue, github);
+                        settings.updateDiscordButtons(
+                          vndbGame,
+                          newValue,
+                          github,
+                        );
                       } else {
                         e.currentTarget.checked = !newValue;
                       }
@@ -435,7 +605,9 @@ function SettingsModal(props: {
                   />
                   <span class="text-sm text-gray-300">My VNDB Profile</span>
                   <Show when={!settings.settings().vndb_token}>
-                    <span class="text-xs text-amber-400">(requires VNDB token)</span>
+                    <span class="text-xs text-amber-400">
+                      (requires VNDB token)
+                    </span>
                   </Show>
                 </label>
 
@@ -445,11 +617,19 @@ function SettingsModal(props: {
                     checked={settings.settings().discord_btn_github ?? false}
                     onChange={(e) => {
                       const newValue = e.currentTarget.checked;
-                      const vndbGame = settings.settings().discord_btn_vndb_game ?? true;
-                      const profile = settings.settings().discord_btn_vndb_profile ?? false;
-                      const count = [vndbGame, profile, newValue].filter(Boolean).length;
+                      const vndbGame =
+                        settings.settings().discord_btn_vndb_game ?? true;
+                      const profile =
+                        settings.settings().discord_btn_vndb_profile ?? false;
+                      const count = [vndbGame, profile, newValue].filter(
+                        Boolean,
+                      ).length;
                       if (count <= 2) {
-                        settings.updateDiscordButtons(vndbGame, profile, newValue);
+                        settings.updateDiscordButtons(
+                          vndbGame,
+                          profile,
+                          newValue,
+                        );
                       } else {
                         e.currentTarget.checked = !newValue;
                       }
@@ -461,6 +641,82 @@ function SettingsModal(props: {
               </div>
             </Show>
           </div>
+
+          <Show when={platform() === "linux"}>
+            <div class="pt-2 border-t border-slate-700">
+              <h3 class="text-sm font-medium text-purple-400 mb-3">
+                Wine Settings (Linux)
+              </h3>
+
+              <div class="mb-3">
+                <label class="text-xs text-gray-400 mb-1 block">
+                  Default Wine Version
+                </label>
+                <select
+                  value={defaultWineBinary()}
+                  onChange={(e) => {
+                    setDefaultWineBinary(e.currentTarget.value);
+                    saveWineDefaults();
+                  }}
+                  class="w-full px-3 py-2 bg-slate-700 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                  <Show when={wineVersions().length === 0}>
+                    <option value="">No Wine/Proton found</option>
+                  </Show>
+                  <For
+                    each={Object.entries(
+                      api.groupWineVersionsByType(wineVersions()),
+                    )}
+                  >
+                    {([type, versions]) => (
+                      <Show when={versions.length > 0}>
+                        <optgroup label={api.getWineTypeDisplayName(type)}>
+                          <For each={versions}>
+                            {(v) => (
+                              <option value={v.binary_path}>
+                                {v.name}
+                                {v.version ? ` (${v.version})` : ""}
+                              </option>
+                            )}
+                          </For>
+                        </optgroup>
+                      </Show>
+                    )}
+                  </For>
+                </select>
+              </div>
+
+              <div class="flex items-center justify-between">
+                <div>
+                  <span class="text-sm text-gray-300">Use Steam Runtime</span>
+                  <p class="text-xs text-gray-500">
+                    Better compatibility for some games
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setUseSteamRuntime(!useSteamRuntime());
+                    saveWineDefaults();
+                  }}
+                  disabled={!steamRuntimeAvailable()}
+                  class={`w-10 h-5 rounded-full transition-colors ${
+                    useSteamRuntime() ? "bg-purple-500" : "bg-slate-600"
+                  } ${!steamRuntimeAvailable() ? "opacity-50 cursor-not-allowed" : ""}`}
+                >
+                  <div
+                    class={`w-4 h-4 bg-white rounded-full transition-transform ${
+                      useSteamRuntime() ? "translate-x-5" : "translate-x-0.5"
+                    }`}
+                  />
+                </button>
+              </div>
+              <Show when={!steamRuntimeAvailable()}>
+                <p class="text-xs text-amber-400 mt-1">
+                  steam-run not found. Install steam-native-runtime.
+                </p>
+              </Show>
+            </div>
+          </Show>
         </div>
       </div>
     </div>
@@ -482,7 +738,10 @@ function SearchModal(props: {
       <div class="bg-slate-800 rounded-lg w-full max-w-lg max-h-[70vh] overflow-hidden">
         <div class="flex items-center justify-between p-3 border-b border-slate-700">
           <h2 class="text-lg font-bold text-white">Link to VNDB</h2>
-          <button onClick={props.onClose} class="text-gray-400 hover:text-white">
+          <button
+            onClick={props.onClose}
+            class="text-gray-400 hover:text-white"
+          >
             <X class="w-5 h-5" />
           </button>
         </div>
@@ -524,7 +783,9 @@ function SearchModal(props: {
                     </Show>
                   </div>
                   <div class="flex-1 min-w-0">
-                    <h4 class="text-white text-sm font-medium truncate">{r.title}</h4>
+                    <h4 class="text-white text-sm font-medium truncate">
+                      {r.title}
+                    </h4>
                     <p class="text-xs text-gray-400">
                       {r.id}
                       {r.released && ` • ${r.released}`}
@@ -548,9 +809,7 @@ function AppLayout(props: { children?: any }) {
         <VndbProvider>
           <div class="h-screen flex flex-col bg-[#0F172A]">
             <TitleBar />
-            <div class="flex-1 overflow-hidden relative">
-              {props.children}
-            </div>
+            <div class="flex-1 overflow-hidden relative">{props.children}</div>
           </div>
         </VndbProvider>
       </SettingsProvider>

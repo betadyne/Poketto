@@ -188,6 +188,69 @@ async setDiscordRpcButtons(vndbGame: boolean, vndbProfile: boolean, github: bool
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+/**
+ * Get the current platform
+ */
+async getPlatform() : Promise<string> {
+    return await TAURI_INVOKE("get_platform");
+},
+/**
+ * Get all available Wine/Proton versions installed on the system
+ */
+async getAvailableWineVersions() : Promise<WineVersion[]> {
+    return await TAURI_INVOKE("get_available_wine_versions");
+},
+/**
+ * Get default Wine settings (auto-detected)
+ */
+async getDefaultWineSettings() : Promise<WineSettings> {
+    return await TAURI_INVOKE("get_default_wine_settings");
+},
+/**
+ * Get default Wine prefix path for a game
+ */
+async getDefaultPrefixPath(gameId: string) : Promise<string> {
+    return await TAURI_INVOKE("get_default_prefix_path", { gameId });
+},
+/**
+ * Save Wine settings for a specific game
+ */
+async saveGameWineSettings(gameId: string, wineSettings: WineSettings) : Promise<Result<null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("save_game_wine_settings", { gameId, wineSettings }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Save global Wine defaults
+ */
+async saveGlobalWineDefaults(prefix: string | null, binary: string | null, useSteamRuntime: boolean) : Promise<Result<null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("save_global_wine_defaults", { prefix, binary, useSteamRuntime }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Check if Steam Runtime (steam-run) is available
+ */
+async isSteamRuntimeAvailable() : Promise<boolean> {
+    return await TAURI_INVOKE("is_steam_runtime_available");
+},
+/**
+ * Validate a Wine binary path
+ */
+async validateWineBinary(binaryPath: string) : Promise<Result<string, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("validate_wine_binary", { binaryPath }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -202,9 +265,41 @@ async setDiscordRpcButtons(vndbGame: boolean, vndbProfile: boolean, github: bool
 /** user-defined types **/
 
 export type AppError = { kind: "Io"; message: string } | { kind: "Json"; message: string } | { kind: "Http"; message: string } | { kind: "Database"; message: string } | { kind: "Bincode"; message: string } | { kind: "NotFound"; message: string } | { kind: "VndbApi"; message: string } | { kind: "AuthRequired"; message: string } | { kind: "ProcessLaunch"; message: string } | { kind: "Validation"; message: string }
-export type AppSettings = { vndb_token: string | null; vndb_user_id: string | null; blur_nsfw: boolean; discord_rpc_enabled?: boolean; discord_btn_vndb_game?: boolean; discord_btn_vndb_profile?: boolean; discord_btn_github?: boolean }
+export type AppSettings = { vndb_token: string | null; vndb_user_id: string | null; blur_nsfw: boolean; discord_rpc_enabled?: boolean; discord_btn_vndb_game?: boolean; discord_btn_vndb_profile?: boolean; discord_btn_github?: boolean; 
+/**
+ * Global default Wine prefix path
+ */
+default_wine_prefix?: string | null; 
+/**
+ * Global default Wine/Proton binary path
+ */
+default_wine_binary?: string | null; 
+/**
+ * Use Steam Runtime (steam-run) by default
+ */
+use_steam_runtime?: boolean }
 export type DailyPlaytimeData = { games: Partial<{ [key in string]: Partial<{ [key in string]: number }> }> }
-export type GameMetadata = { id: string; title: string; path: string; vndb_id: string | null; cover_url: string | null; play_time: number; is_finished: boolean; last_played?: string | null; is_hidden?: boolean }
+export type GameMetadata = { id: string; title: string; path: string; vndb_id: string | null; cover_url: string | null; play_time: number; is_finished: boolean; last_played?: string | null; is_hidden?: boolean; 
+/**
+ * Type of game (Windows exe or Linux native)
+ */
+game_type?: GameType | null; 
+/**
+ * Per-game Wine/Proton settings (Linux only)
+ */
+wine_settings?: WineSettings | null }
+/**
+ * Type of game executable
+ */
+export type GameType = 
+/**
+ * Windows executable (.exe) - requires Wine/Proton on Linux
+ */
+"WindowsExe" | 
+/**
+ * Linux native binary - no Wine needed
+ */
+"LinuxNative"
 export type VndbAuthInfo = { id: string; username: string }
 export type VndbCharacter = { id: string; name: string; original: string | null; aliases: string[] | null; image: VndbImage | null; description: string | null; blood_type: string | null; height: number | null; weight: number | null; bust: number | null; waist: number | null; hips: number | null; cup: string | null; age: number | null; birthday: number[] | null; sex: string[] | null; vns: VndbCharacterVn[] | null; traits: VndbTrait[] | null }
 export type VndbCharacterVn = { id: string; role: string; spoiler?: number }
@@ -216,6 +311,78 @@ export type VndbTag = { id: string; name: string; rating: number; spoiler?: numb
 export type VndbTrait = { id: string; name: string; group_id: string | null; group_name: string | null; spoiler?: number }
 export type VndbUserListItem = { id: string; vote: number | null; labels: VndbLabel[] | null; started: string | null; finished: string | null }
 export type VndbVnDetail = { id: string; title: string; image: VndbImage | null; released: string | null; rating: number | null; description: string | null; length: number | null; length_minutes: number | null; tags: VndbTag[] | null; developers: VndbProducer[] | null }
+/**
+ * Per-game Wine/Proton settings
+ */
+export type WineSettings = { 
+/**
+ * Use global prefix instead of per-game prefix
+ */
+use_global_prefix: boolean; 
+/**
+ * Custom WINEPREFIX path (used if use_global_prefix is false)
+ */
+wine_prefix: string | null; 
+/**
+ * Path to selected Wine/Proton binary
+ */
+wine_version: string | null; 
+/**
+ * Type of Wine/Proton being used
+ */
+wine_type: WineType | null; 
+/**
+ * Use Steam Runtime (steam-run) for better compatibility
+ */
+use_steam_runtime: boolean; 
+/**
+ * Additional environment variables
+ */
+env_vars?: Partial<{ [key in string]: string }> }
+/**
+ * Type of Wine/Proton installation
+ */
+export type WineType = 
+/**
+ * System Wine (/usr/bin/wine)
+ */
+"Wine" | 
+/**
+ * Valve's Proton (bundled with Steam)
+ */
+"Proton" | 
+/**
+ * GE-Proton (community build, AUR: proton-ge-custom)
+ */
+"ProtonGE" | 
+/**
+ * Proton CachyOS (optimized for CachyOS, AUR: proton-cachyos)
+ */
+"ProtonCachyOS"
+/**
+ * Information about an installed Wine/Proton version
+ */
+export type WineVersion = { 
+/**
+ * Display name (e.g., "Wine 9.0", "GE-Proton9-7")
+ */
+name: string; 
+/**
+ * Full path to wine/proton binary
+ */
+binary_path: string; 
+/**
+ * Path to lib directory (for Proton)
+ */
+lib_path: string | null; 
+/**
+ * Type of Wine/Proton
+ */
+wine_type: WineType; 
+/**
+ * Version string if detected (e.g., "9.0", "9-7")
+ */
+version: string | null }
 
 /** tauri-specta globals **/
 

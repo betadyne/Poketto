@@ -1,4 +1,7 @@
-use discord_rich_presence::{activity, DiscordIpc, DiscordIpcClient};
+use discord_rich_presence::{
+    activity::{self, ActivityType, StatusDisplayType},
+    DiscordIpc, DiscordIpcClient,
+};
 use parking_lot::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -19,7 +22,6 @@ impl DiscordRpc {
     }
 
     pub fn connect(&self) -> Result<(), String> {
-        // Already connected, skip
         if self.connected.load(Ordering::Relaxed) {
             return Ok(());
         }
@@ -32,7 +34,8 @@ impl DiscordRpc {
 
         let mut client = DiscordIpcClient::new(DEFAULT_CLIENT_ID);
 
-        client.connect()
+        client
+            .connect()
             .map_err(|e| format!("Failed to connect to Discord: {}", e))?;
 
         *client_guard = Some(client);
@@ -74,13 +77,14 @@ impl DiscordRpc {
         let state_text = developer.unwrap_or("Playing Visual Novel");
         let mut activity_builder = activity::Activity::new()
             .details(game_title)
-            .state(state_text);
+            .state(state_text)
+            .activity_type(ActivityType::Playing)
+            .status_display_type(StatusDisplayType::Details);
 
         let timestamps = activity::Timestamps::new().start(start_timestamp as i64);
         activity_builder = activity_builder.timestamps(timestamps);
 
-        let mut assets = activity::Assets::new()
-            .large_text(game_title);
+        let mut assets = activity::Assets::new().large_text(game_title);
 
         if let Some(url) = cover_url {
             assets = assets.large_image(url);

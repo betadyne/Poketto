@@ -23,7 +23,6 @@ interface LibraryProps {
   runningGame: string | null;
   loading: boolean;
   authUser: string | null;
-  // Filter props
   searchQuery: string;
   onSearchChange: (query: string) => void;
   sortBy: SortBy;
@@ -32,7 +31,6 @@ interface LibraryProps {
   onSortOrderChange: (o: SortOrder) => void;
   showHidden: boolean;
   onShowHiddenChange: (v: boolean) => void;
-  // Action props
   formatPlayTime: (m: number) => string;
   onAddGame: () => void;
   onStopTracking: () => void;
@@ -85,7 +83,6 @@ export function Library(props: LibraryProps) {
 
   return (
     <div class="flex h-full bg-[#0F172A] text-slate-200 overflow-hidden font-['Figtree']">
-      {/* Sidebar */}
       <aside class="w-64 bg-[#0F172A]/95 flex flex-col border-r border-slate-800/50">
         <div class="p-6 flex items-center gap-3">
           <img src="/icon.png" alt="Alka Launcher" class="w-10 h-10" />
@@ -109,12 +106,10 @@ export function Library(props: LibraryProps) {
         </div>
       </aside>
 
-      {/* Main Content */}
       <main class="flex-1 flex flex-col min-w-0 bg-gradient-to-br from-[#0F172A] to-[#1E293B]">
         <header class="h-20 px-8 flex items-center justify-between gap-8 border-b border-white/5">
           <h2 class="text-2xl font-bold text-white">Overview</h2>
 
-          {/* Search Bar */}
           <div class="flex-1 max-w-xl relative group">
             <Search class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-blue-400 transition-colors" />
             <input
@@ -127,7 +122,6 @@ export function Library(props: LibraryProps) {
           </div>
 
           <div class="flex items-center gap-4">
-            {/* VNDB Username */}
             <Show when={props.authUser}>
               <div class="flex items-center gap-2 px-3 py-1.5 bg-[#1E293B] border border-slate-700/50 rounded-xl">
                 <User class="w-4 h-4 text-blue-400" />
@@ -169,7 +163,6 @@ export function Library(props: LibraryProps) {
           </div>
         </header>
 
-        {/* Content Toolbar */}
         <div class="px-8 py-6 flex flex-col gap-6">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
@@ -177,7 +170,6 @@ export function Library(props: LibraryProps) {
               <span class="text-slate-500">({props.games.length})</span>
             </div>
 
-            {/* Sort & Filter */}
             <div class="flex items-center gap-4">
               <div class="sort-dropdown relative">
                 <button
@@ -204,10 +196,11 @@ export function Library(props: LibraryProps) {
                             props.onSortByChange(option.value as SortBy);
                             setShowSortDropdown(false);
                           }}
-                          class={`w-full flex items-center justify-between px-4 py-2.5 text-sm text-left hover:bg-[#334155] transition-colors ${props.sortBy === option.value
-                            ? "text-white"
-                            : "text-slate-400"
-                            }`}
+                          class={`w-full flex items-center justify-between px-4 py-2.5 text-sm text-left hover:bg-[#334155] transition-colors ${
+                            props.sortBy === option.value
+                              ? "text-white"
+                              : "text-slate-400"
+                          }`}
                         >
                           <span>{option.label}</span>
                           <Show when={props.sortBy === option.value}>
@@ -227,10 +220,11 @@ export function Library(props: LibraryProps) {
                     setShowFiltersDropdown(!showFiltersDropdown());
                     setShowSortDropdown(false);
                   }}
-                  class={`flex items-center gap-2 px-3 py-2 border rounded-xl text-sm transition-colors ${props.showHidden
-                    ? "bg-blue-500/20 border-blue-500/50 text-blue-300"
-                    : "bg-[#1E293B] border-slate-700/50 text-slate-400 hover:border-slate-600"
-                    }`}
+                  class={`flex items-center gap-2 px-3 py-2 border rounded-xl text-sm transition-colors ${
+                    props.showHidden
+                      ? "bg-blue-500/20 border-blue-500/50 text-blue-300"
+                      : "bg-[#1E293B] border-slate-700/50 text-slate-400 hover:border-slate-600"
+                  }`}
                 >
                   <Filter class="w-4 h-4" />
                   <span>Filters</span>
@@ -260,23 +254,24 @@ export function Library(props: LibraryProps) {
 
               <div class="h-4 w-px bg-slate-700"></div>
 
-              {/* Grid/List Toggle */}
               <div class="flex gap-1 bg-[#1E293B] border border-slate-700/50 rounded-lg p-1">
                 <button
                   onClick={() => setViewMode("grid")}
-                  class={`p-1.5 rounded transition-colors ${viewMode() === "grid"
-                    ? "text-white bg-slate-700/50"
-                    : "text-slate-500 hover:text-slate-300"
-                    }`}
+                  class={`p-1.5 rounded transition-colors ${
+                    viewMode() === "grid"
+                      ? "text-white bg-slate-700/50"
+                      : "text-slate-500 hover:text-slate-300"
+                  }`}
                 >
                   <LayoutGrid class="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setViewMode("list")}
-                  class={`p-1.5 rounded transition-colors ${viewMode() === "list"
-                    ? "text-white bg-slate-700/50"
-                    : "text-slate-500 hover:text-slate-300"
-                    }`}
+                  class={`p-1.5 rounded transition-colors ${
+                    viewMode() === "list"
+                      ? "text-white bg-slate-700/50"
+                      : "text-slate-500 hover:text-slate-300"
+                  }`}
                 >
                   <List class="w-4 h-4" />
                 </button>
@@ -285,7 +280,6 @@ export function Library(props: LibraryProps) {
           </div>
         </div>
 
-        {/* Game Grid/List */}
         <div class="flex-1 overflow-y-auto px-8 pb-8 custom-scrollbar">
           <Show
             when={props.filteredGames.length > 0}
@@ -305,13 +299,13 @@ export function Library(props: LibraryProps) {
             <Show
               when={viewMode() === "grid"}
               fallback={
-                // List View
                 <div class="flex flex-col gap-2">
                   <For each={props.filteredGames}>
                     {(game) => (
                       <div
-                        class={`group flex items-center gap-4 p-3 bg-[#1E293B] rounded-xl border border-transparent hover:border-blue-500/50 cursor-pointer transition-all ${game.is_hidden && props.showHidden ? "opacity-50" : ""
-                          } ${props.runningGame === game.id ? "ring-2 ring-green-500" : ""}`}
+                        class={`group flex items-center gap-4 p-3 bg-[#1E293B] rounded-xl border border-transparent hover:border-blue-500/50 cursor-pointer transition-all ${
+                          game.is_hidden && props.showHidden ? "opacity-50" : ""
+                        } ${props.runningGame === game.id ? "ring-2 ring-green-500" : ""}`}
                         onClick={() =>
                           game.vndb_id
                             ? props.onOpenDetail(game)
@@ -322,7 +316,6 @@ export function Library(props: LibraryProps) {
                           handleContextMenuOpen(game.id);
                         }}
                       >
-                        {/* Cover */}
                         <div class="w-16 h-22 rounded-lg overflow-hidden flex-shrink-0 bg-slate-800">
                           <Show
                             when={game.cover_url}
@@ -341,7 +334,6 @@ export function Library(props: LibraryProps) {
                           </Show>
                         </div>
 
-                        {/* Info */}
                         <div class="flex-1 min-w-0">
                           <h3 class="text-white font-medium truncate">
                             {game.title}
@@ -373,7 +365,6 @@ export function Library(props: LibraryProps) {
                 </div>
               }
             >
-              {/* Grid View */}
               <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6">
                 <For each={props.filteredGames}>
                   {(game) => (

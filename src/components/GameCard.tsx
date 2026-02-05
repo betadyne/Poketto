@@ -81,12 +81,12 @@ export function GameCard(props: GameCardProps) {
     <>
       <div
         ref={cardRef}
-        class={`group relative aspect-[2/3] bg-[#1E293B] rounded-2xl overflow-hidden border border-white/5 cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/20 hover:border-purple-500/50 ${props.game.is_hidden && props.showHidden ? "opacity-50 grayscale" : ""
-          } ${props.isRunning ? "ring-2 ring-green-500 shadow-[0_0_20px_rgba(74,222,128,0.3)]" : ""}`}
+        class={`group relative aspect-[2/3] bg-[#1E293B] rounded-2xl overflow-hidden border border-white/5 cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/20 hover:border-purple-500/50 ${
+          props.game.is_hidden && props.showHidden ? "opacity-50 grayscale" : ""
+        } ${props.isRunning ? "ring-2 ring-green-500 shadow-[0_0_20px_rgba(74,222,128,0.3)]" : ""}`}
         onClick={() => props.onClick(props.game)}
         onContextMenu={handleContextMenu}
       >
-        {/* Background Image */}
         <Show
           when={props.game.cover_url}
           fallback={
@@ -106,13 +106,10 @@ export function GameCard(props: GameCardProps) {
           />
         </Show>
 
-        {/* Gradient Overlay */}
         <div class="absolute inset-0 bg-gradient-to-t from-[#0F172A] via-transparent to-transparent opacity-60 group-hover:opacity-90 transition-opacity"></div>
 
-        {/* Content Overlay */}
         <div class="absolute inset-0 p-4 flex flex-col justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-300">
           <div class="flex justify-between items-start">
-            {/* 3-Dot Button - Now functional */}
             <button
               onClick={handleThreeDotsClick}
               class="bg-black/60 backdrop-blur-md rounded-full px-2 py-1 hover:bg-black/80 transition-colors"
@@ -144,14 +141,12 @@ export function GameCard(props: GameCardProps) {
           </div>
         </div>
 
-        {/* Running Indicator */}
         <Show when={props.isRunning}>
           <div class="absolute top-4 left-4 px-2 py-1 bg-green-500 text-black text-xs font-bold rounded shadow-lg animate-pulse">
             RUNNING
           </div>
         </Show>
 
-        {/* Hidden Indicator */}
         <Show when={props.game.is_hidden && props.showHidden}>
           <div class="absolute top-4 right-4 bg-black/60 backdrop-blur rounded p-1.5">
             <EyeOff class="w-4 h-4 text-slate-400" />
@@ -159,7 +154,6 @@ export function GameCard(props: GameCardProps) {
         </Show>
       </div>
 
-      {/* Context Menu */}
       <Show when={showMenu()}>
         <div
           ref={menuRef}

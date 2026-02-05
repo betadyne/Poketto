@@ -2,6 +2,57 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Instant;
 
+// ============================================================================
+// Wine/Proton Types for Linux Support
+// ============================================================================
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+pub enum WineType {
+    Wine,
+    Proton,
+    ProtonGE,
+    ProtonCachyOS,
+}
+
+impl Default for WineType {
+    fn default() -> Self {
+        WineType::Wine
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+pub enum GameType {
+    WindowsExe,
+    LinuxNative,
+}
+
+impl Default for GameType {
+    fn default() -> Self {
+        GameType::WindowsExe
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub struct WineVersion {
+    pub name: String,
+    pub binary_path: String,
+    pub lib_path: Option<String>,
+    pub wine_type: WineType,
+    pub version: Option<String>,
+}
+
+/// Per-game Wine/Proton settings
+#[derive(Debug, Clone, Serialize, Deserialize, Default, specta::Type)]
+pub struct WineSettings {
+    pub use_global_prefix: bool,
+    pub wine_prefix: Option<String>,
+    pub wine_version: Option<String>,
+    pub wine_type: Option<WineType>,
+    pub use_steam_runtime: bool,
+    #[serde(default)]
+    pub env_vars: HashMap<String, String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct GameMetadata {
     pub id: String,
@@ -15,6 +66,10 @@ pub struct GameMetadata {
     pub last_played: Option<String>,
     #[serde(default)]
     pub is_hidden: bool,
+    #[serde(default)]
+    pub game_type: Option<GameType>,
+    #[serde(default)]
+    pub wine_settings: Option<WineSettings>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, specta::Type)]
@@ -148,6 +203,12 @@ pub struct AppSettings {
     pub discord_btn_vndb_profile: bool,
     #[serde(default)]
     pub discord_btn_github: bool,
+    #[serde(default)]
+    pub default_wine_prefix: Option<String>,
+    #[serde(default)]
+    pub default_wine_binary: Option<String>,
+    #[serde(default)]
+    pub use_steam_runtime: bool,
 }
 
 fn default_discord_enabled() -> bool {

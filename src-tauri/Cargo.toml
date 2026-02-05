@@ -1,6 +1,6 @@
 [package]
-name = "alka-launcher"
-version = "1.1.1"
+name = "poketto"
+version = "0.1.0-beta"
 description = "Visual Novel Game Launcher"
 authors = ["you"]
 license = "MIT"
@@ -9,7 +9,7 @@ edition = "2021"
 rust-version = "1.77.2"
 
 [lib]
-name = "alka_launcher_lib"
+name = "poketto_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
@@ -21,8 +21,8 @@ serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
 tauri = { version = "2.9.5", features = [] }
 tauri-plugin-log = "2"
-tauri-plugin-dialog = "2"
-tauri-plugin-fs = "2"
+tauri-plugin-dialog = "2.6"
+tauri-plugin-fs = "2.4.4"
 tokio = { version = "1", features = ["full"] }
 reqwest = { version = "0.12", features = ["json"] }
 uuid = { version = "1", features = ["v4", "serde"] }
@@ -37,5 +37,5 @@ tauri-plugin-shell = "2.3.3"
 parking_lot = "0.12"
 tauri-plugin-updater = "2.9.0"
 tauri-plugin-process = "2.3.1"
-discord-rich-presence = "1.0"
+discord-rich-presence = { git = "https://github.com/vionya/discord-rich-presence", branch = "main" }
 thiserror = "2"

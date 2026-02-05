@@ -35,25 +35,9 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: 'AlkaLauncher ${{ github.ref_name }}'
+          releaseName: 'Poketto ${{ github.ref_name }}'
           releaseBody: |
-            # Changelog
-            
-            ## v1.1.0 (2025-12-29)
-
-            ### New Features
-
-            - Discord Rich Presence support
-            - Display game developer name on Game Info page
-            - Error notification when trying to vote/set status without VNDB connection
-
-            ### New Settings
-
-            Discord Rich Presence button options in Settings (max 2 active):
-            - View on VNDB
-            - My VNDB Profile (requires VNDB token)
-            - GitHub Repository
-            
+            See the release notes for details.
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: true
@@ -62,11 +46,10 @@ jobs:
         shell: pwsh
         run: |
           $version = "${{ github.ref_name }}".TrimStart('v')
-          $zipName = "AlkaLauncher_${version}_x64-portable.zip"
+          $zipName = "Poketto_${version}_x64-portable.zip"
           
-          # Find the exe in the release bundle directory
           $exePath = Get-ChildItem -Path "src-tauri/target/release" -Filter "*.exe" -Recurse | 
-                     Where-Object { $_.Name -eq "AlkaLauncher.exe" } | 
+                     Where-Object { $_.Name -eq "Poketto.exe" } | 
                      Select-Object -First 1 -ExpandProperty FullName
           
           if ($exePath) {
@@ -74,7 +57,7 @@ jobs:
             Compress-Archive -Path $exePath -DestinationPath $zipName
             Write-Host "Created portable zip: $zipName"
           } else {
-            Write-Host "ERROR: Could not find AlkaLauncher.exe"
+            Write-Host "ERROR: Could not find Poketto.exe"
             Get-ChildItem -Path "src-tauri/target/release" -Recurse | ForEach-Object { Write-Host $_.FullName }
             exit 1
           }
@@ -82,6 +65,6 @@ jobs:
       - name: Upload portable zip to release
         uses: softprops/action-gh-release@v1
         with:
-          files: AlkaLauncher_*-portable.zip
+          files: Poketto_*-portable.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

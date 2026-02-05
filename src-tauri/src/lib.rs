@@ -7,6 +7,7 @@ mod discord;
 mod error;
 mod models;
 mod state;
+mod wine;
 
 use commands::*;
 use database::{create_cache_db, create_http_client, load_games, load_settings};
@@ -66,6 +67,14 @@ pub fn run() {
             set_game_hidden,
             set_discord_rpc_enabled,
             set_discord_rpc_buttons,
+            get_platform,
+            get_available_wine_versions,
+            get_default_wine_settings,
+            get_default_prefix_path,
+            save_game_wine_settings,
+            save_global_wine_defaults,
+            is_steam_runtime_available,
+            validate_wine_binary,
         ])
         .typ::<GameMetadata>()
         .typ::<DailyPlaytimeData>()
@@ -79,7 +88,11 @@ pub fn run() {
         .typ::<VndbUserListItem>()
         .typ::<VndbLabel>()
         .typ::<VndbAuthInfo>()
-        .typ::<AppSettings>();
+        .typ::<AppSettings>()
+        .typ::<WineType>()
+        .typ::<GameType>()
+        .typ::<WineVersion>()
+        .typ::<WineSettings>();
 
     #[cfg(debug_assertions)]
     builder

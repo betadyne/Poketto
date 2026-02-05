@@ -54,7 +54,6 @@ export function LibraryToolbar(props: LibraryToolbarProps) {
 
   return (
     <div class="flex items-center gap-3 mb-4">
-      {/* Search Input */}
       <div class="relative flex-1 max-w-xs">
         <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
         <input
@@ -74,7 +73,6 @@ export function LibraryToolbar(props: LibraryToolbarProps) {
         </Show>
       </div>
 
-      {/* Sort Dropdown */}
       <div class="relative">
         <ArrowUpDown class="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
         <select
@@ -103,7 +101,6 @@ export function LibraryToolbar(props: LibraryToolbarProps) {
         </div>
       </div>
 
-      {/* Filter Toggle */}
       <button
         onClick={() => props.onShowHiddenChange(!props.showHidden)}
         class={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${
