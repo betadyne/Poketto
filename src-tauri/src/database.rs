@@ -4,6 +4,8 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::time::Duration;
 
 use crate::error::{AppError, AppResult};
 use crate::models::{AppSettings, DailyPlaytimeData, GameMetadata};
@@ -149,7 +151,9 @@ pub fn record_daily_playtime(game_id: &str, minutes: u64) {
     let current = game_data.entry(date_str).or_insert(0);
     *current += minutes;
 
-    let _ = save_daily_playtime(&data);
+    if let Err(e) = save_daily_playtime(&data) {
+        log::error!("Failed to save daily playtime: {}", e);
+    }
 }
 
 pub fn get_current_timestamp() -> String {
@@ -157,7 +161,7 @@ pub fn get_current_timestamp() -> String {
 }
 
 pub fn disk_cache_get<T: DeserializeOwned>(
-    db: Option<&Database>,
+    db: Option<&Arc<Database>>,
     table: TableDefinition<&str, &[u8]>,
     key: &str,
 ) -> Option<T> {
@@ -169,7 +173,7 @@ pub fn disk_cache_get<T: DeserializeOwned>(
 }
 
 pub fn disk_cache_set<T: Serialize>(
-    db: Option<&Database>,
+    db: Option<&Arc<Database>>,
     table: TableDefinition<&str, &[u8]>,
     key: &str,
     value: &T,
@@ -199,6 +203,54 @@ pub fn create_cache_db() -> Option<Database> {
 
 pub fn create_http_client() -> reqwest::Client {
     reqwest::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .connect_timeout(Duration::from_secs(10))
+        .pool_idle_timeout(Duration::from_secs(90))
+        .user_agent(format!("Poketto/{}", env!("CARGO_PKG_VERSION")))
         .build()
-        .unwrap_or_else(|_| reqwest::Client::new())
+        .unwrap_or_else(|e| {
+            log::warn!("Failed to build HTTP client with custom config: {}", e);
+            reqwest::Client::new()
+        })
+}
+
+pub async fn disk_cache_get_async<T: DeserializeOwned + Send + 'static>(
+    db: Option<Arc<Database>>,
+    table: TableDefinition<'static, &'static str, &'static [u8]>,
+    key: String,
+) -> Option<T> {
+    let db = db?;
+    
+    tokio::task::spawn_blocking(move || {
+        let read_txn = db.begin_read().ok()?;
+        let t = read_txn.open_table(table).ok()?;
+        let value = t.get(key.as_str()).ok()??;
+        bincode::deserialize(value.value()).ok()
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
+pub fn disk_cache_set_async<T: Serialize + Send + 'static>(
+    db: Option<Arc<Database>>,
+    table: TableDefinition<'static, &'static str, &'static [u8]>,
+    key: String,
+    value: T,
+) {
+    let Some(db) = db else { return };
+    
+    tokio::task::spawn(async move {
+        tokio::task::spawn_blocking(move || {
+            if let Ok(write_txn) = db.begin_write() {
+                if let Ok(mut t) = write_txn.open_table(table) {
+                    if let Ok(data) = bincode::serialize(&value) {
+                        let _ = t.insert(key.as_str(), data.as_slice());
+                    }
+                }
+                let _ = write_txn.commit();
+            }
+        })
+        .await
+    });
 }

@@ -25,11 +25,14 @@ pub fn launch_game(
     app_handle: tauri::AppHandle,
     state: State<AppState>,
 ) -> AppResult<()> {
-    let games = state.games.lock();
-    let game = games
-        .iter()
-        .find(|g| g.id == id)
-        .ok_or_else(|| AppError::NotFound("Game not found".into()))?;
+    let game = {
+        let games = state.games.lock();
+        games
+            .iter()
+            .find(|g| g.id == id)
+            .cloned()
+            .ok_or_else(|| AppError::NotFound("Game not found".into()))?
+    };
 
     let path = PathBuf::from(&game.path);
 
@@ -48,7 +51,7 @@ pub fn launch_game(
 
     let settings = state.settings.lock().clone();
 
-    let mut child = spawn_game_process(game, &path, &settings)?;
+    let mut child = spawn_game_process(&game, &path, &settings)?;
 
     let game_title = game.title.clone();
     let cover_url = game.cover_url.clone();
@@ -66,70 +69,65 @@ pub fn launch_game(
         });
     }
 
-    {
-        let settings = state.settings.lock();
-        if settings.discord_rpc_enabled {
-            let developer = game.vndb_id.as_ref().and_then(|vndb_id| {
-                let mut mem_cache = state.vn_mem_cache.lock();
-                if let Some(vn) = mem_cache.get(vndb_id) {
-                    return vn.developers.as_ref().and_then(|devs| {
-                        devs.first().map(|d| d.name.clone())
-                    });
-                }
-
-                if let Some(cached) = disk_cache_get::<VndbVnDetail>(
-                    state.db.as_ref(),
-                    VN_CACHE,
-                    vndb_id,
-                ) {
-                    let developer_name = cached.developers.as_ref().and_then(|devs| {
-                        devs.first().map(|d| d.name.clone())
-                    });
-                    mem_cache.insert(vndb_id.clone(), cached);
-                    return developer_name;
-                }
-
-                None
-            });
-
-            let vndb_game_url = game.vndb_id.as_ref().map(|id| format!("https://vndb.org/{}", id));
-            let vndb_profile_url = settings.vndb_user_id.as_ref().map(|id| format!("https://vndb.org/{}", id));
-            const GITHUB_URL: &str = "https://github.com/betadyne/Poketto";
-
-            let mut buttons: Vec<(&str, String)> = Vec::new();
-
-            if settings.discord_btn_vndb_game {
-                if let Some(ref url) = vndb_game_url {
-                    buttons.push(("View on VNDB", url.clone()));
-                }
-            }
-            if settings.discord_btn_vndb_profile && buttons.len() < 2 {
-                if let Some(ref url) = vndb_profile_url {
-                    buttons.push(("My VNDB Profile", url.clone()));
-                }
-            }
-            if settings.discord_btn_github && buttons.len() < 2 {
-                buttons.push(("GitHub", GITHUB_URL.to_string()));
+    if settings.discord_rpc_enabled {
+        let developer = game.vndb_id.as_ref().and_then(|vndb_id| {
+            let mut mem_cache = state.vn_mem_cache.lock();
+            if let Some(vn) = mem_cache.get(vndb_id) {
+                return vn.developers.as_ref().and_then(|devs| {
+                    devs.first().map(|d| d.name.clone())
+                });
             }
 
-            let button_refs: Vec<(&str, &str)> = buttons
-                .iter()
-                .map(|(label, url)| (*label, url.as_str()))
-                .collect();
+            if let Some(cached) = disk_cache_get::<VndbVnDetail>(
+                state.db.as_ref(),
+                VN_CACHE,
+                vndb_id,
+            ) {
+                let developer_name = cached.developers.as_ref().and_then(|devs| {
+                    devs.first().map(|d| d.name.clone())
+                });
+                mem_cache.insert(vndb_id.clone(), cached);
+                return developer_name;
+            }
 
-            log::info!("Discord RPC buttons: {:?}", button_refs.iter().map(|(l, _)| *l).collect::<Vec<_>>());
+            None
+        });
 
-            let _ = state.discord_rpc.set_activity(
-                &game_title,
-                cover_url.as_deref(),
-                developer.as_deref(),
-                button_refs,
-                discord_start,
-            );
+        let vndb_game_url = game.vndb_id.as_ref().map(|id| format!("https://vndb.org/{}", id));
+        let vndb_profile_url = settings.vndb_user_id.as_ref().map(|id| format!("https://vndb.org/{}", id));
+        const GITHUB_URL: &str = "https://github.com/betadyne/Poketto";
+
+        let mut buttons: Vec<(&str, String)> = Vec::new();
+
+        if settings.discord_btn_vndb_game {
+            if let Some(ref url) = vndb_game_url {
+                buttons.push(("View on VNDB", url.clone()));
+            }
         }
-    }
+        if settings.discord_btn_vndb_profile && buttons.len() < 2 {
+            if let Some(ref url) = vndb_profile_url {
+                buttons.push(("My VNDB Profile", url.clone()));
+            }
+        }
+        if settings.discord_btn_github && buttons.len() < 2 {
+            buttons.push(("GitHub", GITHUB_URL.to_string()));
+        }
 
-    drop(games);
+        let button_refs: Vec<(&str, &str)> = buttons
+            .iter()
+            .map(|(label, url)| (*label, url.as_str()))
+            .collect();
+
+        log::info!("Discord RPC buttons: {:?}", button_refs.iter().map(|(l, _)| *l).collect::<Vec<_>>());
+
+        let _ = state.discord_rpc.set_activity(
+            &game_title,
+            cover_url.as_deref(),
+            developer.as_deref(),
+            button_refs,
+            discord_start,
+        );
+    }
 
     let app_handle_clone = app_handle.clone();
     let game_id = id.clone();
@@ -140,14 +138,18 @@ pub fn launch_game(
         let minutes = start_time.elapsed().as_secs() / 60;
         let state = app_handle_clone.state::<AppState>();
 
-        let _ = state.discord_rpc.clear_activity();
+        if let Err(e) = state.discord_rpc.clear_activity() {
+            log::warn!("Failed to clear Discord activity: {}", e);
+        }
 
         {
             let mut games = state.games.lock();
             if let Some(g) = games.iter_mut().find(|g| g.id == game_id) {
                 g.play_time += minutes;
                 g.last_played = Some(get_current_timestamp());
-                let _ = save_games(&games);
+                if let Err(e) = save_games(&games) {
+                    log::error!("Failed to save game playtime: {}", e);
+                }
             }
         }
 
@@ -158,13 +160,15 @@ pub fn launch_game(
             *running = None;
         }
 
-        let _ = app_handle.emit(
+        if let Err(e) = app_handle.emit(
             "game-exited",
             GameExitedPayload {
                 game_id: game_id.clone(),
                 play_minutes: minutes,
             },
-        );
+        ) {
+            log::error!("Failed to emit game-exited event: {}", e);
+        }
 
         if let Ok(Err(e)) = exit_result {
             eprintln!("Game process error: {}", e);
@@ -301,10 +305,10 @@ fn spawn_wine_linux(
     );
 
     let child = match wine_type {
-        WineType::Wine => {
+        WineType::Wine | WineType::WineGE | WineType::WineStaging | WineType::WineTKG | WineType::Lutris | WineType::Bottles | WineType::Custom => {
             build_wine_command(&wine_binary, &prefix_path, path, use_steam_runtime, &wine_settings)?
         }
-        WineType::Proton | WineType::ProtonGE | WineType::ProtonCachyOS => {
+        WineType::Proton | WineType::ProtonGE | WineType::ProtonCachyOS | WineType::ProtonTKG => {
             build_proton_command(&wine_binary, &prefix_path, path, use_steam_runtime, &wine_settings)?
         }
     };
@@ -459,4 +463,153 @@ pub fn get_elapsed_time(state: State<AppState>) -> u64 {
         .as_ref()
         .map(|r| r.start_time.elapsed().as_secs())
         .unwrap_or(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::ErrorKind;
+
+    mod map_spawn_error_tests {
+        use super::*;
+
+        #[test]
+        fn test_not_found_error() {
+            let err = std::io::Error::new(ErrorKind::NotFound, "file not found");
+            let path = Path::new("/path/to/game.exe");
+            let app_err = map_spawn_error(err, path);
+
+            match app_err {
+                AppError::ProcessLaunch(msg) => {
+                    assert!(msg.contains("not found"));
+                    assert!(msg.contains("/path/to/game.exe"));
+                }
+                _ => panic!("Expected ProcessLaunch error, got {:?}", app_err),
+            }
+        }
+
+        #[test]
+        fn test_permission_denied_error() {
+            let err = std::io::Error::new(ErrorKind::PermissionDenied, "access denied");
+            let path = Path::new("/path/to/game.exe");
+            let app_err = map_spawn_error(err, path);
+
+            match app_err {
+                AppError::ProcessLaunch(msg) => {
+                    assert!(msg.contains("Permission denied"));
+                    assert!(msg.contains("/path/to/game.exe"));
+                }
+                _ => panic!("Expected ProcessLaunch error, got {:?}", app_err),
+            }
+        }
+
+        #[test]
+        fn test_other_io_error() {
+            let err = std::io::Error::new(ErrorKind::BrokenPipe, "broken pipe");
+            let path = Path::new("/path/to/game.exe");
+            let app_err = map_spawn_error(err, path);
+
+            match app_err {
+                AppError::ProcessLaunch(msg) => {
+                    assert!(msg.contains("Failed to launch game"));
+                    assert!(msg.contains("/path/to/game.exe"));
+                }
+                _ => panic!("Expected ProcessLaunch error, got {:?}", app_err),
+            }
+        }
+
+        #[test]
+        fn test_path_with_spaces() {
+            let err = std::io::Error::new(ErrorKind::NotFound, "file not found");
+            let path = Path::new("/path/to/My Game/game.exe");
+            let app_err = map_spawn_error(err, path);
+
+            match app_err {
+                AppError::ProcessLaunch(msg) => {
+                    assert!(msg.contains("My Game"));
+                }
+                _ => panic!("Expected ProcessLaunch error"),
+            }
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    mod resolve_wine_settings_tests {
+        use super::*;
+        use std::collections::HashMap;
+
+        fn create_test_settings() -> AppSettings {
+            AppSettings {
+                blur_nsfw: true,
+                discord_rpc_enabled: true,
+                discord_btn_vndb_game: true,
+                discord_btn_vndb_profile: false,
+                discord_btn_github: false,
+                default_wine_binary: Some("/usr/bin/wine".to_string()),
+                default_wine_prefix: Some("/home/user/.wine".to_string()),
+                use_steam_runtime: true,
+                vndb_token: None,
+                vndb_user_id: None,
+            }
+        }
+
+        fn create_test_game(wine_settings: Option<WineSettings>) -> GameMetadata {
+            GameMetadata {
+                id: "test-game".to_string(),
+                title: "Test Game".to_string(),
+                vndb_id: Some("v12345".to_string()),
+                cover_url: None,
+                path: "/path/to/game.exe".to_string(),
+                play_time: 0,
+                last_played: None,
+                game_type: Some(GameType::WindowsExe),
+                wine_settings,
+                is_finished: false,
+                is_hidden: false,
+            }
+        }
+
+        #[test]
+        fn test_uses_game_specific_settings() {
+            let app_settings = create_test_settings();
+            let game_wine_settings = WineSettings {
+                use_global_prefix: false,
+                wine_prefix: Some("/custom/prefix".to_string()),
+                wine_version: Some("/custom/wine".to_string()),
+                wine_type: Some(WineType::ProtonGE),
+                use_steam_runtime: false,
+                env_vars: HashMap::new(),
+            };
+            let game = create_test_game(Some(game_wine_settings.clone()));
+
+            let result = resolve_wine_settings(&game, &app_settings);
+
+            assert_eq!(result.wine_prefix, Some("/custom/prefix".to_string()));
+            assert_eq!(result.wine_version, Some("/custom/wine".to_string()));
+            assert!(!result.use_steam_runtime);
+        }
+
+        #[test]
+        fn test_falls_back_to_app_settings() {
+            let app_settings = create_test_settings();
+            let game = create_test_game(None);
+
+            let result = resolve_wine_settings(&game, &app_settings);
+
+            assert!(result.use_global_prefix);
+            assert_eq!(result.wine_prefix, Some("/home/user/.wine".to_string()));
+            assert_eq!(result.wine_version, Some("/usr/bin/wine".to_string()));
+            assert!(result.use_steam_runtime);
+        }
+
+        #[test]
+        fn test_fallback_has_empty_env_vars() {
+            let app_settings = create_test_settings();
+            let game = create_test_game(None);
+
+            let result = resolve_wine_settings(&game, &app_settings);
+
+            assert!(result.env_vars.is_empty());
+        }
+    }
 }

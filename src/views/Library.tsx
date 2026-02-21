@@ -3,7 +3,6 @@ import {
   Plus,
   Gamepad2,
   Clock,
-  Settings,
   Search,
   LayoutGrid,
   List,
@@ -12,7 +11,11 @@ import {
   Filter,
   User,
   Check,
+  Settings,
+  ScrollText,
+  LogOut,
 } from "lucide-solid";
+import { useNavigate } from "@solidjs/router";
 import { GameCard } from "../components/GameCard";
 import type { Game } from "../types";
 import type { SortBy, SortOrder } from "../hooks/useLibraryFilters";
@@ -36,13 +39,13 @@ interface LibraryProps {
   onStopTracking: () => void;
   onLaunchGame: (id: string) => void;
   onRemoveGame: (id: string) => void;
-  onSearchGame: (game: Game) => void;
+  onEditSettings: (game: Game) => void;
   onOpenDetail: (game: Game) => void;
   onHideGame: (id: string, hidden: boolean) => void;
-  onSettings: () => void;
 }
 
 export function Library(props: LibraryProps) {
+  const navigate = useNavigate();
   const [viewMode, setViewMode] = createSignal<"grid" | "list">("grid");
   const [showSortDropdown, setShowSortDropdown] = createSignal(false);
   const [showFiltersDropdown, setShowFiltersDropdown] = createSignal(false);
@@ -82,60 +85,93 @@ export function Library(props: LibraryProps) {
   };
 
   return (
-    <div class="flex h-full bg-[#0F172A] text-slate-200 overflow-hidden font-['Figtree']">
-      <aside class="w-64 bg-[#0F172A]/95 flex flex-col border-r border-slate-800/50">
-        <div class="p-6 flex items-center gap-3">
-          <img src="/icon.png" alt="Alka Launcher" class="w-10 h-10" />
-          <h1 class="font-bold text-xl text-white tracking-tight">
-            Alka Launcher
+    <div class="flex h-full bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] overflow-hidden font-['Nunito_Sans']">
+      <aside class="w-64 bg-[var(--color-bg-primary)] flex flex-col border-r border-[var(--color-border)]">
+        <div class="p-6">
+          <h1 class="font-bold text-xl text-[var(--color-text-primary)] tracking-tight">
+            Poketto
           </h1>
         </div>
 
-        <div class="flex-1 overflow-y-auto px-4 custom-scrollbar">
-          <div class="mb-6">
-            <h3 class="px-4 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-              Library
-            </h3>
-            <nav class="space-y-1">
-              <button class="w-full flex items-center gap-3 px-4 py-2.5 bg-[#1E293B] text-white rounded-xl transition-all shadow-sm">
-                <LibraryIcon class="w-5 h-5 text-green-400" />
-                <span class="font-medium">My Games</span>
-              </button>
-            </nav>
-          </div>
+        <div class="flex-1 overflow-y-auto px-4 custom-scrollbar flex flex-col gap-4">
+          <nav class="space-y-1">
+            <button class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all">
+              <div class="w-9 h-9 rounded-lg bg-[var(--color-accent)] flex items-center justify-center">
+                <LibraryIcon class="w-5 h-5 text-white" />
+              </div>
+              <span class="font-medium text-[var(--color-text-primary)]">
+                My Games
+              </span>
+            </button>
+          </nav>
+
+          <div class="h-px bg-[var(--color-border)] w-full" />
+
+          <nav class="space-y-1">
+            <button
+              onClick={() => navigate("/settings")}
+              class="w-full flex items-center gap-3 px-3 py-2.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] rounded-xl transition-all group"
+            >
+              <div class="w-9 h-9 rounded-lg bg-[var(--color-bg-secondary)] group-hover:bg-[var(--color-border)] flex items-center justify-center transition-colors">
+                <Settings class="w-5 h-5 text-[var(--color-icon)]" />
+              </div>
+              <span class="font-medium">Settings</span>
+            </button>
+            <button
+              onClick={() => navigate("/logs")}
+              class="w-full flex items-center gap-3 px-3 py-2.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] rounded-xl transition-all group"
+            >
+              <div class="w-9 h-9 rounded-lg bg-[var(--color-bg-secondary)] group-hover:bg-[var(--color-border)] flex items-center justify-center transition-colors">
+                <ScrollText class="w-5 h-5 text-[var(--color-icon)]" />
+              </div>
+              <span class="font-medium">Logs</span>
+            </button>
+            <button class="w-full flex items-center gap-3 px-3 py-2.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] rounded-xl transition-all group">
+              <div class="w-9 h-9 rounded-lg bg-[var(--color-bg-secondary)] group-hover:bg-[var(--color-border)] flex items-center justify-center transition-colors">
+                <LogOut class="w-5 h-5 text-[var(--color-icon)]" />
+              </div>
+              <span class="font-medium">Log out</span>
+            </button>
+          </nav>
+        </div>
+
+        <div class="p-6 text-xs text-[var(--color-text-tertiary)] font-medium text-center">
+          Poketto Version: {__APP_VERSION__}
         </div>
       </aside>
 
-      <main class="flex-1 flex flex-col min-w-0 bg-gradient-to-br from-[#0F172A] to-[#1E293B]">
-        <header class="h-20 px-8 flex items-center justify-between gap-8 border-b border-white/5">
-          <h2 class="text-2xl font-bold text-white">Overview</h2>
+      <main class="flex-1 flex flex-col min-w-0 bg-[var(--color-bg-primary)]">
+        <header class="h-20 px-8 flex items-center justify-between gap-8 border-b border-[var(--color-border)]">
+          <h2 class="text-2xl font-bold text-[var(--color-text-primary)]">
+            Overview
+          </h2>
 
           <div class="flex-1 max-w-xl relative group">
-            <Search class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-blue-400 transition-colors" />
+            <Search class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--color-icon)] group-focus-within:text-[var(--color-accent)] transition-colors" />
             <input
               type="text"
               value={props.searchQuery}
               onInput={(e) => props.onSearchChange(e.currentTarget.value)}
               placeholder="Search game titles..."
-              class="w-full pl-12 pr-4 py-3 bg-[#1E293B] border border-slate-700/50 rounded-2xl text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-blue-500/50 focus:bg-[#1E293B]/80 transition-all font-medium"
+              class="w-full pl-12 pr-4 py-3 bg-[var(--color-bg-secondary)] rounded-2xl text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] transition-all font-medium"
             />
           </div>
 
           <div class="flex items-center gap-4">
             <Show when={props.authUser}>
-              <div class="flex items-center gap-2 px-3 py-1.5 bg-[#1E293B] border border-slate-700/50 rounded-xl">
-                <User class="w-4 h-4 text-blue-400" />
-                <span class="text-sm font-medium text-slate-300">
+              <div class="flex items-center gap-2 px-3 py-1.5 bg-[var(--color-bg-secondary)] rounded-xl">
+                <User class="w-4 h-4 text-[var(--color-accent)]" />
+                <span class="text-sm font-medium text-[var(--color-text-primary)]">
                   {props.authUser}
                 </span>
               </div>
             </Show>
 
-            <div class="flex items-center gap-3 pl-4 border-l border-white/10">
+            <div class="flex items-center gap-3 pl-4 border-l border-[var(--color-border)]">
               <Show when={props.runningGame}>
                 <button
                   onClick={props.onStopTracking}
-                  class="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 rounded-xl transition-all"
+                  class="flex items-center gap-2 px-4 py-2 bg-[var(--color-danger-light)] text-[var(--color-danger)] hover:bg-[var(--color-danger)] hover:text-white rounded-xl transition-all"
                 >
                   <Clock class="w-4 h-4 animate-pulse" />
                   <span class="text-sm font-bold">Stop Game</span>
@@ -144,20 +180,10 @@ export function Library(props: LibraryProps) {
 
               <button
                 onClick={props.onAddGame}
-                class="p-2.5 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-xl transition-all relative group"
-                title="Add Game"
+                class="flex items-center gap-2 px-4 py-2.5 bg-[var(--color-accent)] text-white font-bold text-sm rounded-xl hover:bg-[var(--color-accent-hover)] transition-all"
               >
-                <Plus class="w-5 h-5" />
-                <span class="absolute top-full right-0 mt-2 px-2 py-1 bg-black text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none">
-                  Add Game
-                </span>
-              </button>
-
-              <button
-                onClick={props.onSettings}
-                class="p-2.5 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-xl transition-all"
-              >
-                <Settings class="w-5 h-5" />
+                <Plus class="w-4 h-4" />
+                <span>Add Game</span>
               </button>
             </div>
           </div>
@@ -166,8 +192,12 @@ export function Library(props: LibraryProps) {
         <div class="px-8 py-6 flex flex-col gap-6">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
-              <span class="text-white font-medium">All Games</span>
-              <span class="text-slate-500">({props.games.length})</span>
+              <span class="text-[var(--color-text-primary)] font-medium">
+                All Games
+              </span>
+              <span class="text-[var(--color-text-tertiary)]">
+                ({props.games.length})
+              </span>
             </div>
 
             <div class="flex items-center gap-4">
@@ -178,17 +208,21 @@ export function Library(props: LibraryProps) {
                     setShowSortDropdown(!showSortDropdown());
                     setShowFiltersDropdown(false);
                   }}
-                  class="flex items-center gap-2 px-3 py-2 bg-[#1E293B] border border-slate-700/50 rounded-xl text-sm hover:border-slate-600 transition-colors"
+                  class="flex items-center gap-2 px-3 py-2 bg-[var(--color-bg-secondary)] rounded-xl text-sm hover:bg-[var(--color-border)] transition-colors"
                 >
-                  <span class="text-slate-400">Sort by</span>
-                  <span class="text-white font-medium">{getSortLabel()}</span>
+                  <span class="text-[var(--color-text-secondary)]">
+                    Sort by
+                  </span>
+                  <span class="text-[var(--color-text-primary)] font-medium">
+                    {getSortLabel()}
+                  </span>
                   <ChevronDown
-                    class={`w-4 h-4 text-slate-400 transition-transform ${showSortDropdown() ? "rotate-180" : ""}`}
+                    class={`w-4 h-4 text-[var(--color-icon)] transition-transform ${showSortDropdown() ? "rotate-180" : ""}`}
                   />
                 </button>
 
                 <Show when={showSortDropdown()}>
-                  <div class="absolute top-full right-0 mt-2 bg-[#1E293B] border border-slate-700/50 rounded-xl shadow-xl overflow-hidden min-w-[160px] z-50">
+                  <div class="absolute top-full right-0 mt-2 bg-[var(--color-bg-primary)] rounded-xl shadow-lg overflow-hidden min-w-[160px] z-50">
                     <For each={sortOptions}>
                       {(option) => (
                         <button
@@ -196,15 +230,15 @@ export function Library(props: LibraryProps) {
                             props.onSortByChange(option.value as SortBy);
                             setShowSortDropdown(false);
                           }}
-                          class={`w-full flex items-center justify-between px-4 py-2.5 text-sm text-left hover:bg-[#334155] transition-colors ${
+                          class={`w-full flex items-center justify-between px-4 py-2.5 text-sm text-left hover:bg-[var(--color-bg-secondary)] transition-colors ${
                             props.sortBy === option.value
-                              ? "text-white"
-                              : "text-slate-400"
+                              ? "text-[var(--color-text-primary)]"
+                              : "text-[var(--color-text-secondary)]"
                           }`}
                         >
                           <span>{option.label}</span>
                           <Show when={props.sortBy === option.value}>
-                            <Check class="w-4 h-4 text-green-400" />
+                            <Check class="w-4 h-4 text-[var(--color-success)]" />
                           </Show>
                         </button>
                       )}
@@ -220,10 +254,10 @@ export function Library(props: LibraryProps) {
                     setShowFiltersDropdown(!showFiltersDropdown());
                     setShowSortDropdown(false);
                   }}
-                  class={`flex items-center gap-2 px-3 py-2 border rounded-xl text-sm transition-colors ${
+                  class={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-colors ${
                     props.showHidden
-                      ? "bg-blue-500/20 border-blue-500/50 text-blue-300"
-                      : "bg-[#1E293B] border-slate-700/50 text-slate-400 hover:border-slate-600"
+                      ? "bg-[var(--color-accent)] text-white"
+                      : "bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border)]"
                   }`}
                 >
                   <Filter class="w-4 h-4" />
@@ -234,17 +268,17 @@ export function Library(props: LibraryProps) {
                 </button>
 
                 <Show when={showFiltersDropdown()}>
-                  <div class="absolute top-full right-0 mt-2 bg-[#1E293B] border border-slate-700/50 rounded-xl shadow-xl overflow-hidden min-w-[200px] z-50">
-                    <label class="flex items-center gap-3 px-4 py-3 hover:bg-[#334155] cursor-pointer transition-colors">
+                  <div class="absolute top-full right-0 mt-2 bg-[var(--color-bg-primary)] rounded-xl shadow-lg overflow-hidden min-w-[200px] z-50">
+                    <label class="flex items-center gap-3 px-4 py-3 hover:bg-[var(--color-bg-secondary)] cursor-pointer transition-colors">
                       <input
                         type="checkbox"
                         checked={props.showHidden}
                         onChange={(e) =>
                           props.onShowHiddenChange(e.currentTarget.checked)
                         }
-                        class="w-4 h-4 rounded border-slate-600 bg-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-0 cursor-pointer"
+                        class="w-4 h-4 cursor-pointer"
                       />
-                      <span class="text-sm text-slate-300">
+                      <span class="text-sm text-[var(--color-text-primary)]">
                         Show Hidden Games
                       </span>
                     </label>
@@ -252,15 +286,15 @@ export function Library(props: LibraryProps) {
                 </Show>
               </div>
 
-              <div class="h-4 w-px bg-slate-700"></div>
+              <div class="h-4 w-px bg-[var(--color-border)]"></div>
 
-              <div class="flex gap-1 bg-[#1E293B] border border-slate-700/50 rounded-lg p-1">
+              <div class="flex gap-1 bg-[var(--color-bg-secondary)] rounded-lg p-1">
                 <button
                   onClick={() => setViewMode("grid")}
                   class={`p-1.5 rounded transition-colors ${
                     viewMode() === "grid"
-                      ? "text-white bg-slate-700/50"
-                      : "text-slate-500 hover:text-slate-300"
+                      ? "text-[var(--color-text-primary)] bg-[var(--color-bg-primary)] shadow-sm"
+                      : "text-[var(--color-icon)] hover:text-[var(--color-text-primary)]"
                   }`}
                 >
                   <LayoutGrid class="w-4 h-4" />
@@ -269,8 +303,8 @@ export function Library(props: LibraryProps) {
                   onClick={() => setViewMode("list")}
                   class={`p-1.5 rounded transition-colors ${
                     viewMode() === "list"
-                      ? "text-white bg-slate-700/50"
-                      : "text-slate-500 hover:text-slate-300"
+                      ? "text-[var(--color-text-primary)] bg-[var(--color-bg-primary)] shadow-sm"
+                      : "text-[var(--color-icon)] hover:text-[var(--color-text-primary)]"
                   }`}
                 >
                   <List class="w-4 h-4" />
@@ -280,16 +314,16 @@ export function Library(props: LibraryProps) {
           </div>
         </div>
 
-        <div class="flex-1 overflow-y-auto px-8 pb-8 custom-scrollbar">
+        <div class="flex-1 overflow-y-auto px-8 pt-4 pb-8 custom-scrollbar">
           <Show
             when={props.filteredGames.length > 0}
             fallback={
-              <div class="flex flex-col items-center justify-center h-64 text-slate-500 border-2 border-dashed border-slate-800 rounded-3xl">
+              <div class="flex flex-col items-center justify-center h-64 text-[var(--color-text-tertiary)] border-2 border-dashed border-[var(--color-border)] rounded-3xl">
                 <Gamepad2 class="w-12 h-12 mb-3 opacity-20" />
                 <p>No games found in this category.</p>
                 <button
                   onClick={props.onAddGame}
-                  class="mt-4 text-blue-400 hover:text-blue-300 font-medium"
+                  class="mt-4 text-[var(--color-accent)] hover:underline font-medium"
                 >
                   Add your first game
                 </button>
@@ -303,25 +337,25 @@ export function Library(props: LibraryProps) {
                   <For each={props.filteredGames}>
                     {(game) => (
                       <div
-                        class={`group flex items-center gap-4 p-3 bg-[#1E293B] rounded-xl border border-transparent hover:border-blue-500/50 cursor-pointer transition-all ${
+                        class={`group flex items-center gap-4 p-3 bg-[var(--color-bg-secondary)] rounded-xl cursor-pointer transition-all hover:bg-[var(--color-border)] ${
                           game.is_hidden && props.showHidden ? "opacity-50" : ""
-                        } ${props.runningGame === game.id ? "ring-2 ring-green-500" : ""}`}
+                        } ${props.runningGame === game.id ? "ring-2 ring-[var(--color-success)]" : ""}`}
                         onClick={() =>
                           game.vndb_id
                             ? props.onOpenDetail(game)
-                            : props.onSearchGame(game)
+                            : props.onEditSettings(game)
                         }
                         onContextMenu={(e) => {
                           e.preventDefault();
                           handleContextMenuOpen(game.id);
                         }}
                       >
-                        <div class="w-16 h-22 rounded-lg overflow-hidden flex-shrink-0 bg-slate-800">
+                        <div class="w-16 h-22 rounded-lg overflow-hidden flex-shrink-0 bg-[var(--color-border)]">
                           <Show
                             when={game.cover_url}
                             fallback={
                               <div class="w-full h-full flex items-center justify-center">
-                                <Gamepad2 class="w-6 h-6 text-slate-600" />
+                                <Gamepad2 class="w-6 h-6 text-[var(--color-icon)]" />
                               </div>
                             }
                           >
@@ -335,17 +369,17 @@ export function Library(props: LibraryProps) {
                         </div>
 
                         <div class="flex-1 min-w-0">
-                          <h3 class="text-white font-medium truncate">
+                          <h3 class="text-[var(--color-text-primary)] font-medium truncate">
                             {game.title}
                           </h3>
-                          <p class="text-sm text-slate-500">
+                          <p class="text-sm text-[var(--color-text-tertiary)]">
                             {props.formatPlayTime(game.play_time)}
                           </p>
                         </div>
 
                         <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                           <Show when={props.runningGame === game.id}>
-                            <span class="px-2 py-1 bg-green-500 text-black text-xs font-bold rounded animate-pulse">
+                            <span class="px-2 py-1 bg-[var(--color-success)] text-white text-xs font-bold rounded animate-pulse">
                               RUNNING
                             </span>
                           </Show>
@@ -354,7 +388,7 @@ export function Library(props: LibraryProps) {
                               e.stopPropagation();
                               props.onLaunchGame(game.id);
                             }}
-                            class="px-4 py-2 bg-white text-black rounded-lg font-medium hover:bg-slate-200 transition-colors"
+                            class="px-4 py-2 bg-[var(--color-accent)] text-white rounded-lg font-medium hover:bg-[var(--color-accent-hover)] transition-colors"
                           >
                             Play
                           </button>
@@ -375,11 +409,11 @@ export function Library(props: LibraryProps) {
                       formatPlayTime={props.formatPlayTime}
                       onPlay={props.onLaunchGame}
                       onRemove={props.onRemoveGame}
-                      onSearch={props.onSearchGame}
+                      onEditSettings={props.onEditSettings}
                       onClick={(g) =>
                         g.vndb_id
                           ? props.onOpenDetail(g)
-                          : props.onSearchGame(g)
+                          : props.onEditSettings(g)
                       }
                       onHide={props.onHideGame}
                       activeContextMenu={activeContextMenu()}

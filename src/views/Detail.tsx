@@ -26,7 +26,6 @@ interface DetailProps {
   isRefreshing: boolean;
   onBack: () => void;
   onRefresh: () => void;
-  onSettings: () => void;
   onLaunchGame: (id: string) => void;
   onSetStatus: (labelId: number) => void;
   onSetVote: (vote: number) => void;
@@ -37,23 +36,20 @@ interface DetailProps {
 
 export function Detail(props: DetailProps) {
   return (
-    <div class="flex h-full bg-[#0F172A] font-['Figtree'] text-slate-200 overflow-hidden">
+    <div class="flex h-full bg-[var(--color-bg-primary)] font-['Nunito_Sans'] text-[var(--color-text-primary)] overflow-hidden">
       <Sidebar
         onBack={props.onBack}
         onRefresh={props.onRefresh}
         showSpoilers={props.showSpoilers}
         onToggleSpoilers={() => props.setShowSpoilers(!props.showSpoilers)}
-        onSettings={props.onSettings}
       />
 
       <div class="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-        <div class="absolute top-0 right-0 w-[600px] h-[600px] bg-purple-900/10 blur-[120px] rounded-full pointer-events-none -translate-y-1/2 translate-x-1/3"></div>
-
         <Show when={props.isRefreshing}>
-          <div class="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-40">
+          <div class="absolute inset-0 bg-white/90 flex items-center justify-center z-40">
             <div class="flex flex-col items-center gap-4">
-              <Loader2 class="w-12 h-12 text-slate-400 animate-spin" />
-              <span class="text-slate-400 text-lg font-medium">
+              <Loader2 class="w-12 h-12 text-[var(--color-icon)] animate-spin" />
+              <span class="text-[var(--color-text-secondary)] text-lg font-medium">
                 Refreshing data...
               </span>
             </div>
@@ -61,23 +57,23 @@ export function Detail(props: DetailProps) {
         </Show>
 
         <div class="flex items-center gap-8 px-8 py-6 z-10">
-          <div class="flex items-center gap-1 bg-[#1E293B] p-1 rounded-full">
+          <div class="flex items-center gap-1 bg-[var(--color-bg-secondary)] p-1 rounded-full">
             <button
               onClick={() => props.setPage("detail")}
-              class={`px-6 py-2 rounded-full text-sm font-bold transition-all ${
+              class={`px-6 py-2 rounded-full text-sm font-bold transition-colors ${
                 props.page === "detail"
-                  ? "bg-[#38BDF8] text-[#0F172A] shadow-lg shadow-sky-500/20"
-                  : "text-slate-400 hover:text-slate-200"
+                  ? "bg-[var(--color-accent)] text-white shadow-lg"
+                  : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
               }`}
             >
               Game Info
             </button>
             <button
               onClick={() => props.setPage("detail-chars")}
-              class={`px-6 py-2 rounded-full text-sm font-bold transition-all ${
+              class={`px-6 py-2 rounded-full text-sm font-bold transition-colors ${
                 props.page === "detail-chars"
-                  ? "bg-[#38BDF8] text-[#0F172A] shadow-lg shadow-sky-500/20"
-                  : "text-slate-400 hover:text-slate-200"
+                  ? "bg-[var(--color-accent)] text-white shadow-lg"
+                  : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
               }`}
             >
               Characters
@@ -90,19 +86,19 @@ export function Detail(props: DetailProps) {
             <Show
               when={props.runningGame !== props.game.id}
               fallback={
-                <button class="px-6 py-2.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-full font-bold text-sm tracking-wide flex items-center gap-2 cursor-default">
+                <button class="px-6 py-2.5 bg-[var(--color-success-light)] text-[var(--color-success)] rounded-full font-bold text-sm tracking-wide flex items-center gap-2 cursor-default">
                   <Clock class="w-4 h-4" /> RUNNING
                 </button>
               }
             >
               <button
                 onClick={() => props.onLaunchGame(props.game.id)}
-                class="group relative px-8 py-2.5 bg-white text-black rounded-full font-bold text-sm tracking-wide overflow-hidden shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.5)] transition-all"
+                class="group relative px-8 py-2.5 bg-[var(--color-accent)] text-white rounded-full font-bold text-sm tracking-wide overflow-hidden shadow-lg hover:shadow-xl transition-shadow"
               >
                 <span class="relative z-10 flex items-center gap-2">
                   <Play class="w-4 h-4 fill-current" /> PLAY NOW
                 </span>
-                <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-500"></div>
+                <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-500"></div>
               </button>
             </Show>
           </Show>

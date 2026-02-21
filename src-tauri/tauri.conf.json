@@ -19,11 +19,12 @@
         "fullscreen": false,
         "maximized": true,
         "decorations": false,
-        "dragDropEnabled": true
+        "dragDropEnabled": true,
+        "additionalBrowserArgs": "--enable-gpu-rasterization --enable-zero-copy"
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https://*.vndb.org https://t.vndb.org data: blob:; connect-src 'self' https://api.vndb.org https://github.com https://*.github.com https://*.githubusercontent.com; font-src 'self' data:"
     }
   },
   "bundle": {

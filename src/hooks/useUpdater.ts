@@ -71,15 +71,22 @@ export function useUpdater() {
             setStatus("downloading");
             setDownloadProgress(0);
 
+            let downloaded = 0;
+            let totalSize = 0;
+
             await pendingUpdate.downloadAndInstall((event) => {
                 switch (event.event) {
                     case "Started":
+                        downloaded = 0;
+                        totalSize = (event.data as { contentLength?: number }).contentLength || 0;
                         setDownloadProgress(0);
                         break;
                     case "Progress":
                         const data = event.data as { chunkLength: number; contentLength?: number };
-                        const progress = (data.chunkLength / (data.contentLength || 1)) * 100;
-                        setDownloadProgress((prev) => Math.min(prev + progress, 100));
+                        downloaded += data.chunkLength;
+                        if (totalSize > 0) {
+                            setDownloadProgress(Math.round((downloaded / totalSize) * 100));
+                        }
                         break;
                     case "Finished":
                         setDownloadProgress(100);

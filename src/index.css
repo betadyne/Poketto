@@ -1,25 +1,23 @@
 @font-face {
-    font-family: "Figtree";
-    src: url("/fonts/Figtree/Figtree-VariableFont_wght.woff2") format("woff2");
-    font-weight: 300 900;
+    font-family: "Nunito";
+    src: url("/fonts/Nunito/Nunito-VF.ttf") format("truetype");
+    font-weight: 200 1000;
     font-style: normal;
     font-display: swap;
 }
 
 @font-face {
-    font-family: "Plus Jakarta Sans";
-    src: url("/fonts/Plus-Jakarta-Sans/PlusJakartaSans-VariableFont_wght.woff2")
-        format("woff2");
-    font-weight: 200 800;
+    font-family: "Nunito Sans";
+    src: url("/fonts/Nunito-Sans/NunitoSans-VF.ttf") format("truetype");
+    font-weight: 200 1000;
     font-style: normal;
     font-display: swap;
 }
 
 @font-face {
-    font-family: "Roboto";
-    src: url("/fonts/Roboto/Roboto-VariableFont_wdth,wght.woff2")
-        format("woff2");
-    font-weight: 100 900;
+    font-family: "JetBrains Mono";
+    src: url("/fonts/JetBrains-Mono/JetBrainsMono-VF.ttf") format("truetype");
+    font-weight: 100 800;
     font-style: normal;
     font-display: swap;
 }
@@ -27,13 +25,44 @@
 @import "tailwindcss";
 
 :root {
-    font-family: "Figtree", "Plus Jakarta Sans", "Roboto", sans-serif;
+    --color-bg-primary: #FFFFFF;
+    --color-bg-secondary: #EFF2EF;
+    --color-bg-tertiary: #F8F9FA;
+    
+    --color-text-primary: #111111;
+    --color-text-secondary: #8E8D92;
+    --color-text-tertiary: #9E9E9E;
+    
+    --color-icon: #808088;
+    
+    --color-accent: #000080;
+    --color-accent-hover: #0000A0;
+    
+    --color-success: #22C55E;
+    --color-success-light: rgba(34, 197, 94, 0.1);
+    
+    --color-danger: #EF4444;
+    --color-danger-light: rgba(239, 68, 68, 0.1);
+    
+    --color-warning: #F59E0B;
+    --color-warning-light: rgba(245, 158, 11, 0.1);
+    
+    --color-border: #E5E7EB;
+    --color-border-light: #F3F4F6;
+    
+    --color-shadow: rgba(0, 0, 0, 0.1);
+    --color-shadow-lg: rgba(0, 0, 0, 0.15);
+    
+    --color-overlay: rgba(0, 0, 0, 0.5);
+    --color-overlay-light: rgba(255, 255, 255, 0.8);
+
+    font-family: "Nunito Sans", "Nunito", sans-serif;
     font-size: 16px;
     line-height: 24px;
     font-weight: 400;
 
-    color: #f6f6f6;
-    background-color: #0f0f0f;
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-primary);
 
     font-synthesis: none;
     text-rendering: optimizeLegibility;
@@ -62,12 +91,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(0, 0, 0, 0.15);
     border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.25);
+    background: rgba(0, 0, 0, 0.25);
 }
 
 ::-webkit-scrollbar-corner {
@@ -76,7 +105,7 @@ body {
 
 * {
     scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+    scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
 }
 
 input[type="checkbox"] {
@@ -84,17 +113,17 @@ input[type="checkbox"] {
     -webkit-appearance: none;
     width: 1rem;
     height: 1rem;
-    border: 2px solid #475569;
+    border: 2px solid var(--color-border);
     border-radius: 0.25rem;
-    background-color: #334155;
+    background-color: var(--color-bg-secondary);
     cursor: pointer;
     position: relative;
     transition: all 0.15s ease;
 }
 
 input[type="checkbox"]:checked {
-    background-color: #3b82f6;
-    border-color: #3b82f6;
+    background-color: var(--color-accent);
+    border-color: var(--color-accent);
 }
 
 input[type="checkbox"]:checked::after {
@@ -110,7 +139,7 @@ input[type="checkbox"]:checked::after {
 }
 
 input[type="checkbox"]:hover {
-    border-color: #3b82f6;
+    border-color: var(--color-accent);
 }
 
 .animate-in {
@@ -135,12 +164,29 @@ input[type="checkbox"]:hover {
 
 @keyframes fade-in-down {
     from {
-        opacity: 0;
-        transform: translateX(-50%) translateY(-10px);
+        opacity: 1;
+        transform: translateX(-50%) translateY(-20px) scale(0.95);
     }
 
     to {
         opacity: 1;
-        transform: translateX(-50%) translateY(0);
+        transform: translateX(-50%) translateY(0) scale(1);
     }
+}
+
+.custom-scrollbar {
+    will-change: scroll-position;
+    transform: translateZ(0);
+    -webkit-overflow-scrolling: touch;
+}
+
+.overflow-y-auto,
+.overflow-x-auto {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+}
+
+.space-y-6 > * {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 250px;
 }

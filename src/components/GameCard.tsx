@@ -1,11 +1,8 @@
 import { Show, createEffect, onCleanup } from "solid-js";
 import {
   Play,
-  Search,
-  Trash2,
   Gamepad2,
   EyeOff,
-  Eye,
   MoreHorizontal,
 } from "lucide-solid";
 import type { Game } from "../types";
@@ -17,7 +14,7 @@ interface GameCardProps {
   formatPlayTime: (m: number) => string;
   onPlay: (id: string) => void;
   onRemove: (id: string) => void;
-  onSearch: (game: Game) => void;
+  onEditSettings: (game: Game) => void;
   onClick: (game: Game) => void;
   onHide: (id: string, hidden: boolean) => void;
   activeContextMenu: string | null;
@@ -81,18 +78,18 @@ export function GameCard(props: GameCardProps) {
     <>
       <div
         ref={cardRef}
-        class={`group relative aspect-[2/3] bg-[#1E293B] rounded-2xl overflow-hidden border border-white/5 cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/20 hover:border-purple-500/50 ${
+        class={`group relative aspect-[2/3] bg-[var(--color-bg-secondary)] rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-xl ${
           props.game.is_hidden && props.showHidden ? "opacity-50 grayscale" : ""
-        } ${props.isRunning ? "ring-2 ring-green-500 shadow-[0_0_20px_rgba(74,222,128,0.3)]" : ""}`}
+        } ${props.isRunning ? "ring-2 ring-[var(--color-success)] shadow-[0_0_20px_var(--color-success-light)]" : ""}`}
         onClick={() => props.onClick(props.game)}
         onContextMenu={handleContextMenu}
       >
         <Show
           when={props.game.cover_url}
           fallback={
-            <div class="w-full h-full flex flex-col items-center justify-center p-4 bg-gradient-to-br from-slate-800 to-slate-900">
-              <Gamepad2 class="w-16 h-16 text-slate-600 mb-4" />
-              <h3 class="text-slate-400 text-center font-bold line-clamp-2">
+            <div class="w-full h-full flex flex-col items-center justify-center p-4 bg-[var(--color-bg-secondary)]">
+              <Gamepad2 class="w-16 h-16 text-[var(--color-icon)] mb-4" />
+              <h3 class="text-[var(--color-text-secondary)] text-center font-bold line-clamp-2">
                 {props.game.title}
               </h3>
             </div>
@@ -106,13 +103,13 @@ export function GameCard(props: GameCardProps) {
           />
         </Show>
 
-        <div class="absolute inset-0 bg-gradient-to-t from-[#0F172A] via-transparent to-transparent opacity-60 group-hover:opacity-90 transition-opacity"></div>
+        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60 group-hover:opacity-90 transition-opacity"></div>
 
         <div class="absolute inset-0 p-4 flex flex-col justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-300">
           <div class="flex justify-between items-start">
             <button
               onClick={handleThreeDotsClick}
-              class="bg-black/60 backdrop-blur-md rounded-full px-2 py-1 hover:bg-black/80 transition-colors"
+              class="bg-black/80 rounded-full px-2 py-1 hover:bg-black/90 transition-colors"
             >
               <MoreHorizontal class="w-4 h-4 text-white" />
             </button>
@@ -124,7 +121,7 @@ export function GameCard(props: GameCardProps) {
             </h3>
 
             <div class="flex items-center justify-between">
-              <span class="text-xs font-medium text-slate-300 bg-black/50 px-2 py-1 rounded-md">
+              <span class="text-xs font-medium text-white/80 bg-black/50 px-2 py-1 rounded-md">
                 {props.formatPlayTime(props.game.play_time)}
               </span>
 
@@ -133,7 +130,7 @@ export function GameCard(props: GameCardProps) {
                   e.stopPropagation();
                   props.onPlay(props.game.id);
                 }}
-                class="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg shadow-white/20"
+                class="w-10 h-10 rounded-full bg-[var(--color-accent)] text-white flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg"
               >
                 <Play class="w-4 h-4 fill-current ml-0.5" />
               </button>
@@ -142,14 +139,14 @@ export function GameCard(props: GameCardProps) {
         </div>
 
         <Show when={props.isRunning}>
-          <div class="absolute top-4 left-4 px-2 py-1 bg-green-500 text-black text-xs font-bold rounded shadow-lg animate-pulse">
+          <div class="absolute top-4 left-4 px-2 py-1 bg-[var(--color-success)] text-white text-xs font-bold rounded shadow-lg animate-pulse">
             RUNNING
           </div>
         </Show>
 
         <Show when={props.game.is_hidden && props.showHidden}>
-          <div class="absolute top-4 right-4 bg-black/60 backdrop-blur rounded p-1.5">
-            <EyeOff class="w-4 h-4 text-slate-400" />
+          <div class="absolute top-4 right-4 bg-black/80 rounded p-1.5">
+            <EyeOff class="w-4 h-4 text-white/70" />
           </div>
         </Show>
       </div>
@@ -157,7 +154,7 @@ export function GameCard(props: GameCardProps) {
       <Show when={showMenu()}>
         <div
           ref={menuRef}
-          class="fixed z-50 bg-[#1E293B] border border-slate-700/50 rounded-xl shadow-2xl py-1.5 min-w-[180px] backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100"
+          class="fixed z-50 bg-[var(--color-bg-primary)] rounded-xl shadow-xl py-1.5 min-w-[180px] animate-in fade-in zoom-in-95 duration-100"
           style={{
             left: `${getMenuPosition().x}px`,
             top: `${getMenuPosition().y}px`,
@@ -171,50 +168,50 @@ export function GameCard(props: GameCardProps) {
               props.onPlay(props.game.id);
               closeMenu();
             }}
-            class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-200 hover:bg-[#334155] hover:text-white transition-colors"
+            class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
           >
-            <Play class="w-4 h-4 text-green-400" /> Play Game
+             Play Game
           </button>
           <button
             onClick={(e) => {
               e.stopPropagation();
-              props.onSearch(props.game);
+              props.onEditSettings(props.game);
               closeMenu();
             }}
-            class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-200 hover:bg-[#334155] hover:text-white transition-colors"
+            class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
           >
-            <Search class="w-4 h-4 text-blue-400" /> Search VNDB
+             Edit Settings
           </button>
-          <div class="h-px bg-slate-700/50 my-1 mx-2" />
+          <div class="h-px bg-[var(--color-border)] my-1 mx-2" />
           <button
             onClick={(e) => {
               e.stopPropagation();
               props.onHide(props.game.id, !props.game.is_hidden);
               closeMenu();
             }}
-            class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-200 hover:bg-[#334155] hover:text-white transition-colors"
+            class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
           >
             <Show
               when={props.game.is_hidden}
               fallback={
                 <>
-                  <EyeOff class="w-4 h-4 text-slate-400" /> Hide Game
+                   Hide Game
                 </>
               }
             >
-              <Eye class="w-4 h-4 text-slate-400" /> Unhide Game
+               Unhide Game
             </Show>
           </button>
-          <div class="h-px bg-slate-700/50 my-1 mx-2" />
+          <div class="h-px bg-[var(--color-border)] my-1 mx-2" />
           <button
             onClick={(e) => {
               e.stopPropagation();
               props.onRemove(props.game.id);
               closeMenu();
             }}
-            class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+            class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-[var(--color-danger)] hover:bg-[var(--color-danger-light)] transition-colors"
           >
-            <Trash2 class="w-4 h-4" /> Remove Game
+             Remove Game
           </button>
         </div>
       </Show>

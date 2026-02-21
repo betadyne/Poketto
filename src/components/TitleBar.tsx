@@ -41,7 +41,7 @@ export function TitleBar() {
   };
 
   return (
-    <div class="h-8 bg-[#0F172A] border-b border-slate-800/50 flex items-center select-none">
+    <div class="h-8 bg-[var(--color-bg-primary)] border-b border-[var(--color-border)] flex items-center select-none">
       <div
         class="flex-1 h-full cursor-default"
         onMouseDown={handleDragStart}
@@ -50,7 +50,7 @@ export function TitleBar() {
       <div class="flex items-center h-full" onMouseDown={preventDrag}>
         <button
           onClick={handleMinimize}
-          class="h-full w-11 flex items-center justify-center text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 transition-colors"
+          class="h-full w-11 flex items-center justify-center text-[var(--color-icon)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
           title="Minimize"
         >
           <Minus class="w-4 h-4" />
@@ -58,7 +58,7 @@ export function TitleBar() {
 
         <button
           onClick={handleMaximize}
-          class="h-full w-11 flex items-center justify-center text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 transition-colors"
+          class="h-full w-11 flex items-center justify-center text-[var(--color-icon)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
           title={isMaximized() ? "Restore" : "Maximize"}
         >
           {isMaximized() ? (
@@ -70,7 +70,7 @@ export function TitleBar() {
 
         <button
           onClick={handleClose}
-          class="h-full w-11 flex items-center justify-center text-slate-400 hover:text-red-400 hover:bg-red-500/20 transition-colors"
+          class="h-full w-11 flex items-center justify-center text-[var(--color-icon)] hover:text-[var(--color-danger)] hover:bg-[var(--color-danger-light)] transition-colors"
           title="Close"
         >
           <X class="w-4 h-4" />

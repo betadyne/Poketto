@@ -1,5 +1,6 @@
 use parking_lot::Mutex;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 mod commands;
 mod database;
@@ -16,17 +17,25 @@ use state::AppState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let db = create_cache_db();
+    let db = create_cache_db().map(Arc::new);
 
     let games = match load_games() {
-        Ok(g) => g,
+        Ok(g) => {
+            log::info!("Loaded {} games from storage", g.len());
+            g
+        }
         Err(e) => {
-            eprintln!("Error loading games: {}", e);
+            log::error!("Error loading games, starting with empty library: {}", e);
             Vec::new()
         }
     };
 
     let http_client = create_http_client();
+
+    #[cfg(target_os = "linux")]
+    let wine_versions = wine::get_all_wine_versions();
+    #[cfg(not(target_os = "linux"))]
+    let wine_versions = Vec::new();
 
     let state = AppState {
         games: Mutex::new(games),
@@ -34,6 +43,7 @@ pub fn run() {
         settings: Mutex::new(load_settings()),
         vn_mem_cache: Mutex::new(HashMap::new()),
         char_mem_cache: Mutex::new(HashMap::new()),
+        wine_versions: Mutex::new(wine_versions),
         http_client,
         db,
         discord_rpc: discord::DiscordRpc::new(),
@@ -69,12 +79,15 @@ pub fn run() {
             set_discord_rpc_buttons,
             get_platform,
             get_available_wine_versions,
+            refresh_wine_versions,
             get_default_wine_settings,
             get_default_prefix_path,
             save_game_wine_settings,
             save_global_wine_defaults,
             is_steam_runtime_available,
             validate_wine_binary,
+            read_log_file,
+            get_log_path,
         ])
         .typ::<GameMetadata>()
         .typ::<DailyPlaytimeData>()
@@ -90,6 +103,7 @@ pub fn run() {
         .typ::<VndbAuthInfo>()
         .typ::<AppSettings>()
         .typ::<WineType>()
+        .typ::<WineSource>()
         .typ::<GameType>()
         .typ::<WineVersion>()
         .typ::<WineSettings>();

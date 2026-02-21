@@ -22,35 +22,35 @@ export function UpdateDialog(props: UpdateDialogProps) {
   return (
     <Show when={showDialog()}>
       <div
-        class="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4"
+        class="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4"
         onClick={props.onDismiss}
       >
         <div
-          class="bg-slate-800 rounded-lg w-full max-w-md"
+          class="bg-[var(--color-bg-primary)] rounded-lg w-full max-w-md shadow-xl"
           onClick={(e) => e.stopPropagation()}
         >
-          <div class="flex items-center justify-between p-4 border-b border-slate-700">
-            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+          <div class="flex items-center justify-between p-4 border-b border-[var(--color-border)]">
+            <h2 class="text-lg font-bold text-[var(--color-text-primary)] flex items-center gap-2">
               <Show when={props.status === "available"}>
-                <Download class="w-5 h-5 text-blue-400" />
+                <Download class="w-5 h-5 text-[var(--color-accent)]" />
                 Update Available
               </Show>
               <Show when={props.status === "downloading"}>
-                <RefreshCw class="w-5 h-5 text-blue-400 animate-spin" />
+                <RefreshCw class="w-5 h-5 text-[var(--color-accent)] animate-spin" />
                 Downloading Update
               </Show>
               <Show when={props.status === "ready"}>
-                <CheckCircle class="w-5 h-5 text-green-400" />
+                <CheckCircle class="w-5 h-5 text-[var(--color-success)]" />
                 Update Ready
               </Show>
               <Show when={props.status === "error"}>
-                <AlertCircle class="w-5 h-5 text-red-400" />
+                <AlertCircle class="w-5 h-5 text-[var(--color-danger)]" />
                 Update Error
               </Show>
             </h2>
             <button
               onClick={props.onDismiss}
-              class="text-gray-400 hover:text-white"
+              class="text-[var(--color-icon)] hover:text-[var(--color-text-primary)]"
             >
               <X class="w-5 h-5" />
             </button>
@@ -59,32 +59,32 @@ export function UpdateDialog(props: UpdateDialogProps) {
           <div class="p-4 space-y-4">
             <Show when={props.status === "available" && props.updateInfo}>
               <div class="space-y-3">
-                <p class="text-gray-300">
+                <p class="text-[var(--color-text-secondary)]">
                   A new version{" "}
-                  <span class="text-white font-semibold">
+                  <span class="text-[var(--color-text-primary)] font-semibold">
                     v{props.updateInfo!.version}
                   </span>{" "}
                   is available!
                 </p>
-                <div class="bg-slate-700 rounded-lg p-3 max-h-40 overflow-y-auto">
-                  <h4 class="text-sm font-medium text-gray-300 mb-2">
+                <div class="bg-[var(--color-bg-secondary)] rounded-lg p-3 max-h-40 overflow-y-auto">
+                  <h4 class="text-sm font-medium text-[var(--color-text-primary)] mb-2">
                     Release Notes:
                   </h4>
-                  <p class="text-sm text-gray-400 whitespace-pre-wrap">
+                  <p class="text-sm text-[var(--color-text-secondary)] whitespace-pre-wrap">
                     {props.updateInfo!.body}
                   </p>
                 </div>
                 <div class="flex gap-3 pt-2">
                   <button
                     onClick={props.onDownload}
-                    class="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-medium flex items-center justify-center gap-2"
+                    class="flex-1 px-4 py-2 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] rounded-lg text-white font-medium flex items-center justify-center gap-2"
                   >
                     <Download class="w-4 h-4" />
                     Download & Install
                   </button>
                   <button
                     onClick={props.onDismiss}
-                    class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-gray-300"
+                    class="px-4 py-2 bg-[var(--color-bg-secondary)] hover:bg-[var(--color-border)] rounded-lg text-[var(--color-text-primary)]"
                   >
                     Later
                   </button>
@@ -94,14 +94,14 @@ export function UpdateDialog(props: UpdateDialogProps) {
 
             <Show when={props.status === "downloading"}>
               <div class="space-y-3">
-                <p class="text-gray-300">Downloading update...</p>
-                <div class="w-full bg-slate-700 rounded-full h-2">
+                <p class="text-[var(--color-text-secondary)]">Downloading update...</p>
+                <div class="w-full bg-[var(--color-bg-secondary)] rounded-full h-2">
                   <div
-                    class="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                    class="bg-[var(--color-accent)] h-2 rounded-full transition-all duration-300"
                     style={{ width: `${props.downloadProgress}%` }}
                   />
                 </div>
-                <p class="text-sm text-gray-400 text-center">
+                <p class="text-sm text-[var(--color-text-tertiary)] text-center">
                   {Math.round(props.downloadProgress)}%
                 </p>
               </div>
@@ -109,20 +109,20 @@ export function UpdateDialog(props: UpdateDialogProps) {
 
             <Show when={props.status === "ready"}>
               <div class="space-y-3">
-                <p class="text-gray-300">
+                <p class="text-[var(--color-text-secondary)]">
                   Update downloaded successfully! Restart to apply the update.
                 </p>
                 <div class="flex gap-3 pt-2">
                   <button
                     onClick={props.onRestart}
-                    class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-white font-medium flex items-center justify-center gap-2"
+                    class="flex-1 px-4 py-2 bg-[var(--color-success)] hover:opacity-90 rounded-lg text-white font-medium flex items-center justify-center gap-2"
                   >
                     <RefreshCw class="w-4 h-4" />
                     Restart Now
                   </button>
                   <button
                     onClick={props.onDismiss}
-                    class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-gray-300"
+                    class="px-4 py-2 bg-[var(--color-bg-secondary)] hover:bg-[var(--color-border)] rounded-lg text-[var(--color-text-primary)]"
                   >
                     Later
                   </button>
@@ -132,12 +132,12 @@ export function UpdateDialog(props: UpdateDialogProps) {
 
             <Show when={props.status === "error"}>
               <div class="space-y-3">
-                <p class="text-red-400">
+                <p class="text-[var(--color-danger)]">
                   Failed to check for updates: {props.error}
                 </p>
                 <button
                   onClick={props.onDismiss}
-                  class="w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-gray-300"
+                  class="w-full px-4 py-2 bg-[var(--color-bg-secondary)] hover:bg-[var(--color-border)] rounded-lg text-[var(--color-text-primary)]"
                 >
                   Close
                 </button>

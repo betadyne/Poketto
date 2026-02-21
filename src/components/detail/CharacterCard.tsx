@@ -2,6 +2,7 @@ import { For, Show } from "solid-js";
 import { User } from "lucide-solid";
 import type { VndbCharacter, VndbTrait, VndbImage } from "../../types";
 import { ROLE_NAMES, TRAIT_ORDER } from "../../constants";
+import { stripBBCode } from "../../utils";
 
 interface CharacterCardProps {
   character: VndbCharacter;
@@ -35,9 +36,9 @@ function TraitValue(props: { traits: VndbTrait[] }) {
         {(t, i) => (
           <>
             <Show when={i() > 0}>, </Show>
-            <span class={t.spoiler > 0 ? "text-orange-400" : "text-gray-200"}>
+            <span class={(t.spoiler ?? 0) > 0 ? "text-orange-500" : "text-[var(--color-text-primary)]"}>
               {t.name}
-              <Show when={t.spoiler > 0}>
+              <Show when={(t.spoiler ?? 0) > 0}>
                 <sup class="text-orange-500 text-[10px] ml-0.5">S</sup>
               </Show>
             </span>
@@ -57,22 +58,23 @@ export function CharacterCard(props: CharacterCardProps) {
   const char = props.character;
 
   return (
-    <div class="flex gap-6 bg-[#1E293B]/40 rounded-2xl p-6 border border-[#334155]/50 hover:border-[#38BDF8]/30 transition-all">
+    <div class="flex gap-6 bg-[var(--color-bg-primary)] rounded-2xl p-6 hover:bg-[var(--color-bg-secondary)] transition-colors">
       <div class="w-48 flex-shrink-0">
         <Show
           when={char.image?.url}
           fallback={
-            <div class="aspect-[3/4] bg-slate-800 rounded-xl flex items-center justify-center">
-              <User class="w-12 h-12 text-slate-600" />
+            <div class="aspect-[3/4] bg-[var(--color-border)] rounded-xl flex items-center justify-center">
+              <User class="w-12 h-12 text-[var(--color-icon)]" />
             </div>
           }
         >
           <img
             src={char.image!.url}
             alt={char.name}
-            class={`w-full rounded-xl shadow-lg border border-white/5 ${
+            loading="lazy"
+            class={`w-full rounded-xl shadow-lg ${
               (!props.showSpoilers && isSpoiler()) ||
-              props.shouldBlur(char.image)
+              props.shouldBlur(char.image ?? null)
                 ? "blur-xl"
                 : ""
             }`}
@@ -81,58 +83,58 @@ export function CharacterCard(props: CharacterCardProps) {
       </div>
 
       <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-3 mb-4 border-b border-slate-700/50 pb-4 flex-wrap">
+        <div class="flex items-center gap-3 mb-4 border-b border-[var(--color-border)] pb-4 flex-wrap">
           <h3
-            class={`text-2xl font-bold font-['Plus_Jakarta_Sans'] ${isSpoiler() ? "text-orange-400" : "text-white"}`}
+            class={`text-2xl font-bold font-['Nunito'] ${isSpoiler() ? "text-orange-500" : "text-[var(--color-text-primary)]"}`}
           >
             {char.name}
           </h3>
           <Show when={char.original}>
-            <span class="text-slate-500 text-lg">{char.original}</span>
+            <span class="text-[var(--color-text-tertiary)] text-lg">{char.original}</span>
           </Show>
           <span
-            class={`text-xs px-2.5 py-1 rounded-full font-bold tracking-wide border ${
+            class={`text-xs px-2.5 py-1 rounded-full font-bold tracking-wide ${
               role() === "main"
-                ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/30"
+                ? "bg-yellow-100 text-yellow-700"
                 : role() === "primary"
-                  ? "bg-purple-500/10 text-purple-400 border-purple-500/30"
+                  ? "bg-[var(--color-accent)]/10 text-[var(--color-accent)]"
                   : role() === "side"
-                    ? "bg-sky-500/10 text-sky-400 border-sky-500/30"
-                    : "bg-slate-500/10 text-slate-400 border-slate-500/30"
+                    ? "bg-[var(--color-accent)]/10 text-[var(--color-accent)]"
+                    : "bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]"
             }`}
           >
             {ROLE_NAMES[role()] || role()}
           </span>
           <Show when={sex()}>
-            <span class="text-sky-400 text-sm ml-auto bg-sky-500/10 px-2 py-1 rounded">
+            <span class="text-[var(--color-accent)] text-sm ml-auto bg-[var(--color-accent)]/10 px-2 py-1 rounded">
               {sex() === "m" ? "Male" : sex() === "f" ? "Female" : sex()}
             </span>
           </Show>
           <Show when={isSpoiler()}>
-            <span class="text-orange-500 text-xs px-2 py-1 bg-orange-900/30 border border-orange-500/20 rounded font-bold tracking-wide">
+            <span class="text-orange-500 text-xs px-2 py-1 bg-orange-100 rounded font-bold tracking-wide">
               SPOILER
             </span>
           </Show>
         </div>
 
-        <table class="w-full text-sm text-slate-300">
+        <table class="w-full text-sm text-[var(--color-text-secondary)]">
           <tbody>
             <Show when={char.aliases?.length}>
               <tr>
-                <td class="text-slate-500 py-1.5 pr-6 align-top w-32 font-medium">
+                <td class="text-[var(--color-text-tertiary)] py-1.5 pr-6 align-top w-32 font-medium">
                   Aliases
                 </td>
-                <td class="text-slate-200 py-1.5">
+                <td class="text-[var(--color-text-primary)] py-1.5">
                   {char.aliases!.join(", ")}
                 </td>
               </tr>
             </Show>
             <Show when={char.age || char.birthday}>
               <tr>
-                <td class="text-slate-500 py-1.5 pr-6 align-top font-medium">
+                <td class="text-[var(--color-text-tertiary)] py-1.5 pr-6 align-top font-medium">
                   Age/Birthday
                 </td>
-                <td class="text-slate-200 py-1.5">
+                <td class="text-[var(--color-text-primary)] py-1.5">
                   <Show when={char.age}>{char.age} years</Show>
                   <Show when={char.age && char.birthday}>, </Show>
                   <Show when={char.birthday}>
@@ -149,10 +151,10 @@ export function CharacterCard(props: CharacterCardProps) {
               }
             >
               <tr>
-                <td class="text-slate-500 py-1.5 pr-6 align-top font-medium">
+                <td class="text-[var(--color-text-tertiary)] py-1.5 pr-6 align-top font-medium">
                   Measurements
                 </td>
-                <td class="text-slate-200 py-1.5 flex gap-4">
+                <td class="text-[var(--color-text-primary)] py-1.5 flex gap-4">
                   <Show when={char.height}>
                     <span>H: {char.height}cm</span>
                   </Show>
@@ -171,7 +173,7 @@ export function CharacterCard(props: CharacterCardProps) {
             <For each={traits()}>
               {([tgroup, items]) => (
                 <tr>
-                  <td class="text-slate-500 py-1.5 pr-6 align-top font-medium">
+                  <td class="text-[var(--color-text-tertiary)] py-1.5 pr-6 align-top font-medium">
                     {tgroup}
                   </td>
                   <td class="py-1.5">
@@ -183,14 +185,11 @@ export function CharacterCard(props: CharacterCardProps) {
             <Show when={char.description}>
               <tr>
                 <td
-                  class="text-slate-500 py-3 pr-6 align-top font-medium"
+                  class="text-[var(--color-text-tertiary)] py-3 pr-6 align-top font-medium"
                   colspan="2"
                 >
-                  <div class="text-slate-300 text-sm whitespace-pre-line leading-relaxed font-['Roboto'] bg-[#0F172A]/30 p-4 rounded-lg border border-white/5 mt-2">
-                    {char.description!.replace(
-                      /\[(url|spoiler|quote|raw|code)(?:=[^\]]*)?]|\[\/(url|spoiler|quote|raw|code)]/gi,
-                      "",
-                    )}
+                  <div class="text-[var(--color-text-secondary)] text-sm whitespace-pre-line leading-relaxed font-['Nunito_Sans'] bg-[var(--color-bg-primary)] p-4 rounded-lg mt-2">
+                    {stripBBCode(char.description!)}
                   </div>
                 </td>
               </tr>

@@ -35,3 +35,16 @@ export const TRAIT_ORDER = [
     "Engages in (Sexual)",
     "Subject of (Sexual)",
 ];
+
+export const VOTE_LABELS: Record<number, string> = {
+    100: "Masterpiece",
+    90: "Excellent",
+    80: "Great",
+    70: "Good",
+    60: "Decent",
+    50: "Average",
+    40: "Below Avg",
+    30: "Poor",
+    20: "Bad",
+    10: "Awful",
+};

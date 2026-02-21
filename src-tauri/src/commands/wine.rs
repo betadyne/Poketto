@@ -29,14 +29,34 @@ pub fn get_platform() -> String {
 
 #[tauri::command]
 #[specta::specta]
-pub fn get_available_wine_versions() -> Vec<WineVersion> {
+pub fn get_available_wine_versions(state: State<AppState>) -> Vec<WineVersion> {
     #[cfg(target_os = "linux")]
     {
-        wine::get_all_wine_versions()
+        state.wine_versions.lock().clone()
     }
     #[cfg(not(target_os = "linux"))]
     {
+        let _ = state;
         Vec::new()
+    }
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn refresh_wine_versions(state: State<'_, AppState>) -> AppResult<Vec<WineVersion>> {
+    #[cfg(target_os = "linux")]
+    {
+        let versions = tokio::task::spawn_blocking(wine::get_all_wine_versions)
+            .await
+            .unwrap_or_default();
+        let mut cache = state.wine_versions.lock();
+        *cache = versions.clone();
+        Ok(versions)
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = state;
+        Ok(Vec::new())
     }
 }
 

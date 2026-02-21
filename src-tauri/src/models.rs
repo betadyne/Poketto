@@ -9,9 +9,28 @@ use std::time::Instant;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 pub enum WineType {
     Wine,
+    WineGE,
+    WineStaging,
+    WineTKG,
     Proton,
     ProtonGE,
     ProtonCachyOS,
+    ProtonTKG,
+    Lutris,
+    Bottles,
+    Custom,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+pub enum WineSource {
+    System,
+    Opt,
+    Steam,
+    SteamFlatpak,
+    Lutris,
+    Bottles,
+    BottlesFlatpak,
+    Custom,
 }
 
 impl Default for WineType {
@@ -39,6 +58,7 @@ pub struct WineVersion {
     pub lib_path: Option<String>,
     pub wine_type: WineType,
     pub version: Option<String>,
+    pub source: Option<WineSource>,
 }
 
 /// Per-game Wine/Proton settings
@@ -231,4 +251,216 @@ pub struct RunningGame {
     pub title: String,
     pub cover_url: Option<String>,
     pub discord_start_timestamp: u64,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    mod default_trait_tests {
+        use super::*;
+
+        #[test]
+        fn test_wine_type_default() {
+            let default = WineType::default();
+            assert_eq!(default, WineType::Wine);
+        }
+
+        #[test]
+        fn test_game_type_default() {
+            let default = GameType::default();
+            assert_eq!(default, GameType::WindowsExe);
+        }
+
+        #[test]
+        fn test_wine_settings_default() {
+            let default = WineSettings::default();
+            assert!(!default.use_global_prefix);
+            assert!(default.wine_prefix.is_none());
+            assert!(default.wine_version.is_none());
+            assert!(default.wine_type.is_none());
+            assert!(!default.use_steam_runtime);
+            assert!(default.env_vars.is_empty());
+        }
+
+        #[test]
+        fn test_daily_playtime_data_default() {
+            let default = DailyPlaytimeData::default();
+            assert!(default.games.is_empty());
+        }
+    }
+
+    mod default_helper_tests {
+        use super::*;
+
+        #[test]
+        fn test_default_discord_enabled_returns_true() {
+            assert!(default_discord_enabled());
+        }
+
+        #[test]
+        fn test_default_true_returns_true() {
+            assert!(default_true());
+        }
+    }
+
+    mod serialization_tests {
+        use super::*;
+
+        #[test]
+        fn test_wine_type_serializes() {
+            let wine_type = WineType::ProtonGE;
+            let json = serde_json::to_string(&wine_type).unwrap();
+            assert_eq!(json, "\"ProtonGE\"");
+        }
+
+        #[test]
+        fn test_wine_type_deserializes() {
+            let json = "\"ProtonGE\"";
+            let wine_type: WineType = serde_json::from_str(json).unwrap();
+            assert_eq!(wine_type, WineType::ProtonGE);
+        }
+
+        #[test]
+        fn test_game_type_serializes() {
+            let game_type = GameType::LinuxNative;
+            let json = serde_json::to_string(&game_type).unwrap();
+            assert_eq!(json, "\"LinuxNative\"");
+        }
+
+        #[test]
+        fn test_game_type_deserializes() {
+            let json = "\"WindowsExe\"";
+            let game_type: GameType = serde_json::from_str(json).unwrap();
+            assert_eq!(game_type, GameType::WindowsExe);
+        }
+
+        #[test]
+        fn test_wine_source_serializes() {
+            let source = WineSource::SteamFlatpak;
+            let json = serde_json::to_string(&source).unwrap();
+            assert_eq!(json, "\"SteamFlatpak\"");
+        }
+
+        #[test]
+        fn test_wine_settings_roundtrip() {
+            let mut env_vars = HashMap::new();
+            env_vars.insert("WINEPREFIX".to_string(), "/home/user/.wine".to_string());
+
+            let settings = WineSettings {
+                use_global_prefix: true,
+                wine_prefix: Some("/custom/prefix".to_string()),
+                wine_version: Some("/usr/bin/wine".to_string()),
+                wine_type: Some(WineType::ProtonGE),
+                use_steam_runtime: true,
+                env_vars,
+            };
+
+            let json = serde_json::to_string(&settings).unwrap();
+            let deserialized: WineSettings = serde_json::from_str(&json).unwrap();
+
+            assert_eq!(deserialized.use_global_prefix, settings.use_global_prefix);
+            assert_eq!(deserialized.wine_prefix, settings.wine_prefix);
+            assert_eq!(deserialized.wine_version, settings.wine_version);
+            assert_eq!(deserialized.wine_type, settings.wine_type);
+            assert_eq!(deserialized.use_steam_runtime, settings.use_steam_runtime);
+            assert_eq!(deserialized.env_vars.len(), 1);
+        }
+
+        #[test]
+        fn test_game_metadata_with_missing_optional_fields() {
+            let json = r#"{
+                "id": "game-123",
+                "title": "Test Game",
+                "path": "/path/to/game.exe",
+                "vndb_id": null,
+                "cover_url": null,
+                "play_time": 60,
+                "is_finished": false
+            }"#;
+
+            let game: GameMetadata = serde_json::from_str(json).unwrap();
+            assert_eq!(game.id, "game-123");
+            assert_eq!(game.title, "Test Game");
+            assert!(game.last_played.is_none());
+            assert!(!game.is_hidden);
+            assert!(game.game_type.is_none());
+            assert!(game.wine_settings.is_none());
+        }
+    }
+
+    mod wine_type_tests {
+        use super::*;
+
+        #[test]
+        fn test_all_wine_types_are_distinct() {
+            let types = vec![
+                WineType::Wine,
+                WineType::WineGE,
+                WineType::WineStaging,
+                WineType::WineTKG,
+                WineType::Proton,
+                WineType::ProtonGE,
+                WineType::ProtonCachyOS,
+                WineType::ProtonTKG,
+                WineType::Lutris,
+                WineType::Bottles,
+                WineType::Custom,
+            ];
+
+            for (i, t1) in types.iter().enumerate() {
+                for (j, t2) in types.iter().enumerate() {
+                    if i != j {
+                        assert_ne!(t1, t2);
+                    }
+                }
+            }
+        }
+
+        #[test]
+        fn test_wine_type_clone() {
+            let original = WineType::ProtonGE;
+            let cloned = original.clone();
+            assert_eq!(original, cloned);
+        }
+    }
+
+    mod wine_source_tests {
+        use super::*;
+
+        #[test]
+        fn test_all_wine_sources_serialize_correctly() {
+            let sources = vec![
+                (WineSource::System, "\"System\""),
+                (WineSource::Opt, "\"Opt\""),
+                (WineSource::Steam, "\"Steam\""),
+                (WineSource::SteamFlatpak, "\"SteamFlatpak\""),
+                (WineSource::Lutris, "\"Lutris\""),
+                (WineSource::Bottles, "\"Bottles\""),
+                (WineSource::BottlesFlatpak, "\"BottlesFlatpak\""),
+                (WineSource::Custom, "\"Custom\""),
+            ];
+
+            for (source, expected) in sources {
+                let json = serde_json::to_string(&source).unwrap();
+                assert_eq!(json, expected);
+            }
+        }
+    }
+
+    mod game_exited_payload_tests {
+        use super::*;
+
+        #[test]
+        fn test_payload_serializes() {
+            let payload = GameExitedPayload {
+                game_id: "game-123".to_string(),
+                play_minutes: 45,
+            };
+
+            let json = serde_json::to_string(&payload).unwrap();
+            assert!(json.contains("game-123"));
+            assert!(json.contains("45"));
+        }
+    }
 }

@@ -22,13 +22,13 @@ impl DiscordRpc {
     }
 
     pub fn connect(&self) -> Result<(), String> {
-        if self.connected.load(Ordering::Relaxed) {
+        if self.connected.load(Ordering::Acquire) {
             return Ok(());
         }
 
         let mut client_guard = self.client.lock();
 
-        if self.connected.load(Ordering::Relaxed) {
+        if self.connected.load(Ordering::Acquire) {
             return Ok(());
         }
 
@@ -39,7 +39,7 @@ impl DiscordRpc {
             .map_err(|e| format!("Failed to connect to Discord: {}", e))?;
 
         *client_guard = Some(client);
-        self.connected.store(true, Ordering::Relaxed);
+        self.connected.store(true, Ordering::Release);
         log::info!("Connected to Discord Rich Presence");
         Ok(())
     }
@@ -50,7 +50,7 @@ impl DiscordRpc {
             let _ = client.close();
         }
         *client_guard = None;
-        self.connected.store(false, Ordering::Relaxed);
+        self.connected.store(false, Ordering::Release);
         log::info!("Disconnected from Discord Rich Presence");
     }
 
@@ -62,7 +62,7 @@ impl DiscordRpc {
         buttons: Vec<(&str, &str)>,
         start_timestamp: u64,
     ) -> Result<(), String> {
-        if !self.connected.load(Ordering::Relaxed) {
+        if !self.connected.load(Ordering::Acquire) {
             if self.connect().is_err() {
                 return Ok(());
             }
@@ -107,7 +107,7 @@ impl DiscordRpc {
                 Ok(())
             }
             Err(e) => {
-                self.connected.store(false, Ordering::Relaxed);
+                self.connected.store(false, Ordering::Release);
                 log::warn!("Failed to set Discord activity: {}", e);
                 Ok(())
             }
@@ -115,7 +115,7 @@ impl DiscordRpc {
     }
 
     pub fn clear_activity(&self) -> Result<(), String> {
-        if !self.connected.load(Ordering::Relaxed) {
+        if !self.connected.load(Ordering::Acquire) {
             return Ok(());
         }
 
@@ -127,7 +127,7 @@ impl DiscordRpc {
                 }
                 Err(e) => {
                     log::warn!("Failed to clear Discord activity: {}", e);
-                    self.connected.store(false, Ordering::Relaxed);
+                    self.connected.store(false, Ordering::Release);
                 }
             }
         }

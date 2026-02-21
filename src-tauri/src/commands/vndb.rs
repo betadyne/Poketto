@@ -1,15 +1,46 @@
-use std::fs;
+use redb::ReadableTable;
 use tauri::State;
-use tokio::task;
 
 use crate::database::{
-    disk_cache_get, disk_cache_set, get_data_dir, save_settings, CHAR_CACHE, VN_CACHE,
+    disk_cache_get_async, disk_cache_set_async, save_settings, CHAR_CACHE, VN_CACHE,
 };
 use crate::error::{AppError, AppResult};
 use crate::models::{
     VndbAuthInfo, VndbCharacter, VndbResponse, VndbSearchResult, VndbUserListItem, VndbVnDetail,
 };
 use crate::state::AppState;
+
+fn extract_token(state: &AppState) -> AppResult<String> {
+    state
+        .settings
+        .lock()
+        .vndb_token
+        .clone()
+        .ok_or_else(|| AppError::AuthRequired("No VNDB token".into()))
+}
+
+async fn vndb_authenticated_patch(
+    state: &AppState,
+    url: &str,
+    body: serde_json::Value,
+) -> AppResult<()> {
+    let token = extract_token(state)?;
+
+    let response = state
+        .http_client
+        .patch(url)
+        .header("Content-Type", "application/json")
+        .header("Authorization", format!("Token {}", token))
+        .json(&body)
+        .send()
+        .await?;
+
+    if !response.status().is_success() {
+        let err = response.text().await.unwrap_or_default();
+        return Err(AppError::VndbApi(format!("VNDB API error: {}", err)));
+    }
+    Ok(())
+}
 
 #[tauri::command]
 #[specta::specta]
@@ -51,11 +82,13 @@ pub async fn fetch_vndb_detail(
     }
 
     if !refresh {
-        let db_ref = state.db.as_ref();
-        let vndb_id_clone = vndb_id.clone();
-        let cached = task::block_in_place(|| {
-            disk_cache_get::<VndbVnDetail>(db_ref, VN_CACHE, &vndb_id_clone)
-        });
+        let cached = disk_cache_get_async::<VndbVnDetail>(
+            state.db.clone(),
+            VN_CACHE,
+            vndb_id.clone(),
+        )
+        .await;
+
         if let Some(cached) = cached {
             state
                 .vn_mem_cache
@@ -91,12 +124,12 @@ pub async fn fetch_vndb_detail(
         .lock()
         .insert(vndb_id.clone(), detail.clone());
 
-    let db_ref = state.db.as_ref();
-    let vndb_id_clone = vndb_id.clone();
-    let detail_clone = detail.clone();
-    task::block_in_place(|| {
-        disk_cache_set(db_ref, VN_CACHE, &vndb_id_clone, &detail_clone);
-    });
+    disk_cache_set_async(
+        state.db.clone(),
+        VN_CACHE,
+        vndb_id.clone(),
+        detail.clone(),
+    );
 
     Ok(detail)
 }
@@ -117,11 +150,13 @@ pub async fn fetch_vndb_characters(
     }
 
     if !refresh {
-        let db_ref = state.db.as_ref();
-        let vndb_id_clone = vndb_id.clone();
-        let cached = task::block_in_place(|| {
-            disk_cache_get::<Vec<VndbCharacter>>(db_ref, CHAR_CACHE, &vndb_id_clone)
-        });
+        let cached = disk_cache_get_async::<Vec<VndbCharacter>>(
+            state.db.clone(),
+            CHAR_CACHE,
+            vndb_id.clone(),
+        )
+        .await;
+
         if let Some(cached) = cached {
             state
                 .char_mem_cache
@@ -153,12 +188,12 @@ pub async fn fetch_vndb_characters(
         .lock()
         .insert(vndb_id.clone(), chars.clone());
 
-    let db_ref = state.db.as_ref();
-    let vndb_id_clone = vndb_id.clone();
-    let chars_clone = chars.clone();
-    task::block_in_place(|| {
-        disk_cache_set(db_ref, CHAR_CACHE, &vndb_id_clone, &chars_clone);
-    });
+    disk_cache_set_async(
+        state.db.clone(),
+        CHAR_CACHE,
+        vndb_id.clone(),
+        chars.clone(),
+    );
 
     Ok(chars)
 }
@@ -169,7 +204,7 @@ pub fn clear_vndb_cache(vndb_id: String, state: State<AppState>) -> AppResult<()
     state.vn_mem_cache.lock().remove(&vndb_id);
     state.char_mem_cache.lock().remove(&vndb_id);
 
-    if let Some(db) = state.db.as_ref() {
+    if let Some(ref db) = state.db {
         if let Ok(write_txn) = db.begin_write() {
             if let Ok(mut t) = write_txn.open_table(VN_CACHE) {
                 let _ = t.remove(vndb_id.as_str());
@@ -189,9 +224,38 @@ pub fn clear_all_cache(state: State<AppState>) -> AppResult<()> {
     state.vn_mem_cache.lock().clear();
     state.char_mem_cache.lock().clear();
 
-    let path = get_data_dir().join("vndb_cache.redb");
-    if path.exists() {
-        fs::remove_file(path)?;
+    if let Some(ref db) = state.db {
+        let write_txn = db.begin_write()?;
+        {
+            if let Ok(mut table) = write_txn.open_table(VN_CACHE) {
+                let keys: Vec<String> = table
+                    .iter()
+                    .map_err(|e: redb::StorageError| AppError::Database(e.to_string()))?
+                    .filter_map(|entry: Result<(redb::AccessGuard<'_, &str>, redb::AccessGuard<'_, &[u8]>), redb::StorageError>| {
+                        entry.ok().map(|(k, _)| k.value().to_string())
+                    })
+                    .collect();
+                for key in keys {
+                    let _ = table.remove(key.as_str());
+                }
+            }
+        }
+        {
+            if let Ok(mut table) = write_txn.open_table(CHAR_CACHE) {
+                let keys: Vec<String> = table
+                    .iter()
+                    .map_err(|e: redb::StorageError| AppError::Database(e.to_string()))?
+                    .filter_map(|entry: Result<(redb::AccessGuard<'_, &str>, redb::AccessGuard<'_, &[u8]>), redb::StorageError>| {
+                        entry.ok().map(|(k, _)| k.value().to_string())
+                    })
+                    .collect();
+                for key in keys {
+                    let _ = table.remove(key.as_str());
+                }
+            }
+        }
+        write_txn.commit()?;
+        log::info!("VNDB cache cleared successfully");
     }
     Ok(())
 }
@@ -233,12 +297,12 @@ pub async fn vndb_get_user_vn(
     vndb_id: String,
     state: State<'_, AppState>,
 ) -> AppResult<Option<VndbUserListItem>> {
-    let settings = state.settings.lock().clone();
-    let token = settings
-        .vndb_token
-        .ok_or_else(|| AppError::AuthRequired("No VNDB token".into()))?;
-    let user_id = settings
+    let token = extract_token(&state)?;
+    let user_id = state
+        .settings
+        .lock()
         .vndb_user_id
+        .clone()
         .ok_or_else(|| AppError::AuthRequired("Not authenticated".into()))?;
 
     let body = serde_json::json!({
@@ -268,11 +332,6 @@ pub async fn vndb_set_status(
     label_id: i32,
     state: State<'_, AppState>,
 ) -> AppResult<()> {
-    let settings = state.settings.lock().clone();
-    let token = settings
-        .vndb_token
-        .ok_or_else(|| AppError::AuthRequired("No VNDB token".into()))?;
-
     let labels_unset: Vec<i32> = [1, 2, 3, 4, 5]
         .into_iter()
         .filter(|&x| x != label_id)
@@ -282,20 +341,12 @@ pub async fn vndb_set_status(
         "labels_unset": labels_unset
     });
 
-    let response = state
-        .http_client
-        .patch(format!("https://api.vndb.org/kana/ulist/{}", vndb_id))
-        .header("Content-Type", "application/json")
-        .header("Authorization", format!("Token {}", token))
-        .json(&body)
-        .send()
-        .await?;
-
-    if !response.status().is_success() {
-        let err = response.text().await.unwrap_or_default();
-        return Err(AppError::VndbApi(format!("Failed to set status: {}", err)));
-    }
-    Ok(())
+    vndb_authenticated_patch(
+        &state,
+        &format!("https://api.vndb.org/kana/ulist/{}", vndb_id),
+        body,
+    )
+    .await
 }
 
 #[tauri::command]
@@ -305,50 +356,21 @@ pub async fn vndb_set_vote(
     vote: i32,
     state: State<'_, AppState>,
 ) -> AppResult<()> {
-    let settings = state.settings.lock().clone();
-    let token = settings
-        .vndb_token
-        .ok_or_else(|| AppError::AuthRequired("No VNDB token".into()))?;
-
-    let body = serde_json::json!({ "vote": vote });
-
-    let response = state
-        .http_client
-        .patch(format!("https://api.vndb.org/kana/ulist/{}", vndb_id))
-        .header("Content-Type", "application/json")
-        .header("Authorization", format!("Token {}", token))
-        .json(&body)
-        .send()
-        .await?;
-
-    if !response.status().is_success() {
-        let err = response.text().await.unwrap_or_default();
-        return Err(AppError::VndbApi(format!("Failed to set vote: {}", err)));
-    }
-    Ok(())
+    vndb_authenticated_patch(
+        &state,
+        &format!("https://api.vndb.org/kana/ulist/{}", vndb_id),
+        serde_json::json!({ "vote": vote }),
+    )
+    .await
 }
 
 #[tauri::command]
 #[specta::specta]
 pub async fn vndb_remove_vote(vndb_id: String, state: State<'_, AppState>) -> AppResult<()> {
-    let settings = state.settings.lock().clone();
-    let token = settings
-        .vndb_token
-        .ok_or_else(|| AppError::AuthRequired("No VNDB token".into()))?;
-
-    let body = serde_json::json!({ "vote": null });
-
-    let response = state
-        .http_client
-        .patch(format!("https://api.vndb.org/kana/ulist/{}", vndb_id))
-        .header("Content-Type", "application/json")
-        .header("Authorization", format!("Token {}", token))
-        .json(&body)
-        .send()
-        .await?;
-
-    if !response.status().is_success() {
-        return Err(AppError::VndbApi("Failed to remove vote".into()));
-    }
-    Ok(())
+    vndb_authenticated_patch(
+        &state,
+        &format!("https://api.vndb.org/kana/ulist/{}", vndb_id),
+        serde_json::json!({ "vote": null }),
+    )
+    .await
 }

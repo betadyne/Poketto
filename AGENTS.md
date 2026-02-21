@@ -72,6 +72,7 @@ Poketto/
 │   │   └── detail/           # Game detail page components
 │   ├── context/              # SolidJS contexts (state management)
 │   ├── hooks/                # Custom hooks
+│   ├── utils/                # Pure utility functions (testable)
 │   ├── views/                # Page-level components
 │   ├── bindings.ts           # Auto-generated Tauri bindings (DO NOT EDIT)
 │   ├── types.ts              # TypeScript type definitions
@@ -117,6 +118,37 @@ cargo check
 cargo clippy
 ```
 
+### Testing Commands
+
+```bash
+# Run all Rust unit tests (73 tests)
+cd src-tauri && cargo test
+
+# Run all TypeScript unit tests (43 tests)
+npm test
+
+# Run TypeScript tests in watch mode
+npm run test:watch
+```
+
+### Test Structure
+
+```
+src/
+├── api/
+│   └── wine.test.ts           # Wine utility function tests
+└── utils/
+    ├── formatters.test.ts     # Time formatting tests
+    ├── validators.test.ts     # VNDB ID validation tests
+    └── blur.test.ts           # NSFW blur logic tests
+
+src-tauri/src/
+├── wine.rs                    # Wine detection tests (#[cfg(test)])
+├── error.rs                   # Error handling tests (#[cfg(test)])
+├── models.rs                  # Data model tests (#[cfg(test)])
+└── commands/system.rs         # System command tests (#[cfg(test)])
+```
+
 ### Code Quality Rules
 
 - TypeScript bindings are auto-generated - run `pnpm tauri dev` to regenerate
@@ -124,6 +156,8 @@ cargo clippy
 - Handle errors gracefully; show user-friendly messages
 - Never commit secrets or tokens (`.env` is gitignored)
 - Keep the repo clean: generated artifacts are in `.gitignore`
+- **DO NOT add comments to the code** - The codebase intentionally avoids comments. Code should be self-documenting through clear naming and structure. Do not add inline comments, block comments, or documentation comments unless explicitly requested.
+
 
 ### Priority Labels
 
@@ -186,5 +220,6 @@ Types: `feat`, `fix`, `docs`, `refactor`, `chore`, `test`
 
 - Prefer the simplest design that satisfies current requirements
 - When in doubt, follow existing patterns in the codebase
+- If you are unsure how to do something, use `gh_grep` to search code examples from GitHub
 - User instructions take precedence over this document
-- Ask for clarification rather than making assumptions
+- Ask for clarification rather than making assumptions.

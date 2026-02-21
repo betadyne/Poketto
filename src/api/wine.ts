@@ -5,13 +5,10 @@ export type {
   WineSettings,
   WineVersion,
   WineType,
+  WineSource,
   GameType,
 } from "../bindings";
 
-/**
- * Get the current platform
- * @returns "linux" | "windows" | "macos" | "unknown"
- */
 export const getPlatform = () => commands.getPlatform();
 
 export const isLinux = async () => (await commands.getPlatform()) === "linux";
@@ -19,32 +16,18 @@ export const isLinux = async () => (await commands.getPlatform()) === "linux";
 export const getAvailableWineVersions = () =>
   commands.getAvailableWineVersions();
 
+export const refreshWineVersions = () => commands.refreshWineVersions();
+
 export const getDefaultWineSettings = () => commands.getDefaultWineSettings();
 
-/**
- * Get default Wine prefix path for a game
- * @param gameId - The game ID
- * @returns Path like ~/Games/Poketto/Prefixes/{gameId}
- */
 export const getDefaultPrefixPath = (gameId: string) =>
   commands.getDefaultPrefixPath(gameId);
 
-/**
- * Save Wine settings for a specific game
- * @param gameId - The game ID
- * @param wineSettings - The Wine settings to save
- */
 export const saveGameWineSettings = (
   gameId: string,
   wineSettings: WineSettings,
 ) => commands.saveGameWineSettings(gameId, wineSettings);
 
-/**
- * Save global Wine defaults
- * @param prefix - Default Wine prefix path (null for per-game prefixes)
- * @param binary - Default Wine binary path
- * @param useSteamRuntime - Whether to use Steam Runtime (steam-run)
- */
 export const saveGlobalWineDefaults = (
   prefix: string | null,
   binary: string | null,
@@ -53,26 +36,32 @@ export const saveGlobalWineDefaults = (
 
 export const isSteamRuntimeAvailable = () => commands.isSteamRuntimeAvailable();
 
-/**
- * Validate a Wine binary path
- * @param binaryPath - Path to the Wine/Proton binary
- * @returns Wine version string if valid
- */
 export const validateWineBinary = (binaryPath: string) =>
   commands.validateWineBinary(binaryPath);
 
 export const groupWineVersionsByType = (versions: WineVersion[]) => {
-  const groups: Record<string, WineVersion[]> = {
-    Wine: [],
-    Proton: [],
-    ProtonGE: [],
-    ProtonCachyOS: [],
-  };
+  const groups: Record<string, WineVersion[]> = {};
 
   for (const version of versions) {
-    if (groups[version.wine_type]) {
-      groups[version.wine_type].push(version);
+    const type = version.wine_type;
+    if (!groups[type]) {
+      groups[type] = [];
     }
+    groups[type].push(version);
+  }
+
+  return groups;
+};
+
+export const groupWineVersionsBySource = (versions: WineVersion[]) => {
+  const groups: Record<string, WineVersion[]> = {};
+
+  for (const version of versions) {
+    const source = version.source || "Unknown";
+    if (!groups[source]) {
+      groups[source] = [];
+    }
+    groups[source].push(version);
   }
 
   return groups;
@@ -81,11 +70,32 @@ export const groupWineVersionsByType = (versions: WineVersion[]) => {
 export const getWineTypeDisplayName = (type: string): string => {
   const names: Record<string, string> = {
     Wine: "Wine",
+    WineGE: "Wine-GE",
+    WineStaging: "Wine Staging",
+    WineTKG: "Wine TKG",
     Proton: "Steam Proton",
     ProtonGE: "GE-Proton",
     ProtonCachyOS: "Proton CachyOS",
+    ProtonTKG: "Proton TKG",
+    Lutris: "Lutris Wine",
+    Bottles: "Bottles",
+    Custom: "Custom",
   };
   return names[type] || type;
+};
+
+export const getWineSourceDisplayName = (source: string): string => {
+  const names: Record<string, string> = {
+    System: "System",
+    Opt: "/opt",
+    Steam: "Steam",
+    SteamFlatpak: "Steam (Flatpak)",
+    Lutris: "Lutris",
+    Bottles: "Bottles",
+    BottlesFlatpak: "Bottles (Flatpak)",
+    Custom: "Custom",
+  };
+  return names[source] || source;
 };
 
 export const createDefaultWineSettings = async (
