@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "skills": {
+    "rust": {
+      "source": "ulpi-io/skills",
+      "sourceType": "github",
+      "skillPath": "rust/SKILL.md",
+      "computedHash": "c30d33db357c09255689a1db5ae32e24b54b79c4f319ea4f70db355044f7015b"
+    },
+    "slint": {
+      "source": "slint-ui/ai-plugins",
+      "sourceType": "github",
+      "skillPath": "skills/slint/SKILL.md",
+      "computedHash": "525379a2ec36530fd2cde91715fb2e55c9e211b2af607ae2aac2e9a407991924"
+    },
+    "sqlite-expert": {
+      "source": "rightnow-ai/openfang",
+      "sourceType": "github",
+      "skillPath": "crates/openfang-skills/bundled/sqlite-expert/SKILL.md",
+      "computedHash": "f63004999d019b0a150309ea1a20661ab3aa33267e48e26f0dfafa6f800cc122"
+    }
+  }
+}
