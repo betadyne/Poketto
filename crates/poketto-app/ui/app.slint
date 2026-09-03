@@ -1,0 +1,13 @@
+import { Theme } from "tokens.slint";
+
+export component AppWindow inherits Window {
+    title: "Poketto";
+    min-width: 800px;
+    min-height: 600px;
+    background: Theme.bg-dark;
+
+    Text {
+        text: "Poketto";
+        color: Theme.text-primary;
+    }
+}

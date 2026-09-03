@@ -1,0 +1,13 @@
+[workspace]
+resolver = "2"
+members = ["crates/poketto-core", "crates/poketto-app"]
+exclude = ["src-tauri"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+
+[workspace.dependencies]
+slint = "1.17.1"
+slint-build = "1.17.1"
+thiserror = "2.0.20"
