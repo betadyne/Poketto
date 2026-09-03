@@ -9,9 +9,11 @@ export struct DetailTag {
 }
 
 export struct DetailCharacter {
+    id: string,
     name: string,
     role: string,
     spoiler: int,
+    avatar: image,
 }
 
 export component DetailView inherits Rectangle {
@@ -223,20 +225,34 @@ export component DetailView inherits Rectangle {
                 }
             }
 
-            if root.characters.length > 0 : Text {
-                text: "Characters";
-                color: Theme.text-muted;
-                font-size: Theme.font-sm;
-            }
-
             if root.characters.length > 0 : VerticalLayout {
                 spacing: Theme.space-sm;
 
-                for ch in root.characters : Text {
-                    text: ch.role == "" ? ch.name : ch.name + " · " + ch.role;
-                    color: Theme.text;
-                    font-size: Theme.font-md;
+                for ch in root.characters : HorizontalLayout {
+                    spacing: Theme.space-sm;
                     visible: root.show-spoilers || ch.spoiler == 0;
+
+                    Rectangle {
+                        width: 40px;
+                        height: 40px;
+                        background: Theme.surface;
+                        border-radius: Theme.radius-sm;
+                        clip: true;
+
+                        Image {
+                            source: ch.avatar;
+                            width: 100%;
+                            height: 100%;
+                            image-fit: ImageFit.cover;
+                        }
+                    }
+
+                    Text {
+                        text: ch.role == "" ? ch.name : ch.name + " · " + ch.role;
+                        color: Theme.text;
+                        font-size: Theme.font-md;
+                        vertical-alignment: center;
+                    }
                 }
             }
         }

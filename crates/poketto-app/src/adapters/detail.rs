@@ -1,19 +1,6 @@
 use chrono::NaiveDate;
 use poketto_core::models::{AppSettings, Game};
 
-pub fn plain_description(bbcode: &str) -> String {
-    let mut text = String::with_capacity(bbcode.len());
-    let mut in_tag = false;
-    for c in bbcode.chars() {
-        match c {
-            '[' => in_tag = true,
-            ']' => in_tag = false,
-            _ if !in_tag => text.push(c),
-            _ => {}
-        }
-    }
-    text.split_whitespace().collect::<Vec<_>>().join(" ")
-}
 
 pub fn format_playtime(minutes: u64) -> String {
     if minutes >= 60 {
@@ -126,7 +113,8 @@ pub struct DetailPayload {
     pub finished: bool,
     pub show_spoilers: bool,
     pub tags: Vec<(String, i32)>,
-    pub characters: Vec<(String, String, i32)>,
+    pub characters: Vec<(String, String, String, i32)>,
+    pub character_avatars: Vec<(String, String)>,
     pub cover_url: Option<String>,
     pub nsfw: bool,
 }
@@ -154,7 +142,7 @@ pub fn assemble_detail(
             meta_parts.push(label);
         }
         if let Some(description) = detail.description.as_deref() {
-            let plain = plain_description(description);
+            let plain = poketto_core::vndb::clean_bbcode(description);
             if !plain.is_empty() {
                 synopsis = plain;
             }
@@ -170,7 +158,17 @@ pub fn assemble_detail(
             cover_url = detail.image.as_ref().map(|image| image.url.clone());
         }
     }
-    let characters = characters
+    let character_avatars: Vec<(String, String)> = characters
+        .iter()
+        .take(12)
+        .filter_map(|character| {
+            character
+                .image
+                .as_ref()
+                .map(|image| (character.id.clone(), image.url.clone()))
+        })
+        .collect();
+    let characters: Vec<(String, String, String, i32)> = characters
         .iter()
         .take(12)
         .map(|character| {
@@ -197,7 +195,7 @@ pub fn assemble_detail(
                 )
                 .max()
                 .unwrap_or(0);
-            (character.name.clone(), role, spoiler)
+            (character.id.clone(), character.name.clone(), role, spoiler)
         })
         .collect();
     let mut playtime = format_playtime(game.play_time_minutes);
@@ -223,6 +221,7 @@ pub fn assemble_detail(
         show_spoilers: game.show_spoilers,
         tags,
         characters,
+        character_avatars,
         cover_url,
         nsfw: detail
             .as_ref()
@@ -238,15 +237,18 @@ mod tests {
     #[test]
     fn bbcode_markers_strip_but_text_stays() {
         assert_eq!(
-            plain_description("A [b]bold[/b] tale with [spoiler]secret[/spoiler]."),
+            poketto_core::vndb::clean_bbcode("A [b]bold[/b] tale with [spoiler]secret[/spoiler]."),
             "A bold tale with secret."
         );
     }
 
     #[test]
     fn whitespace_collapses() {
-        assert_eq!(plain_description("line one\nline   two"), "line one line two");
-        assert_eq!(plain_description(""), "");
+        assert_eq!(
+            poketto_core::vndb::clean_bbcode("line one\nline   two"),
+            "line one line two"
+        );
+        assert_eq!(poketto_core::vndb::clean_bbcode(""), "");
     }
 
     #[test]
@@ -360,7 +362,7 @@ mod tests {
         let payload = assemble_detail(&detail_game(), None, &[character]);
         assert_eq!(
             payload.characters,
-            vec![("Meiya".to_string(), "Protagonist".to_string(), 2)]
+            vec![("c1".to_string(), "Meiya".to_string(), "Protagonist".to_string(), 2)]
         );
     }
 
@@ -485,6 +487,21 @@ mod tests {
         assert_eq!(
             relative_last_played(Some("2024-06-20T12:00:00Z"), today),
             "Today"
+        );
+    }
+
+    #[test]
+    fn character_avatar_urls_collected() {
+        let json = r#"{"id": "c1", "name": "Meiya", "image": {"url": "https://img.jpg/c1.jpg"}, "vns": [{"id": "v17", "role": "main", "spoiler": 0}]}"#;
+        let shown: poketto_core::models::VndbCharacter =
+            serde_json::from_str(json).expect("fixture");
+        let hidden_json = r#"{"id": "c2", "name": "No Face", "vns": []}"#;
+        let hidden: poketto_core::models::VndbCharacter =
+            serde_json::from_str(hidden_json).expect("fixture");
+        let payload = assemble_detail(&detail_game(), None, &[shown, hidden]);
+        assert_eq!(
+            payload.character_avatars,
+            vec![("c1".to_string(), "https://img.jpg/c1.jpg".to_string())]
         );
     }
 }

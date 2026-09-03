@@ -20,7 +20,7 @@ pub struct DecodedImage {
 }
 
 pub struct LoadedCover {
-    pub game_id: String,
+    pub owner_id: String,
     pub generation: u64,
     pub image: Option<DecodedImage>,
 }
@@ -156,12 +156,12 @@ impl ImageLoader {
         self.shared.generation.fetch_add(1, Ordering::SeqCst) + 1
     }
 
-    pub fn request(&self, game_id: &str, url: &str) {
+    pub fn request(&self, owner_id: &str, url: &str) {
         let key = cache_key(url);
         let generation = self.shared.generation.load(Ordering::SeqCst);
         if let Some(image) = self.shared.mem.lock().expect("mem cache").get(&key) {
             let _ = self.shared.done_tx.send(LoadedCover {
-                game_id: game_id.to_string(),
+                owner_id: owner_id.to_string(),
                 generation,
                 image: Some(image),
             });
@@ -172,12 +172,12 @@ impl ImageLoader {
             .inflight
             .lock()
             .expect("inflight set")
-            .insert(game_id.to_string())
+            .insert(owner_id.to_string())
         {
             return;
         }
         let shared = self.shared.clone();
-        let game_id = game_id.to_string();
+        let owner_id = owner_id.to_string();
         let url = url.to_string();
         self.shared.rt.spawn(async move {
             let image = load_one(&shared, &url).await;
@@ -192,9 +192,9 @@ impl ImageLoader {
                 .inflight
                 .lock()
                 .expect("inflight set")
-                .remove(&game_id);
+                .remove(&owner_id);
             let _ = shared.done_tx.send(LoadedCover {
-                game_id,
+                owner_id,
                 generation,
                 image,
             });
@@ -382,16 +382,35 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
-    async fn wait_for_cover(loader: &ImageLoader, game_id: &str) -> Option<LoadedCover> {
+    async fn wait_for_cover(loader: &ImageLoader, owner_id: &str) -> Option<LoadedCover> {
         for _ in 0..100 {
             for cover in loader.poll() {
-                if cover.game_id == game_id {
+                if cover.owner_id == owner_id {
                     return Some(cover);
                 }
             }
             tokio::time::sleep(Duration::from_millis(50)).await;
         }
         None
+    }
+
+    #[test]
+    fn completion_echoes_request_owner() {
+        let dir = test_dir("owner");
+        let url = "https://example.com/owner.jpg";
+        let decoded = decode_thumbnail(&test_png(100, 100), THUMB_WIDTH).expect("decode");
+        std::fs::write(
+            thumbnail_path(&dir, url),
+            encode_jpeg(&decoded).expect("encode"),
+        )
+        .expect("seed");
+        let (rt, loader) = test_loader(&dir);
+        rt.block_on(async {
+            loader.request("c1", url);
+            let loaded = wait_for_cover(&loader, "c1").await.expect("loaded");
+            assert_eq!(loaded.image.expect("image").width, 100);
+        });
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

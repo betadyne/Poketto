@@ -42,6 +42,13 @@ fn cover_dir() -> std::path::PathBuf {
         .join("covers")
 }
 
+fn characters_dir() -> std::path::PathBuf {
+    dirs::cache_dir()
+        .unwrap_or_else(data_dir)
+        .join("poketto")
+        .join("characters")
+}
+
 fn refresh(
     app: &AppWindow,
     model: &VecModel<GameCardData>,
@@ -82,7 +89,7 @@ fn apply_cover(model: &VecModel<GameCardData>, loaded: &LoadedCover) {
         let Some(entry) = model.row_data(row) else {
             continue;
         };
-        if entry.id.as_str() == loaded.game_id {
+        if entry.id.as_str() == loaded.owner_id {
             model.set_row_data(
                 row,
                 GameCardData {
@@ -135,11 +142,13 @@ fn refresh_detail(
     rt: &tokio::runtime::Handle,
     client: &Arc<VndbClient>,
     loader: &Arc<ImageLoader>,
+    avatar_loader: &Arc<ImageLoader>,
     app: Weak<AppWindow>,
     game_id: String,
 ) {
     let client = client.clone();
     let loader = loader.clone();
+    let avatar_loader = avatar_loader.clone();
     rt.spawn(async move {
         let id = game_id.clone();
         let local = tokio::task::spawn_blocking(move || {
@@ -212,7 +221,7 @@ fn refresh_detail(
         let payload = assemble_detail(&game, Some(&fresh_detail), &fresh_characters);
         let _ = slint::invoke_from_event_loop(move || {
             if let Some(app) = app.upgrade() {
-                show_detail(&app, &loader, payload, false);
+                show_detail(&app, &loader, &avatar_loader, payload, false);
                 app.set_detail_refreshing(false);
             }
         });
@@ -223,11 +232,13 @@ fn open_detail(
     rt: &tokio::runtime::Handle,
     client: &Arc<VndbClient>,
     loader: &Arc<ImageLoader>,
+    avatar_loader: &Arc<ImageLoader>,
     app: Weak<AppWindow>,
     game_id: String,
 ) {
     let client = client.clone();
     let loader = loader.clone();
+    let avatar_loader = avatar_loader.clone();
     rt.spawn(async move {
         let id = game_id.clone();
         let local = tokio::task::spawn_blocking(move || {
@@ -286,13 +297,19 @@ fn open_detail(
         let payload = assemble_detail(&game, detail.as_ref(), &characters);
         let _ = slint::invoke_from_event_loop(move || {
             if let Some(app) = app.upgrade() {
-                show_detail(&app, &loader, payload, true);
+                show_detail(&app, &loader, &avatar_loader, payload, true);
             }
         });
     });
 }
 
-fn show_detail(app: &AppWindow, loader: &ImageLoader, payload: DetailPayload, navigate: bool) {
+fn show_detail(
+    app: &AppWindow,
+    loader: &ImageLoader,
+    avatar_loader: &ImageLoader,
+    payload: DetailPayload,
+    navigate: bool,
+) {
     app.set_detail_id(payload.id.clone().into());
     app.set_detail_title(payload.title.into());
     app.set_detail_meta(payload.meta.into());
@@ -316,15 +333,20 @@ fn show_detail(app: &AppWindow, loader: &ImageLoader, payload: DetailPayload, na
     let characters: Vec<DetailCharacter> = payload
         .characters
         .into_iter()
-        .map(|(name, role, spoiler)| DetailCharacter {
+        .map(|(id, name, role, spoiler)| DetailCharacter {
+            id: id.into(),
             name: name.into(),
             role: role.into(),
             spoiler,
+            avatar: slint::Image::default(),
         })
         .collect();
     app.set_detail_characters(ModelRc::from(Rc::new(VecModel::from(characters))));
     if let Some(url) = payload.cover_url {
         loader.request(&payload.id, &url);
+    }
+    for (id, url) in &payload.character_avatars {
+        avatar_loader.request(id, url);
     }
     app.set_library_rev(app.get_library_rev() + 1);
     if navigate {
@@ -348,12 +370,14 @@ fn sync_logs(app: &AppWindow, buffer: &LogBuffer, seen: &Cell<u64>) {
     app.set_logs_lines(ModelRc::from(Rc::new(VecModel::from(rows))));
 }
 
+#[allow(clippy::too_many_arguments)]
 fn begin_launch(
     app: &AppWindow,
     presence: &Arc<PresenceHandle>,
     rt_handle: &tokio::runtime::Handle,
     client: &Arc<VndbClient>,
     loader: &Arc<ImageLoader>,
+    avatar_loader: &Arc<ImageLoader>,
     handle: &Weak<AppWindow>,
     id: &slint::SharedString,
 ) {
@@ -365,7 +389,7 @@ fn begin_launch(
     if app.get_detail_id() == *id {
         app.set_detail_playing(true);
     }
-    launch_game(rt_handle, presence, client, loader, handle.clone(), id.to_string());
+    launch_game(rt_handle, presence, client, loader, avatar_loader, handle.clone(), id.to_string());
 }
 
 fn launch_game(
@@ -373,12 +397,14 @@ fn launch_game(
     presence: &Arc<PresenceHandle>,
     client: &Arc<VndbClient>,
     loader: &Arc<ImageLoader>,
+    avatar_loader: &Arc<ImageLoader>,
     app: Weak<AppWindow>,
     game_id: String,
 ) {
     let presence = presence.clone();
     let client = client.clone();
     let loader = loader.clone();
+    let avatar_loader = avatar_loader.clone();
     let rt_task = rt.clone();
     rt.spawn(async move {
         let id = game_id.clone();
@@ -482,6 +508,7 @@ fn launch_game(
                         &rt_task,
                         &client,
                         &loader,
+                        &avatar_loader,
                         app.as_weak(),
                         finished.clone(),
                     );
@@ -527,6 +554,7 @@ fn main() -> Result<(), slint::PlatformError> {
     let rt = tokio::runtime::Runtime::new().expect("start background runtime");
     let rt_handle = rt.handle().clone();
     let loader = Arc::new(ImageLoader::new(rt.handle(), cover_dir()).expect("start image loader"));
+    let avatar_loader = Arc::new(ImageLoader::new(rt.handle(), characters_dir()).expect("start avatar loader"));
     let client = Arc::new(VndbClient::new());
     let (presence, _presence_worker) =
         poketto_core::discord::spawn_presence_worker(poketto_core::discord::DISCORD_CLIENT_ID);
@@ -571,8 +599,9 @@ fn main() -> Result<(), slint::PlatformError> {
         let rt_handle = rt_handle.clone();
         let client = client.clone();
         let loader = loader.clone();
+        let avatar_loader = avatar_loader.clone();
         app.on_game_clicked(move |id| {
-            open_detail(&rt_handle, &client, &loader, handle.clone(), id.to_string());
+            open_detail(&rt_handle, &client, &loader, &avatar_loader, handle.clone(), id.to_string());
         });
     }
     {
@@ -681,9 +710,10 @@ fn main() -> Result<(), slint::PlatformError> {
         let presence = presence.clone();
         let client = client.clone();
         let loader = loader.clone();
+        let avatar_loader = avatar_loader.clone();
         app.on_launch_clicked(move |id| {
             if let Some(app) = handle.upgrade() {
-                begin_launch(&app, &presence, &rt_handle, &client, &loader, &handle, &id);
+                begin_launch(&app, &presence, &rt_handle, &client, &loader, &avatar_loader, &handle, &id);
             }
         });
     }
@@ -693,9 +723,10 @@ fn main() -> Result<(), slint::PlatformError> {
         let presence = presence.clone();
         let client = client.clone();
         let loader = loader.clone();
+        let avatar_loader = avatar_loader.clone();
         app.on_play_game(move |id| {
             if let Some(app) = handle.upgrade() {
-                begin_launch(&app, &presence, &rt_handle, &client, &loader, &handle, &id);
+                begin_launch(&app, &presence, &rt_handle, &client, &loader, &avatar_loader, &handle, &id);
             }
         });
     }
@@ -1049,6 +1080,7 @@ fn open_editor_for_edit(app: &AppWindow, game: &poketto_core::models::Game) {
         let rt_handle = rt_handle.clone();
         let client = client.clone();
         let loader = loader.clone();
+        let avatar_loader = avatar_loader.clone();
         app.on_refresh_metadata(move || {
             if let Some(app) = handle.upgrade() {
                 if app.get_detail_refreshing() {
@@ -1060,6 +1092,7 @@ fn open_editor_for_edit(app: &AppWindow, game: &poketto_core::models::Game) {
                     &rt_handle,
                     &client,
                     &loader,
+                    &avatar_loader,
                     handle.clone(),
                     app.get_detail_id().to_string(),
                 );
@@ -1136,6 +1169,7 @@ fn open_editor_for_edit(app: &AppWindow, game: &poketto_core::models::Game) {
         let rt_handle = rt_handle.clone();
         let client = client.clone();
         let loader = loader.clone();
+        let avatar_loader = avatar_loader.clone();
         app.on_edit_save(move |form| {
             let Some(app) = handle.upgrade() else {
                 return;
@@ -1192,6 +1226,7 @@ fn open_editor_for_edit(app: &AppWindow, game: &poketto_core::models::Game) {
                             &rt_handle,
                             &client,
                             &loader,
+                            &avatar_loader,
                             handle.clone(),
                             saved_id,
                         );
@@ -1203,6 +1238,7 @@ fn open_editor_for_edit(app: &AppWindow, game: &poketto_core::models::Game) {
     }
     let drain_model = model.clone();
     let drain_loader = loader.clone();
+    let drain_avatars = avatar_loader.clone();
     let drain_conn = conn.clone();
     let drain_sort = sort.clone();
     let drain_show_hidden = show_hidden.clone();
@@ -1219,10 +1255,28 @@ fn open_editor_for_edit(app: &AppWindow, game: &poketto_core::models::Game) {
             for loaded in drain_loader.poll() {
                 apply_cover(&drain_model, &loaded);
                 if let Some(app) = drain_handle.upgrade() {
-                    if loaded.game_id == app.get_detail_id().as_str() {
+                    if loaded.owner_id == app.get_detail_id().as_str() {
                         if let Some(image) = &loaded.image {
                             app.set_detail_cover(slint_image(image));
                             app.set_detail_show_cover(true);
+                        }
+                    }
+                }
+            }
+            for avatar in drain_avatars.poll() {
+                let Some(image) = avatar.image else {
+                    continue;
+                };
+                let image = slint_image(&image);
+                if let Some(app) = drain_handle.upgrade() {
+                    let characters = app.get_detail_characters();
+                    for row in 0..characters.row_count() {
+                        let Some(mut entry) = characters.row_data(row) else {
+                            continue;
+                        };
+                        if entry.id.as_str() == avatar.owner_id {
+                            entry.avatar = image.clone();
+                            characters.set_row_data(row, entry);
                         }
                     }
                 }
