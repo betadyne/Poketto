@@ -27,6 +27,7 @@ export component DetailView inherits Rectangle {
     callback back;
     callback launch;
     callback configure;
+    callback edit-clicked;
 
     Flickable {
         width: 100%;
@@ -125,6 +126,11 @@ export component DetailView inherits Rectangle {
                         Button {
                             text: "Config";
                             clicked => { root.configure(); }
+                        }
+
+                        Button {
+                            text: "Edit";
+                            clicked => { root.edit-clicked(); }
                         }
                     }
                 }

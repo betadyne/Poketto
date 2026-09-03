@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -35,6 +36,13 @@ pub fn validate_executable(path: &Path) -> ProcessResult<()> {
     Ok(())
 }
 
+pub fn working_dir(game: &Game, path: &Path) -> PathBuf {
+    game.work_dir
+        .as_deref()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| path.parent().unwrap_or(path).to_path_buf())
+}
+
 pub fn build_command(
     game: &Game,
     settings: &AppSettings,
@@ -45,21 +53,20 @@ pub fn build_command(
     #[cfg(target_os = "linux")]
     {
         match resolve_game_type(game, path) {
-            GameType::LinuxNative => Ok(native_command(path)),
+            GameType::LinuxNative => Ok(native_command(game, path)),
             GameType::WindowsExe => wine_command(game, path, settings),
         }
     }
 
     #[cfg(not(target_os = "linux"))]
     {
-        let _ = (game, settings);
-        Ok(native_command(path))
+        Ok(native_command(game, path))
     }
 }
 
-fn native_command(path: &Path) -> tokio::process::Command {
+fn native_command(game: &Game, path: &Path) -> tokio::process::Command {
     let mut cmd = tokio::process::Command::new(path);
-    cmd.current_dir(path.parent().unwrap_or(path));
+    cmd.current_dir(working_dir(game, path));
     cmd
 }
 
@@ -110,6 +117,7 @@ fn wine_command(
         | WineType::Lutris
         | WineType::Bottles
         | WineType::Custom => Ok(wine_runner_command(
+            game,
             &wine_binary,
             &prefix_path,
             path,
@@ -119,6 +127,7 @@ fn wine_command(
         )),
         WineType::Proton | WineType::ProtonGE | WineType::ProtonCachyOS | WineType::ProtonTKG => {
             Ok(wine_runner_command(
+                game,
                 &wine_binary,
                 &prefix_path,
                 path,
@@ -143,6 +152,7 @@ fn proton_env(prefix_path: &str) -> Vec<(String, String)> {
 
 #[cfg(target_os = "linux")]
 fn wine_runner_command(
+    game: &Game,
     runner_binary: &str,
     prefix_path: &str,
     game_path: &Path,
@@ -169,14 +179,14 @@ fn wine_runner_command(
             for (key, value) in env {
                 cmd.env(key, value);
             }
-            cmd.current_dir(game_path.parent().unwrap_or(game_path));
+            cmd.current_dir(working_dir(game, game_path));
             cmd.arg("run");
             cmd.arg(game_path);
         }
         None => {
             cmd.env("WINEPREFIX", prefix_path);
             cmd.env("WINEDEBUG", "-all");
-            cmd.current_dir(game_path.parent().unwrap_or(game_path));
+            cmd.current_dir(working_dir(game, game_path));
             cmd.arg(game_path);
         }
     }
@@ -223,6 +233,7 @@ mod tests {
             show_spoilers: false,
             game_type,
             wine_settings: None,
+            work_dir: None,
             rating: None,
         }
     }
@@ -249,6 +260,25 @@ mod tests {
         assert_eq!(
             resolve_game_type(&game, Path::new(&game.path)),
             GameType::LinuxNative
+        );
+    }
+
+    #[test]
+    fn explicit_work_dir_wins_over_parent() {
+        let mut game = game_with("/games/sub/game.exe", None);
+        game.work_dir = Some("/games/work".to_string());
+        assert_eq!(
+            working_dir(&game, Path::new(&game.path)),
+            PathBuf::from("/games/work")
+        );
+    }
+
+    #[test]
+    fn missing_work_dir_falls_back_to_parent() {
+        let game = game_with("/games/sub/game.exe", None);
+        assert_eq!(
+            working_dir(&game, Path::new(&game.path)),
+            PathBuf::from("/games/sub")
         );
     }
 

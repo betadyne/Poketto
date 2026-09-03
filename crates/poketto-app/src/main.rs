@@ -508,7 +508,218 @@ fn main() -> Result<(), slint::PlatformError> {
             }
         });
     }
+fn open_editor_for_add(app: &AppWindow) {
+    app.set_edit_heading("Add game".into());
+    app.set_edit_id("".into());
+    app.set_edit_title("".into());
+    app.set_edit_vndb_id("".into());
+    app.set_edit_exec_path("".into());
+    app.set_edit_work_dir("".into());
+    app.set_edit_cover_url("".into());
+    app.set_edit_platform(0);
+    app.set_edit_wine_prefix("".into());
+    app.set_edit_wine_binary("".into());
+    app.set_edit_error("".into());
+    app.set_edit_vndb_query("".into());
+    app.set_edit_vndb_hits(ModelRc::from(Rc::new(VecModel::<VndbHit>::default())));
+    app.set_edit_searching(false);
+    app.set_edit_open(true);
+}
 
+fn open_editor_for_edit(app: &AppWindow, game: &poketto_core::models::Game) {
+    app.set_edit_heading("Edit game".into());
+    app.set_edit_id(game.id.clone().into());
+    app.set_edit_title(game.title.clone().into());
+    app.set_edit_vndb_id(game.vndb_id.clone().unwrap_or_default().into());
+    app.set_edit_exec_path(game.path.clone().into());
+    app.set_edit_work_dir(game.work_dir.clone().unwrap_or_default().into());
+    app.set_edit_cover_url(game.cover_url.clone().unwrap_or_default().into());
+    app.set_edit_platform(adapters::platform_index(game));
+    let (prefix, binary) = game
+        .wine_settings
+        .as_ref()
+        .map(|wine| {
+            (
+                wine.wine_prefix.clone().unwrap_or_default(),
+                wine.wine_version.clone().unwrap_or_default(),
+            )
+        })
+        .unwrap_or_default();
+    app.set_edit_wine_prefix(prefix.into());
+    app.set_edit_wine_binary(binary.into());
+    app.set_edit_error("".into());
+    app.set_edit_vndb_query("".into());
+    app.set_edit_vndb_hits(ModelRc::from(Rc::new(VecModel::<VndbHit>::default())));
+    app.set_edit_searching(false);
+    app.set_edit_open(true);
+}
+
+    {
+        let handle = app.as_weak();
+        app.on_add_clicked(move || {
+            if let Some(app) = handle.upgrade() {
+                open_editor_for_add(&app);
+            }
+        });
+    }
+    {
+        let handle = app.as_weak();
+        let conn = conn.clone();
+        app.on_edit_clicked(move || {
+            let Some(app) = handle.upgrade() else {
+                return;
+            };
+            let id = app.get_detail_id().to_string();
+            match poketto_core::db::get_game(&conn.borrow(), &id) {
+                Ok(Some(game)) => open_editor_for_edit(&app, &game),
+                Ok(None) => tracing::warn!("edit requested for missing game"),
+                Err(e) => tracing::warn!("edit load failed: {e}"),
+            }
+        });
+    }
+    {
+        let handle = app.as_weak();
+        app.on_edit_cancel(move || {
+            if let Some(app) = handle.upgrade() {
+                app.set_edit_open(false);
+            }
+        });
+    }
+    {
+        let handle = app.as_weak();
+        let rt_handle = rt_handle.clone();
+        app.on_edit_browse(move || {
+            let handle = handle.clone();
+            rt_handle.spawn(async move {
+                let picked = rfd::AsyncFileDialog::new()
+                    .set_title("Select game executable")
+                    .pick_file()
+                    .await;
+                if let Some(file) = picked {
+                    let path = file.path().to_path_buf();
+                    let _ = slint::invoke_from_event_loop(move || {
+                        if let Some(app) = handle.upgrade() {
+                            app.set_edit_exec_path(
+                                path.to_str().unwrap_or_default().into(),
+                            );
+                        }
+                    });
+                }
+            });
+        });
+    }
+    {
+        let handle = app.as_weak();
+        let rt_handle = rt_handle.clone();
+        let client = client.clone();
+        app.on_edit_search(move |query| {
+            let handle = handle.clone();
+            let client = client.clone();
+            let Some(app) = handle.upgrade() else {
+                return;
+            };
+            app.set_edit_searching(true);
+            let query = query.to_string();
+            rt_handle.spawn(async move {
+                let hits = match client.search(&query).await {
+                    Ok(results) => results
+                        .into_iter()
+                        .take(8)
+                        .map(|hit| VndbHit {
+                            id: hit.id.into(),
+                            title: hit.title.into(),
+                            cover_url: hit
+                                .image
+                                .map(|image| image.url)
+                                .unwrap_or_default()
+                                .into(),
+                        })
+                        .collect(),
+                    Err(e) => {
+                        tracing::warn!("vndb search failed: {e}");
+                        Vec::new()
+                    }
+                };
+                let _ = slint::invoke_from_event_loop(move || {
+                    if let Some(app) = handle.upgrade() {
+                        app.set_edit_vndb_hits(ModelRc::from(Rc::new(VecModel::from(hits))));
+                        app.set_edit_searching(false);
+                    }
+                });
+            });
+        });
+    }
+    {
+        let handle = app.as_weak();
+        let conn = conn.clone();
+        let rt_handle = rt_handle.clone();
+        let client = client.clone();
+        let loader = loader.clone();
+        app.on_edit_save(move |form| {
+            let Some(app) = handle.upgrade() else {
+                return;
+            };
+            if let Some(error) =
+                adapters::validate_game_form(form.title.as_str(), form.vndb_id.as_str())
+            {
+                app.set_edit_error(error.into());
+                return;
+            }
+            if form.exec_path.trim().is_empty() {
+                app.set_edit_error("Executable path is required.".into());
+                return;
+            }
+            let is_new = form.id.is_empty();
+            let existing = if is_new {
+                None
+            } else {
+                match poketto_core::db::get_game(&conn.borrow(), form.id.as_str()) {
+                    Ok(game) => game,
+                    Err(e) => {
+                        app.set_edit_error(format!("Save failed: {e}").into());
+                        return;
+                    }
+                }
+            };
+            if !is_new && existing.is_none() {
+                app.set_edit_error("Game no longer exists.".into());
+                return;
+            }
+            let steam = poketto_core::db::load_settings(&conn.borrow())
+                .map(|settings| settings.use_steam_runtime)
+                .unwrap_or(false);
+            let game = adapters::apply_form(
+                existing.as_ref(),
+                &form,
+                steam,
+                &uuid::Uuid::new_v4().to_string(),
+            );
+            let saved_id = game.id.clone();
+            let stored = if existing.is_some() {
+                poketto_core::db::update_game(&conn.borrow(), &game)
+            } else {
+                poketto_core::db::insert_game(&conn.borrow(), &game)
+            };
+            match stored {
+                Ok(()) => {
+                    app.set_edit_open(false);
+                    app.set_library_rev(app.get_library_rev() + 1);
+                    if app.get_screen() == SCREEN_DETAIL
+                        && app.get_detail_id().as_str() == saved_id
+                    {
+                        open_detail(
+                            &rt_handle,
+                            &client,
+                            &loader,
+                            handle.clone(),
+                            saved_id,
+                        );
+                    }
+                }
+                Err(e) => app.set_edit_error(format!("Save failed: {e}").into()),
+            }
+        });
+    }
     let drain_model = model.clone();
     let drain_loader = loader.clone();
     let drain_conn = conn.clone();

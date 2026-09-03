@@ -84,6 +84,8 @@ pub struct Game {
     pub id: String,
     pub title: String,
     pub path: String,
+    #[serde(default)]
+    pub work_dir: Option<String>,
     pub vndb_id: Option<String>,
     pub cover_url: Option<String>,
     #[serde(default, alias = "play_time")]

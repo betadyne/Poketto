@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use super::error::{DbError, DbResult};
 use crate::models::{AppSettings, Game, Tag, WineSettings};
 
-const GAME_COLUMNS: &str = "id, title, path, vndb_id, cover_url, play_time_minutes, is_finished, last_played, is_hidden, show_spoilers, game_type, wine_settings, rating";
+const GAME_COLUMNS: &str = "id, title, path, vndb_id, cover_url, play_time_minutes, is_finished, last_played, is_hidden, show_spoilers, game_type, wine_settings, rating, work_dir";
 
 fn game_from_row(row: &Row) -> rusqlite::Result<Game> {
     let game_type: Option<String> = row.get(10)?;
@@ -21,6 +21,7 @@ fn game_from_row(row: &Row) -> rusqlite::Result<Game> {
         id: row.get(0)?,
         title: row.get(1)?,
         path: row.get(2)?,
+        work_dir: row.get(13)?,
         vndb_id: row.get(3)?,
         cover_url: row.get(4)?,
         play_time_minutes,
@@ -71,8 +72,8 @@ pub fn insert_game(conn: &Connection, game: &Game) -> DbResult<()> {
     let play_time = i64::try_from(game.play_time_minutes)
         .map_err(|_| DbError::OutOfRange(game.play_time_minutes))?;
     conn.execute(
-        "INSERT INTO games (id, title, path, vndb_id, cover_url, play_time_minutes, is_finished, last_played, is_hidden, show_spoilers, game_type, wine_settings, rating)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+        "INSERT INTO games (id, title, path, vndb_id, cover_url, play_time_minutes, is_finished, last_played, is_hidden, show_spoilers, game_type, wine_settings, rating, work_dir)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
         params![
             game.id,
             game.title,
@@ -87,6 +88,7 @@ pub fn insert_game(conn: &Connection, game: &Game) -> DbResult<()> {
             game.game_type.as_ref().map(|kind| kind.as_str()),
             wine_blob(&game.wine_settings)?,
             game.rating,
+            game.work_dir,
         ],
     )?;
     Ok(())
@@ -98,7 +100,7 @@ pub fn update_game(conn: &Connection, game: &Game) -> DbResult<()> {
     let changed = conn.execute(
         "UPDATE games SET title = ?2, path = ?3, vndb_id = ?4, cover_url = ?5, play_time_minutes = ?6,
          is_finished = ?7, last_played = ?8, is_hidden = ?9, show_spoilers = ?10, game_type = ?11,
-         wine_settings = ?12, rating = ?13 WHERE id = ?1",
+         wine_settings = ?12, rating = ?13, work_dir = ?14 WHERE id = ?1",
         params![
             game.id,
             game.title,
@@ -113,6 +115,7 @@ pub fn update_game(conn: &Connection, game: &Game) -> DbResult<()> {
             game.game_type.as_ref().map(|kind| kind.as_str()),
             wine_blob(&game.wine_settings)?,
             game.rating,
+            game.work_dir,
         ],
     )?;
     if changed == 0 {
@@ -338,6 +341,7 @@ mod tests {
             id: id.to_string(),
             title: title.to_string(),
             path: format!("/games/{id}"),
+            work_dir: None,
             vndb_id: Some("v17".to_string()),
             cover_url: Some("https://example.com/cover.jpg".to_string()),
             play_time_minutes: 42,

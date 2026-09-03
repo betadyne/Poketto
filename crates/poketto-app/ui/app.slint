@@ -1,5 +1,6 @@
 import { Theme } from "tokens.slint";
 import { GameCardData } from "components/GameCard.slint";
+import { GameEditOverlay, GameFormData, VndbHit } from "components/GameEditOverlay.slint";
 import { LibraryView } from "views/LibraryView.slint";
 import { DetailView, DetailTag, DetailCharacter } from "views/DetailView.slint";
 import { SettingsView, WineRow } from "views/SettingsView.slint";
@@ -39,6 +40,22 @@ export component AppWindow inherits Window {
     in-out property <string> playing-id;
     in-out property <int> library-rev;
 
+    in-out property <bool> edit-open;
+    in-out property <string> edit-heading;
+    in-out property <string> edit-id;
+    in-out property <string> edit-title;
+    in-out property <string> edit-vndb-id;
+    in-out property <string> edit-exec-path;
+    in-out property <string> edit-work-dir;
+    in-out property <string> edit-cover-url;
+    in-out property <int> edit-platform;
+    in-out property <string> edit-wine-prefix;
+    in-out property <string> edit-wine-binary;
+    in-out property <string> edit-error;
+    in-out property <string> edit-vndb-query;
+    in-out property <[VndbHit]> edit-vndb-hits;
+    in-out property <bool> edit-searching;
+
     callback game-clicked(string);
     callback search-accepted(string);
     callback filter-changed(int);
@@ -46,10 +63,16 @@ export component AppWindow inherits Window {
     callback detail-back;
     callback launch-clicked(string);
     callback configure-clicked;
+    callback edit-clicked;
     callback settings-back;
     callback settings-save;
     callback detect-wine;
     callback select-wine(string);
+    callback add-clicked;
+    callback edit-browse;
+    callback edit-search(string);
+    callback edit-save(GameFormData);
+    callback edit-cancel;
 
     if root.screen == 0 : LibraryView {
         width: 100%;
@@ -61,6 +84,7 @@ export component AppWindow inherits Window {
         search-accepted(query) => { root.search-accepted(query); }
         filter-changed(index) => { root.filter-changed(index); }
         open-settings => { root.open-settings(); }
+        add-clicked => { root.add-clicked(); }
     }
 
     if root.screen == 1 : DetailView {
@@ -80,6 +104,7 @@ export component AppWindow inherits Window {
         back => { root.detail-back(); }
         launch => { root.launch-clicked(root.detail-id); }
         configure => { root.configure-clicked(); }
+        edit-clicked => { root.edit-clicked(); }
     }
 
     if root.screen == 2 : SettingsView {
@@ -98,5 +123,31 @@ export component AppWindow inherits Window {
         save => { root.settings-save(); }
         detect-wine => { root.detect-wine(); }
         select-wine(binary) => { root.select-wine(binary); }
+    }
+
+    if root.edit-open : GameEditOverlay {
+        heading <=> root.edit-heading;
+        game-id <=> root.edit-id;
+        title <=> root.edit-title;
+        vndb-id <=> root.edit-vndb-id;
+        exec-path <=> root.edit-exec-path;
+        work-dir <=> root.edit-work-dir;
+        cover-url <=> root.edit-cover-url;
+        platform <=> root.edit-platform;
+        wine-prefix <=> root.edit-wine-prefix;
+        wine-binary <=> root.edit-wine-binary;
+        form-error <=> root.edit-error;
+        vndb-query <=> root.edit-vndb-query;
+        vndb-hits <=> root.edit-vndb-hits;
+        searching <=> root.edit-searching;
+        browse => { root.edit-browse(); }
+        search-vndb(query) => { root.edit-search(query); }
+        save-game(form) => { root.edit-save(form); }
+        cancel => { root.edit-cancel(); }
+        pick-hit(hit) => {
+            root.edit-title = hit.title;
+            root.edit-vndb-id = hit.id;
+            root.edit-cover-url = hit.cover-url;
+        }
     }
 }

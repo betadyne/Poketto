@@ -78,6 +78,7 @@ mod tests {
             id: id.to_string(),
             title: title.to_string(),
             path: format!("/games/{id}"),
+            work_dir: None,
             vndb_id: None,
             cover_url: None,
             play_time_minutes: 0,

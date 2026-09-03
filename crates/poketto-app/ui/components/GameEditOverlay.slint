@@ -1,0 +1,307 @@
+import { Theme } from "../tokens.slint";
+import { Button } from "../components/Button.slint";
+
+export struct GameFormData {
+    id: string,
+    title: string,
+    vndb-id: string,
+    exec-path: string,
+    work-dir: string,
+    cover-url: string,
+    platform: int,
+    wine-prefix: string,
+    wine-binary: string,
+}
+
+export struct VndbHit {
+    id: string,
+    title: string,
+    cover-url: string,
+}
+
+component LabeledField inherits VerticalLayout {
+    in property <string> label;
+    in-out property <string> text;
+
+    spacing: 4px;
+
+    Text {
+        text: root.label;
+        color: Theme.text-muted;
+        font-size: Theme.font-sm;
+    }
+
+    Rectangle {
+        height: 40px;
+        background: Theme.surface;
+        border-width: 1px;
+        border-color: Theme.border;
+        border-radius: Theme.radius-md;
+
+        HorizontalLayout {
+            padding-left: Theme.pad-md;
+            padding-right: Theme.pad-md;
+
+            input := TextInput {
+                text <=> root.text;
+                color: Theme.text;
+                font-size: Theme.font-md;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+            }
+        }
+    }
+}
+
+export component GameEditOverlay inherits Rectangle {
+    in property <string> heading;
+    in property <string> game-id;
+    in-out property <string> title;
+    in-out property <string> vndb-id;
+    in-out property <string> exec-path;
+    in-out property <string> work-dir;
+    in-out property <string> cover-url;
+    in-out property <int> platform;
+    in-out property <string> wine-prefix;
+    in-out property <string> wine-binary;
+    in-out property <string> form-error;
+    in-out property <string> vndb-query;
+    in-out property <[VndbHit]> vndb-hits;
+    in-out property <bool> searching;
+
+    callback browse;
+    callback search-vndb(string);
+    callback save-game(GameFormData);
+    callback cancel;
+    callback pick-hit(VndbHit);
+
+    width: 100%;
+    height: 100%;
+
+    TouchArea {
+        clicked => { root.cancel(); }
+    }
+
+    Rectangle {
+        width: 520px;
+        height: Math.min(660px, parent.height - 48px);
+        background: Theme.bg-dark;
+        border-width: 1px;
+        border-color: Theme.border;
+        border-radius: Theme.radius-md;
+
+        Flickable {
+            width: 100%;
+            height: 100%;
+            viewport-height: form.preferred-height;
+
+            form := VerticalLayout {
+                padding: Theme.pad-lg;
+                spacing: Theme.space-md;
+
+                Text {
+                    text: root.heading;
+                    color: Theme.text;
+                    font-size: Theme.font-lg;
+                }
+
+                LabeledField {
+                    label: "Title (required)";
+                    text <=> root.title;
+                }
+
+                LabeledField {
+                    label: "VNDB ID (example v17)";
+                    text <=> root.vndb-id;
+                }
+
+                Text {
+                    text: "Executable";
+                    color: Theme.text-muted;
+                    font-size: Theme.font-sm;
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.space-sm;
+
+                    Rectangle {
+                        height: 40px;
+                        background: Theme.surface;
+                        border-width: 1px;
+                        border-color: Theme.border;
+                        border-radius: Theme.radius-md;
+                        horizontal-stretch: 1;
+
+                        HorizontalLayout {
+                            padding-left: Theme.pad-md;
+                            padding-right: Theme.pad-md;
+
+                            TextInput {
+                                text <=> root.exec-path;
+                                color: Theme.text;
+                                font-size: Theme.font-md;
+                                vertical-alignment: center;
+                                horizontal-stretch: 1;
+                            }
+                        }
+                    }
+
+                    Button {
+                        text: "Browse...";
+                        clicked => { root.browse(); }
+                    }
+                }
+
+                LabeledField {
+                    label: "Working directory (optional)";
+                    text <=> root.work-dir;
+                }
+
+                LabeledField {
+                    label: "Cover image URL (optional)";
+                    text <=> root.cover-url;
+                }
+
+                Text {
+                    text: "Platform";
+                    color: Theme.text-muted;
+                    font-size: Theme.font-sm;
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.space-sm;
+
+                    Button {
+                        text: "Native";
+                        primary: root.platform == 0;
+                        clicked => { root.platform = 0; }
+                    }
+
+                    Button {
+                        text: "Wine";
+                        primary: root.platform == 1;
+                        clicked => { root.platform = 1; }
+                    }
+
+                    Button {
+                        text: "Proton";
+                        primary: root.platform == 2;
+                        clicked => { root.platform = 2; }
+                    }
+                }
+
+                if root.platform != 0 : LabeledField {
+                    label: "Wine prefix (optional)";
+                    text <=> root.wine-prefix;
+                }
+
+                if root.platform != 0 : LabeledField {
+                    label: "Custom runner binary (optional)";
+                    text <=> root.wine-binary;
+                }
+
+                Text {
+                    text: "Find on VNDB";
+                    color: Theme.text-muted;
+                    font-size: Theme.font-sm;
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.space-sm;
+
+                    Rectangle {
+                        height: 40px;
+                        background: Theme.surface;
+                        border-width: 1px;
+                        border-color: Theme.border;
+                        border-radius: Theme.radius-md;
+                        horizontal-stretch: 1;
+
+                        HorizontalLayout {
+                            padding-left: Theme.pad-md;
+                            padding-right: Theme.pad-md;
+
+                            TextInput {
+                                text <=> root.vndb-query;
+                                color: Theme.text;
+                                font-size: Theme.font-md;
+                                vertical-alignment: center;
+                                horizontal-stretch: 1;
+                                accepted => { root.search-vndb(root.vndb-query); }
+                            }
+                        }
+                    }
+
+                    Button {
+                        text: "Search";
+                        clicked => { root.search-vndb(root.vndb-query); }
+                    }
+                }
+
+                if root.searching : Text {
+                    text: "Searching...";
+                    color: Theme.text-muted;
+                    font-size: Theme.font-md;
+                }
+
+                for hit in root.vndb-hits : TouchArea {
+                    clicked => { root.pick-hit(hit); }
+
+                    HorizontalLayout {
+                        spacing: Theme.space-sm;
+
+                        Text {
+                            text: hit.title;
+                            color: Theme.text;
+                            font-size: Theme.font-md;
+                            vertical-alignment: center;
+                            horizontal-stretch: 1;
+                            overflow: elide;
+                        }
+
+                        Text {
+                            text: hit.id;
+                            color: Theme.text-muted;
+                            font-size: Theme.font-sm;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+
+                if root.form-error != "" : Text {
+                    text: root.form-error;
+                    color: Theme.danger;
+                    font-size: Theme.font-md;
+                    wrap: word-wrap;
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.space-sm;
+
+                    Button {
+                        text: "Save";
+                        primary: true;
+                        clicked => {
+                            root.save-game({
+                                id: root.game-id,
+                                title: root.title,
+                                vndb-id: root.vndb-id,
+                                exec-path: root.exec-path,
+                                work-dir: root.work-dir,
+                                cover-url: root.cover-url,
+                                platform: root.platform,
+                                wine-prefix: root.wine-prefix,
+                                wine-binary: root.wine-binary,
+                            });
+                        }
+                    }
+
+                    Button {
+                        text: "Cancel";
+                        clicked => { root.cancel(); }
+                    }
+                }
+            }
+        }
+    }
+}

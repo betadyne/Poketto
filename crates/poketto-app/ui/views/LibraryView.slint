@@ -14,7 +14,7 @@ export component LibraryView inherits Rectangle {
     callback search-accepted(string);
     callback filter-changed(int);
     callback open-settings;
-
+    callback add-clicked;
     property <int> row-count: Math.ceil(games.length / root.columns);
 
     HorizontalLayout {
@@ -75,9 +75,20 @@ export component LibraryView inherits Rectangle {
             padding: Theme.pad-md;
             spacing: Theme.space-md;
 
-            SearchBar {
-                text <=> root.query;
-                accepted(query) => { root.search-accepted(query); }
+            HorizontalLayout {
+                spacing: Theme.space-sm;
+
+                SearchBar {
+                    text <=> root.query;
+                    accepted(query) => { root.search-accepted(query); }
+                    horizontal-stretch: 1;
+                }
+
+                Button {
+                    text: "Add";
+                    primary: true;
+                    clicked => { root.add-clicked(); }
+                }
             }
 
             if root.games.length == 0 : Text {

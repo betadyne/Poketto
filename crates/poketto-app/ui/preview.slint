@@ -3,6 +3,7 @@ import { Button } from "components/Button.slint";
 import { TagBadge } from "components/TagBadge.slint";
 import { SearchBar } from "components/SearchBar.slint";
 import { GameCardData } from "components/GameCard.slint";
+import { GameEditOverlay } from "components/GameEditOverlay.slint";
 import { LibraryView } from "views/LibraryView.slint";
 import { DetailView } from "views/DetailView.slint";
 import { SettingsView } from "views/SettingsView.slint";
@@ -142,6 +143,27 @@ export component SettingsPreview inherits Window {
         runners: [
             { name: "Wine 9.0 (64-bit)", binary: "/usr/bin/wine64" },
             { name: "GE-Proton9-7", binary: "/home/user/.steam/root/compatibilitytools.d/GE-Proton9-7/proton" },
+        ];
+    }
+}
+
+export component EditorPreview inherits Window {
+    title: "Poketto Editor Preview";
+    width: 640px;
+    height: 720px;
+    background: Theme.bg-dark;
+
+    GameEditOverlay {
+        heading: "Add game";
+        title: "Muv-Luv Alternative";
+        vndb-id: "v17";
+        exec-path: "/games/muvluv/game.exe";
+        platform: 2;
+        wine-prefix: "/home/user/Games/Poketto/Prefixes/demo";
+        vndb-query: "muv-luv";
+        vndb-hits: [
+            { id: "v17", title: "Muv-Luv Alternative", cover-url: "https://img.jpg" },
+            { id: "v18", title: "Muv-Luv Unlimited", cover-url: "" },
         ];
     }
 }
