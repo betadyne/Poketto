@@ -33,6 +33,7 @@ pub fn add_local_game(path: String, state: State<AppState>) -> AppResult<GameMet
         is_finished: false,
         last_played: None,
         is_hidden: false,
+        show_spoilers: false,
         game_type: None,
         wine_settings: None,
     };

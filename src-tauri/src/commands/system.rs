@@ -566,6 +566,7 @@ mod tests {
                 wine_settings,
                 is_finished: false,
                 is_hidden: false,
+                show_spoilers: false,
             }
         }
 

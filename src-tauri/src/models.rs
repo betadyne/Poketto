@@ -87,6 +87,8 @@ pub struct GameMetadata {
     #[serde(default)]
     pub is_hidden: bool,
     #[serde(default)]
+    pub show_spoilers: bool,
+    #[serde(default)]
     pub game_type: Option<GameType>,
     #[serde(default)]
     pub wine_settings: Option<WineSettings>,
