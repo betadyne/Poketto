@@ -15,13 +15,14 @@ impl RunTracker {
             start: Instant::now(),
         }
     }
-
     pub async fn wait_for_exit(self, mut child: Child) -> std::io::Result<CompletedRun> {
         child.wait().await?;
-        Ok(CompletedRun {
-            game_id: self.game_id,
+        let run = CompletedRun {
+            game_id: self.game_id.clone(),
             duration: self.start.elapsed(),
-        })
+        };
+        tracing::info!(game_id = run.game_id.as_str(), minutes = run.play_minutes(), "game exited");
+        Ok(run)
     }
 }
 

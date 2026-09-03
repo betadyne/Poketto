@@ -11,6 +11,9 @@ pub enum VndbError {
     #[error("authentication required: {0}")]
     AuthRequired(String),
 
+    #[error("cache error: {0}")]
+    Cache(String),
+
     #[error("vn not found: {0}")]
     NotFound(String),
 }

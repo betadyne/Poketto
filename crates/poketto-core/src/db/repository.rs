@@ -242,6 +242,44 @@ pub fn daily_playtime(conn: &Connection, game_id: &str) -> DbResult<HashMap<Stri
     Ok(totals)
 }
 
+pub struct CacheEntry {
+    pub value: String,
+    pub fetched_at: i64,
+}
+
+pub fn cache_put(conn: &Connection, kind: &str, key: &str, value: &str, fetched_at: i64) -> DbResult<()> {
+    conn.execute(
+        "INSERT INTO vndb_cache (kind, key, value, fetched_at) VALUES (?1, ?2, ?3, ?4)
+         ON CONFLICT(kind, key) DO UPDATE SET value = excluded.value, fetched_at = excluded.fetched_at",
+        params![kind, key, value, fetched_at],
+    )?;
+    Ok(())
+}
+
+pub fn cache_get(conn: &Connection, kind: &str, key: &str) -> DbResult<Option<CacheEntry>> {
+    let mut stmt =
+        conn.prepare("SELECT value, fetched_at FROM vndb_cache WHERE kind = ?1 AND key = ?2")?;
+    let entry = stmt
+        .query_row(params![kind, key], |row| {
+            Ok(CacheEntry {
+                value: row.get(0)?,
+                fetched_at: row.get(1)?,
+            })
+        })
+        .optional()?;
+    Ok(entry)
+}
+
+pub fn cache_remove(conn: &Connection, key: &str) -> DbResult<()> {
+    conn.execute("DELETE FROM vndb_cache WHERE key = ?1", params![key])?;
+    Ok(())
+}
+
+pub fn cache_clear(conn: &Connection) -> DbResult<()> {
+    conn.execute("DELETE FROM vndb_cache", [])?;
+    Ok(())
+}
+
 pub fn add_tag(conn: &Connection, id: &str, name: &str) -> DbResult<()> {
     conn.execute(
         "INSERT INTO tags (id, name) VALUES (?1, ?2)",

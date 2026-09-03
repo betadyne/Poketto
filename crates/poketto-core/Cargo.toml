@@ -12,3 +12,4 @@ thiserror.workspace = true
 discord-rich-presence.workspace = true
 reqwest.workspace = true
 tokio.workspace = true
+tracing.workspace = true

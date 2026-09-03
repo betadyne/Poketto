@@ -193,6 +193,7 @@ pub fn spawn(
     path: &Path,
 ) -> ProcessResult<tokio::process::Child> {
     use std::io::ErrorKind;
+    tracing::info!(path = %path.display(), "spawning game process");
     cmd.spawn().map_err(|e| match e.kind() {
         ErrorKind::NotFound => {
             ProcessError::NotFound(format!("executable not found: {}", path.display()))
@@ -242,8 +243,6 @@ mod tests {
             GameType::WindowsExe
         );
     }
-
-    #[test]
     fn other_extension_defaults_to_native() {
         let game = game_with("/games/a.x86_64", None);
         assert_eq!(

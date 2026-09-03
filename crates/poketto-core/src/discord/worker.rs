@@ -90,9 +90,15 @@ fn worker_loop(client_id: String, rx: mpsc::Receiver<WorkerCommand>) {
             return;
         }
         let mut fresh = DiscordIpcClient::new(&client_id);
-        if fresh.connect().is_ok() {
-            *client = Some(fresh);
-            *connected = true;
+        match fresh.connect() {
+            Ok(()) => {
+                tracing::info!("connected to Discord Rich Presence");
+                *client = Some(fresh);
+                *connected = true;
+            }
+            Err(e) => {
+                tracing::warn!("discord connect failed: {e}");
+            }
         }
     };
 
@@ -103,7 +109,8 @@ fn worker_loop(client_id: String, rx: mpsc::Receiver<WorkerCommand>) {
                 last = None;
                 if connected {
                     if let Some(client) = client.as_mut() {
-                        if client.clear_activity().is_err() {
+                        if let Err(e) = client.clear_activity() {
+                            tracing::warn!("discord clear failed: {e}");
                             connected = false;
                         }
                     }
@@ -119,12 +126,14 @@ fn worker_loop(client_id: String, rx: mpsc::Receiver<WorkerCommand>) {
                 }
                 if let Some(client) = client.as_mut() {
                     if send_update(client, &update) {
+                        tracing::info!(title = update.title.as_str(), "discord activity set");
                         last = Some(update);
                     } else {
+                        tracing::warn!(title = update.title.as_str(), "discord send failed");
                         connected = false;
                     }
                 }
-            }
+    }
         }
     }
 

@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use super::error::{DbError, DbResult};
 
-pub const SCHEMA_VERSION: i64 = 1;
+pub const SCHEMA_VERSION: i64 = 2;
 
 const MIGRATION_V1: &str = "
 CREATE TABLE IF NOT EXISTS games (
@@ -45,6 +45,17 @@ CREATE INDEX IF NOT EXISTS idx_play_sessions_game_date ON play_sessions(game_id,
 CREATE INDEX IF NOT EXISTS idx_game_tags_tag ON game_tags(tag_id);
 ";
 
+const MIGRATION_V2: &str = "
+CREATE TABLE IF NOT EXISTS vndb_cache (
+    kind TEXT NOT NULL,
+    key TEXT NOT NULL,
+    value TEXT NOT NULL,
+    fetched_at INTEGER NOT NULL,
+    PRIMARY KEY (kind, key)
+);
+CREATE INDEX IF NOT EXISTS idx_vndb_cache_kind ON vndb_cache(kind);
+";
+
 pub fn open(path: &Path) -> DbResult<Connection> {
     let conn = Connection::open(path)?;
     conn.pragma_update(None, "journal_mode", "WAL")?;
@@ -75,8 +86,11 @@ fn apply_migrations(conn: &Connection) -> DbResult<()> {
     let version: i64 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
     if version < 1 {
         conn.execute_batch(MIGRATION_V1)?;
-        conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
     }
+    if version < 2 {
+        conn.execute_batch(MIGRATION_V2)?;
+    }
+    conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
     Ok(())
 }
 
@@ -105,5 +119,25 @@ mod tests {
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .expect("version");
         assert_eq!(version, SCHEMA_VERSION);
+    }
+
+    #[test]
+    fn upgrade_from_v1_applies_v2() {
+        let conn = Connection::open_in_memory().expect("open");
+        conn.execute_batch(MIGRATION_V1).expect("v1 baseline");
+        conn.pragma_update(None, "user_version", 1).expect("stamp v1");
+        apply_migrations(&conn).expect("upgrade");
+        let version: i64 = conn
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .expect("version");
+        assert_eq!(version, SCHEMA_VERSION);
+        let cache_table: String = conn
+            .query_row(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'vndb_cache'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("cache table exists");
+        assert_eq!(cache_table, "vndb_cache");
     }
 }
