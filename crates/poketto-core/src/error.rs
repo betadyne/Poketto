@@ -47,6 +47,16 @@ impl From<crate::db::DbError> for AppError {
     }
 }
 
+impl From<crate::wine::WineError> for AppError {
+    fn from(e: crate::wine::WineError) -> Self {
+        match e {
+            crate::wine::WineError::NotFound(path) => AppError::NotFound(path),
+            crate::wine::WineError::Io(message) => AppError::Io(message),
+            other => AppError::Validation(other.to_string()),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
