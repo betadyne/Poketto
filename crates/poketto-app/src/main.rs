@@ -210,6 +210,24 @@ fn show_detail(app: &AppWindow, loader: &ImageLoader, payload: DetailPayload) {
     app.set_screen(SCREEN_DETAIL);
 }
 
+fn begin_launch(
+    app: &AppWindow,
+    presence: &Arc<PresenceHandle>,
+    rt_handle: &tokio::runtime::Handle,
+    handle: &Weak<AppWindow>,
+    id: &slint::SharedString,
+) {
+    if !app.get_playing_id().is_empty() {
+        return;
+    }
+    app.set_detail_error("".into());
+    app.set_playing_id(id.clone());
+    if app.get_detail_id() == *id {
+        app.set_detail_playing(true);
+    }
+    launch_game(rt_handle, presence, handle.clone(), id.to_string());
+}
+
 fn launch_game(
     rt: &tokio::runtime::Handle,
     presence: &Arc<PresenceHandle>,
@@ -413,18 +431,85 @@ fn main() -> Result<(), slint::PlatformError> {
         let rt_handle = rt_handle.clone();
         let presence = presence.clone();
         app.on_launch_clicked(move |id| {
+            if let Some(app) = handle.upgrade() {
+                begin_launch(&app, &presence, &rt_handle, &handle, &id);
+            }
+        });
+    }
+    {
+        let handle = app.as_weak();
+        let rt_handle = rt_handle.clone();
+        let presence = presence.clone();
+        app.on_play_game(move |id| {
+            if let Some(app) = handle.upgrade() {
+                begin_launch(&app, &presence, &rt_handle, &handle, &id);
+            }
+        });
+    }
+    {
+        let handle = app.as_weak();
+        let conn = conn.clone();
+        app.on_edit_game(move |id| {
             let Some(app) = handle.upgrade() else {
                 return;
             };
-            if !app.get_playing_id().is_empty() {
+            match poketto_core::db::get_game(&conn.borrow(), id.as_str()) {
+                Ok(Some(game)) => open_editor_for_edit(&app, &game),
+                Ok(None) => tracing::warn!("edit requested for missing game"),
+                Err(e) => tracing::warn!("edit load failed: {e}"),
+            }
+        });
+    }
+    {
+        let handle = app.as_weak();
+        let conn = conn.clone();
+        app.on_toggle_hide(move |id| {
+            let result = (|| {
+                let conn = conn.borrow();
+                let mut game = poketto_core::db::get_game(&conn, id.as_str())?
+                    .ok_or_else(|| poketto_core::db::DbError::GameNotFound(id.to_string()))?;
+                game.is_hidden = !game.is_hidden;
+                poketto_core::db::update_game(&conn, &game)?;
+                Ok::<_, poketto_core::db::DbError>(())
+            })();
+            if let Err(e) = result {
+                tracing::warn!("toggle hide failed: {e}");
                 return;
             }
-            app.set_detail_error("".into());
-            app.set_playing_id(id.clone());
-            if app.get_detail_id() == id {
-                app.set_detail_playing(true);
+            if let Some(app) = handle.upgrade() {
+                app.set_library_rev(app.get_library_rev() + 1);
             }
-            launch_game(&rt_handle, &presence, handle.clone(), id.to_string());
+        });
+    }
+    {
+        let handle = app.as_weak();
+        let conn = conn.clone();
+        app.on_remove_game(move |id| {
+            let removed = (|| {
+                let conn = conn.borrow();
+                let game = poketto_core::db::get_game(&conn, id.as_str())?
+                    .ok_or_else(|| poketto_core::db::DbError::GameNotFound(id.to_string()))?;
+                let cover = game.cover_url.clone();
+                poketto_core::db::delete_game(&conn, id.as_str())?;
+                Ok::<_, poketto_core::db::DbError>(cover)
+            })();
+            let cover = match removed {
+                Ok(cover) => cover,
+                Err(e) => {
+                    tracing::warn!("remove game failed: {e}");
+                    return;
+                }
+            };
+            if let Some(url) = cover {
+                let path = image_loader::thumbnail_path(&cover_dir(), &url);
+                let _ = std::fs::remove_file(&path);
+            }
+            if let Some(app) = handle.upgrade() {
+                if app.get_detail_id().as_str() == id.as_str() {
+                    app.set_screen(SCREEN_LIBRARY);
+                }
+                app.set_library_rev(app.get_library_rev() + 1);
+            }
         });
     }
     {

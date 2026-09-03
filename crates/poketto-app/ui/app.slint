@@ -69,6 +69,10 @@ export component AppWindow inherits Window {
     callback detect-wine;
     callback select-wine(string);
     callback add-clicked;
+    callback play-game(string);
+    callback edit-game(string);
+    callback toggle-hide(string);
+    callback remove-game(string);
     callback edit-browse;
     callback edit-search(string);
     callback edit-save(GameFormData);
@@ -85,6 +89,10 @@ export component AppWindow inherits Window {
         filter-changed(index) => { root.filter-changed(index); }
         open-settings => { root.open-settings(); }
         add-clicked => { root.add-clicked(); }
+        play-game(id) => { root.play-game(id); }
+        edit-game(id) => { root.edit-game(id); }
+        toggle-hide(id) => { root.toggle-hide(id); }
+        remove-game(id) => { root.remove-game(id); }
     }
 
     if root.screen == 1 : DetailView {

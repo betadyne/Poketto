@@ -15,6 +15,10 @@ export component LibraryView inherits Rectangle {
     callback filter-changed(int);
     callback open-settings;
     callback add-clicked;
+    callback play-game(string);
+    callback edit-game(string);
+    callback toggle-hide(string);
+    callback remove-game(string);
     property <int> row-count: Math.ceil(games.length / root.columns);
 
     HorizontalLayout {
@@ -112,6 +116,10 @@ export component LibraryView inherits Rectangle {
                         if index < root.games.length : GameCard {
                             game: root.games[index];
                             clicked(id) => { root.game-clicked(id); }
+                            play-game(id) => { root.play-game(id); }
+                            edit-game(id) => { root.edit-game(id); }
+                            toggle-hide(id) => { root.toggle-hide(id); }
+                            remove-game(id) => { root.remove-game(id); }
                         }
                     }
                 }

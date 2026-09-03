@@ -47,6 +47,7 @@ pub fn card_data(game: &Game) -> GameCardData {
         title: game.title.clone().into(),
         rating: game.rating.unwrap_or(0.0) as f32,
         show_cover: false,
+        hidden: game.is_hidden,
         cover: slint::Image::default(),
     }
 }
