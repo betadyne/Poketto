@@ -6,6 +6,8 @@ edition.workspace = true
 [dependencies]
 poketto-core = { path = "../poketto-core" }
 slint.workspace = true
+dirs.workspace = true
+tracing.workspace = true
 
 [build-dependencies]
 slint-build.workspace = true

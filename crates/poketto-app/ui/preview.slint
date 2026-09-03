@@ -2,6 +2,8 @@ import { Theme } from "tokens.slint";
 import { Button } from "components/Button.slint";
 import { TagBadge } from "components/TagBadge.slint";
 import { SearchBar } from "components/SearchBar.slint";
+import { GameCardData } from "components/GameCard.slint";
+import { LibraryView } from "views/LibraryView.slint";
 
 export component Preview inherits Window {
     title: "Poketto UI Preview";
@@ -65,5 +67,26 @@ export component Preview inherits Window {
             color: Theme.text;
             font-size: Theme.font-md;
         }
+    }
+}
+
+export component LibraryPreview inherits Window {
+    title: "Poketto Library Preview";
+    width: 900px;
+    height: 640px;
+    background: Theme.bg-dark;
+
+    LibraryView {
+        width: 100%;
+        height: 100%;
+        active-filter: 0;
+        games: [
+            { id: "g1", title: "Muv-Luv Alternative", rating: 8.55, show-cover: false },
+            { id: "g2", title: "Steins;Gate", rating: 9.1, show-cover: false },
+            { id: "g3", title: "A very long visual novel title that must elide gracefully", rating: 7.2, show-cover: false },
+            { id: "g4", title: "Unrated Game", rating: 0, show-cover: false },
+            { id: "g5", title: "Fate/stay night", rating: 8.9, show-cover: false },
+            { id: "g6", title: "Clannad", rating: 8.7, show-cover: false },
+        ];
     }
 }

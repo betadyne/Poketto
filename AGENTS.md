@@ -240,6 +240,10 @@ crates/poketto-app/
   in `.slint` files
 - Slint has no web backdrop-blur: NSFW hiding uses opaque overlays, NEVER
   a CSS-blur transliteration
+- Icons are monochrome `.svg` files under `ui/icons/`, sourced from
+  Tabler Icons (https://tabler.io/icons, docs at https://docs.tabler.io).
+  Recolor at use sites with `Image { colorize: Theme.* }`. NEVER hand-draw
+  glyphs as inline `Path` elements.
 
 ### Rust (Core + App)
 

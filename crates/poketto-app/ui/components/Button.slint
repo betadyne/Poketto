@@ -3,6 +3,7 @@ import { Theme } from "../tokens.slint";
 export component Button inherits Rectangle {
     in property <string> text;
     in property <bool> primary;
+    in property <bool> fill;
     callback clicked;
 
     background: root.primary
@@ -10,7 +11,8 @@ export component Button inherits Rectangle {
         : (touch.pressed ? Theme.surface-pressed : touch.has-hover ? Theme.surface-hover : Theme.surface);
     border-radius: Theme.radius-md;
     height: 36px;
-    width: layout.preferred-width;
+    min-width: layout.preferred-width;
+    horizontal-stretch: root.fill ? 1 : 0;
 
     layout := HorizontalLayout {
         padding-left: Theme.pad-md;

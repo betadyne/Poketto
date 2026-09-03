@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use super::error::{DbError, DbResult};
 
-pub const SCHEMA_VERSION: i64 = 2;
+pub const SCHEMA_VERSION: i64 = 3;
 
 const MIGRATION_V1: &str = "
 CREATE TABLE IF NOT EXISTS games (
@@ -56,6 +56,10 @@ CREATE TABLE IF NOT EXISTS vndb_cache (
 CREATE INDEX IF NOT EXISTS idx_vndb_cache_kind ON vndb_cache(kind);
 ";
 
+const MIGRATION_V3: &str = "
+ALTER TABLE games ADD COLUMN rating REAL;
+";
+
 pub fn open(path: &Path) -> DbResult<Connection> {
     let conn = Connection::open(path)?;
     conn.pragma_update(None, "journal_mode", "WAL")?;
@@ -89,6 +93,9 @@ fn apply_migrations(conn: &Connection) -> DbResult<()> {
     }
     if version < 2 {
         conn.execute_batch(MIGRATION_V2)?;
+    }
+    if version < 3 {
+        conn.execute_batch(MIGRATION_V3)?;
     }
     conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
     Ok(())
@@ -139,5 +146,22 @@ mod tests {
             )
             .expect("cache table exists");
         assert_eq!(cache_table, "vndb_cache");
+    }
+
+    #[test]
+    fn upgrade_from_v2_adds_rating_column() {
+        let conn = Connection::open_in_memory().expect("open");
+        conn.execute_batch(MIGRATION_V1).expect("v1 baseline");
+        conn.execute_batch(MIGRATION_V2).expect("v2 baseline");
+        conn.pragma_update(None, "user_version", 2).expect("stamp v2");
+        apply_migrations(&conn).expect("upgrade");
+        let rating_column: String = conn
+            .query_row(
+                "SELECT name FROM pragma_table_info('games') WHERE name = 'rating'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("rating column exists");
+        assert_eq!(rating_column, "rating");
     }
 }

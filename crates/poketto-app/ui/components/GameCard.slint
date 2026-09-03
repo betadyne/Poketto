@@ -1,0 +1,110 @@
+import { Theme } from "../tokens.slint";
+
+export struct GameCardData {
+    id: string,
+    title: string,
+    rating: float,
+    show-cover: bool,
+    cover: image,
+}
+
+export component GameCard inherits Rectangle {
+    in property <GameCardData> game;
+    callback clicked(string);
+
+    width: 150px;
+
+    VerticalLayout {
+        spacing: Theme.space-sm;
+
+        Rectangle {
+            height: 200px;
+            background: Theme.surface;
+            border-radius: Theme.radius-md;
+            clip: true;
+
+            if !root.game.show-cover : Text {
+                text: "No cover";
+                color: Theme.text-muted;
+                font-size: Theme.font-sm;
+            }
+
+            if root.game.show-cover : Image {
+                source: root.game.cover;
+                width: 100%;
+                height: 100%;
+                image-fit: cover;
+            }
+
+            if root.game.rating > 0 : Rectangle {
+                x: 8px;
+                y: 8px;
+                width: badge-layout.preferred-width;
+                height: badge-layout.preferred-height;
+                background: Theme.bg-dark;
+                border-radius: Theme.radius-sm;
+
+                badge-layout := HorizontalLayout {
+                    padding-left: Theme.pad-sm;
+                    padding-right: Theme.pad-sm;
+                    padding-top: 4px;
+                    padding-bottom: 4px;
+                    spacing: 4px;
+
+                    Image {
+                        source: @image-url("../icons/star.svg");
+                        width: 12px;
+                        height: 12px;
+                        colorize: Theme.primary;
+                    }
+
+                    Text {
+                        text: Math.round(root.game.rating * 10) / 10;
+                        color: Theme.text;
+                        font-size: Theme.font-sm;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            if touch.has-hover : Rectangle {
+                y: parent.height - 44px;
+                width: 100%;
+                height: 44px;
+                background: Theme.bg-dark;
+                opacity: 0.85;
+
+                HorizontalLayout {
+                    alignment: center;
+
+                    Image {
+                        source: @image-url("../icons/player-play.svg");
+                        width: 18px;
+                        height: 18px;
+                        colorize: Theme.text-on-primary;
+                    }
+
+                    Text {
+                        text: "Play";
+                        color: Theme.text-on-primary;
+                        font-size: Theme.font-md;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+
+        Text {
+            text: root.game.title;
+            color: Theme.text;
+            font-size: Theme.font-md;
+            wrap: no-wrap;
+            overflow: elide;
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(root.game.id); }
+    }
+}

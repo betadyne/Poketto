@@ -3922,9 +3922,11 @@ dependencies = [
 name = "poketto-app"
 version = "0.1.0"
 dependencies = [
+ "dirs",
  "poketto-core",
  "slint",
  "slint-build",
+ "tracing",
 ]
 
 [[package]]

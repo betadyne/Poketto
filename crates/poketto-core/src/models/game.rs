@@ -100,6 +100,8 @@ pub struct Game {
     pub game_type: Option<GameType>,
     #[serde(default)]
     pub wine_settings: Option<WineSettings>,
+    #[serde(default)]
+    pub rating: Option<f64>,
 }
 
 #[cfg(test)]

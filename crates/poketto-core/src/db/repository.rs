@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use super::error::{DbError, DbResult};
 use crate::models::{AppSettings, Game, Tag, WineSettings};
 
-const GAME_COLUMNS: &str = "id, title, path, vndb_id, cover_url, play_time_minutes, is_finished, last_played, is_hidden, show_spoilers, game_type, wine_settings";
+const GAME_COLUMNS: &str = "id, title, path, vndb_id, cover_url, play_time_minutes, is_finished, last_played, is_hidden, show_spoilers, game_type, wine_settings, rating";
 
 fn game_from_row(row: &Row) -> rusqlite::Result<Game> {
     let game_type: Option<String> = row.get(10)?;
@@ -29,6 +29,7 @@ fn game_from_row(row: &Row) -> rusqlite::Result<Game> {
         is_hidden: row.get(8)?,
         show_spoilers: row.get(9)?,
         game_type: game_type.and_then(|value| value.parse().ok()),
+        rating: row.get(12)?,
         wine_settings: wine_settings
             .map(|value| serde_json::from_str(&value))
             .transpose()
@@ -70,8 +71,8 @@ pub fn insert_game(conn: &Connection, game: &Game) -> DbResult<()> {
     let play_time = i64::try_from(game.play_time_minutes)
         .map_err(|_| DbError::OutOfRange(game.play_time_minutes))?;
     conn.execute(
-        "INSERT INTO games (id, title, path, vndb_id, cover_url, play_time_minutes, is_finished, last_played, is_hidden, show_spoilers, game_type, wine_settings)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+        "INSERT INTO games (id, title, path, vndb_id, cover_url, play_time_minutes, is_finished, last_played, is_hidden, show_spoilers, game_type, wine_settings, rating)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
         params![
             game.id,
             game.title,
@@ -85,6 +86,7 @@ pub fn insert_game(conn: &Connection, game: &Game) -> DbResult<()> {
             game.show_spoilers,
             game.game_type.as_ref().map(|kind| kind.as_str()),
             wine_blob(&game.wine_settings)?,
+            game.rating,
         ],
     )?;
     Ok(())
@@ -96,7 +98,7 @@ pub fn update_game(conn: &Connection, game: &Game) -> DbResult<()> {
     let changed = conn.execute(
         "UPDATE games SET title = ?2, path = ?3, vndb_id = ?4, cover_url = ?5, play_time_minutes = ?6,
          is_finished = ?7, last_played = ?8, is_hidden = ?9, show_spoilers = ?10, game_type = ?11,
-         wine_settings = ?12 WHERE id = ?1",
+         wine_settings = ?12, rating = ?13 WHERE id = ?1",
         params![
             game.id,
             game.title,
@@ -110,6 +112,7 @@ pub fn update_game(conn: &Connection, game: &Game) -> DbResult<()> {
             game.show_spoilers,
             game.game_type.as_ref().map(|kind| kind.as_str()),
             wine_blob(&game.wine_settings)?,
+            game.rating,
         ],
     )?;
     if changed == 0 {
@@ -348,6 +351,7 @@ mod tests {
                 wine_version: Some("Proton-GE".to_string()),
                 ..WineSettings::default()
             }),
+            rating: Some(8.55),
         }
     }
 
@@ -359,6 +363,7 @@ mod tests {
         let loaded = get_game(&conn, "g1").expect("get").expect("found");
         assert_eq!(loaded.title, "Round Trip");
         assert_eq!(loaded.play_time_minutes, 42);
+        assert_eq!(loaded.rating, Some(8.55));
         assert_eq!(loaded.game_type, Some(GameType::WindowsExe));
         let wine = loaded.wine_settings.expect("wine settings");
         assert_eq!(wine.use_global_prefix, true);

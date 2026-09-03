@@ -223,6 +223,7 @@ mod tests {
             show_spoilers: false,
             game_type,
             wine_settings: None,
+            rating: None,
         }
     }
 

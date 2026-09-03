@@ -1,0 +1,100 @@
+import { ListView } from "std-widgets.slint";
+import { Theme } from "../tokens.slint";
+import { Button } from "../components/Button.slint";
+import { GameCard, GameCardData } from "../components/GameCard.slint";
+
+import { SearchBar } from "../components/SearchBar.slint";
+export component LibraryView inherits Rectangle {
+    in-out property <[GameCardData]> games;
+    in-out property <string> query;
+    in-out property <int> active-filter;
+    in property <int> columns: 4;
+
+    callback game-clicked(string);
+    callback search-accepted(string);
+    callback filter-changed(int);
+
+    property <int> row-count: Math.ceil(games.length / root.columns);
+
+    HorizontalLayout {
+        Rectangle {
+            width: 200px;
+            background: Theme.surface;
+
+            VerticalLayout {
+                padding: Theme.pad-md;
+                spacing: Theme.space-sm;
+                alignment: start;
+
+                Text {
+                    text: "Library";
+                    color: Theme.text;
+                    font-size: Theme.font-lg;
+                }
+            Button {
+                text: "All";
+                fill: true;
+                primary: root.active-filter == 0;
+                clicked => { root.filter-changed(0); }
+            }
+
+            Button {
+                text: "Unfinished";
+                fill: true;
+                primary: root.active-filter == 1;
+                clicked => { root.filter-changed(1); }
+            }
+
+            Button {
+                text: "Finished";
+                fill: true;
+                primary: root.active-filter == 2;
+                clicked => { root.filter-changed(2); }
+            }
+
+            Button {
+                text: "Hidden";
+                fill: true;
+                primary: root.active-filter == 3;
+                clicked => { root.filter-changed(3); }
+            }
+        }
+        }
+
+        VerticalLayout {
+            padding: Theme.pad-md;
+            spacing: Theme.space-md;
+
+            SearchBar {
+                text <=> root.query;
+                accepted(query) => { root.search-accepted(query); }
+            }
+
+            if root.games.length == 0 : Text {
+                text: "No games in the library yet.";
+                color: Theme.text-muted;
+                font-size: Theme.font-md;
+            }
+
+            ListView {
+                vertical-stretch: 1;
+
+                for r in root.row-count : HorizontalLayout {
+                    height: 262px;
+                    spacing: Theme.space-md;
+
+                    for c in root.columns : Rectangle {
+                        width: 150px;
+
+                        property <int> index: r * root.columns + c;
+
+                        if index < root.games.length : GameCard {
+                            game: root.games[index];
+                            clicked(id) => { root.game-clicked(id); }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
