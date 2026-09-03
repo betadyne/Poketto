@@ -24,14 +24,19 @@ impl LibraryFilter {
     }
 }
 
-pub fn filter_games<'a>(games: &'a [Game], filter: LibraryFilter, query: &str) -> Vec<&'a Game> {
+pub fn filter_games<'a>(
+    games: &'a [Game],
+    filter: LibraryFilter,
+    query: &str,
+    show_hidden: bool,
+) -> Vec<&'a Game> {
     let terms: Vec<String> = query.split_whitespace().map(|term| term.to_lowercase()).collect();
     games
         .iter()
         .filter(|game| match filter {
-            LibraryFilter::All => !game.is_hidden,
-            LibraryFilter::Unfinished => !game.is_hidden && !game.is_finished,
-            LibraryFilter::Finished => !game.is_hidden && game.is_finished,
+            LibraryFilter::All => show_hidden || !game.is_hidden,
+            LibraryFilter::Unfinished => !game.is_finished && (show_hidden || !game.is_hidden),
+            LibraryFilter::Finished => game.is_finished && (show_hidden || !game.is_hidden),
             LibraryFilter::Hidden => game.is_hidden,
         })
         .filter(|game| {
@@ -39,6 +44,20 @@ pub fn filter_games<'a>(games: &'a [Game], filter: LibraryFilter, query: &str) -
             terms.iter().all(|term| title.contains(term))
         })
         .collect()
+}
+
+pub fn query_games_with_filter(
+    conn: &Connection,
+    filter: LibraryFilter,
+    query: &str,
+    show_hidden: bool,
+    sort: (SortBy, SortOrder),
+) -> DbResult<Vec<Game>> {
+    let games = db::get_all_games(conn, sort.0, sort.1)?;
+    Ok(filter_games(&games, filter, query, show_hidden)
+        .into_iter()
+        .cloned()
+        .collect())
 }
 
 pub fn card_data(game: &Game, nsfw: bool) -> GameCardData {
@@ -115,13 +134,10 @@ pub fn refresh_library(
     conn: &Connection,
     filter: LibraryFilter,
     query: &str,
+    show_hidden: bool,
     sort: (SortBy, SortOrder),
 ) -> DbResult<Vec<Game>> {
-    let games = db::get_all_games(conn, sort.0, sort.1)?;
-    let visible: Vec<Game> = filter_games(&games, filter, query)
-        .into_iter()
-        .cloned()
-        .collect();
+    let visible = query_games_with_filter(conn, filter, query, show_hidden, sort)?;
     let cards: Vec<GameCardData> = visible
         .iter()
         .map(|game| card_data(game, game_nsfw(conn, game)))
@@ -160,9 +176,7 @@ mod tests {
             game("a", "Alpha", false, false),
             game("b", "Beta", false, true),
         ];
-        let shown = filter_games(&games, LibraryFilter::All, "");
-        assert_eq!(shown.len(), 1);
-        assert_eq!(shown[0].id, "a");
+        let shown = filter_games(&games, LibraryFilter::All, "", false);
     }
 
     #[test]
@@ -172,9 +186,9 @@ mod tests {
             game("b", "Beta", false, false),
             game("c", "Gamma", true, true),
         ];
-        assert_eq!(filter_games(&games, LibraryFilter::Finished, "").len(), 1);
-        assert_eq!(filter_games(&games, LibraryFilter::Unfinished, "").len(), 1);
-        assert_eq!(filter_games(&games, LibraryFilter::Hidden, "").len(), 1);
+        assert_eq!(filter_games(&games, LibraryFilter::Finished, "", false).len(), 1);
+        assert_eq!(filter_games(&games, LibraryFilter::Unfinished, "", false).len(), 1);
+        assert_eq!(filter_games(&games, LibraryFilter::Hidden, "", false).len(), 1);
     }
 
     #[test]
@@ -183,9 +197,9 @@ mod tests {
             game("a", "Muv-Luv Alternative", false, false),
             game("b", "Steins;Gate", false, false),
         ];
-        assert_eq!(filter_games(&games, LibraryFilter::All, "muv").len(), 1);
-        assert_eq!(filter_games(&games, LibraryFilter::All, "MUV LUV").len(), 1);
-        assert_eq!(filter_games(&games, LibraryFilter::All, "gate muv").len(), 0);
+        assert_eq!(filter_games(&games, LibraryFilter::All, "muv", false).len(), 1);
+        assert_eq!(filter_games(&games, LibraryFilter::All, "MUV LUV", false).len(), 1);
+        assert_eq!(filter_games(&games, LibraryFilter::All, "gate muv", false).len(), 0);
     }
 
     #[test]
@@ -204,7 +218,7 @@ mod tests {
         db::insert_game(&conn, &game("a", "Alpha", false, false)).expect("insert");
         db::insert_game(&conn, &game("b", "Beta", true, false)).expect("insert");
         let model = VecModel::default();
-        refresh_library(&model, &conn, LibraryFilter::Finished, "", (SortBy::Title, SortOrder::Asc))
+        refresh_library(&model, &conn, LibraryFilter::Finished, "", false, (SortBy::Title, SortOrder::Asc))
             .expect("refresh");
         assert_eq!(model.row_count(), 1);
         assert_eq!(model.row_data(0).expect("row").title.as_str(), "Beta");
@@ -234,7 +248,7 @@ mod tests {
         )
         .expect("seed");
         let model = VecModel::default();
-        refresh_library(&model, &conn, LibraryFilter::All, "", (SortBy::Title, SortOrder::Asc))
+        refresh_library(&model, &conn, LibraryFilter::All, "", false, (SortBy::Title, SortOrder::Asc))
             .expect("refresh");
         assert_eq!(model.row_count(), 2);
         let spicy_card = model.row_data(1).expect("row");
@@ -270,7 +284,7 @@ mod tests {
         db::insert_game(&conn, &zulu).expect("insert");
         let model = VecModel::default();
         let asc = (SortBy::Title, SortOrder::Asc);
-        refresh_library(&model, &conn, LibraryFilter::All, "", asc).expect("refresh");
+        refresh_library(&model, &conn, LibraryFilter::All, "", false, asc).expect("refresh");
         assert_eq!(model.row_count(), 2);
         let mut covered = model.row_data(0).expect("row");
         covered.show_cover = true;
@@ -283,6 +297,7 @@ mod tests {
             &conn,
             LibraryFilter::All,
             "",
+            false,
             (SortBy::PlayTime, SortOrder::Desc),
         )
         .expect("refresh");
@@ -292,9 +307,53 @@ mod tests {
         assert_eq!(model.row_data(0).expect("row").revealed, true);
         assert_eq!(model.row_data(1).expect("row").id.as_str(), "z");
         db::delete_game(&conn, "z").expect("delete");
-        refresh_library(&model, &conn, LibraryFilter::All, "", asc).expect("refresh");
+        refresh_library(&model, &conn, LibraryFilter::All, "", false, asc).expect("refresh");
         assert_eq!(model.row_count(), 1);
         assert_eq!(model.row_data(0).expect("row").id.as_str(), "a");
         assert_eq!(model.row_data(0).expect("row").show_cover, true);
+    }
+
+    #[test]
+    fn show_hidden_toggle_includes_hidden_games() {
+        let games = vec![
+            game("a", "Alpha", false, false),
+            game("b", "Beta", true, false),
+            game("c", "Gamma", false, true),
+        ];
+        assert_eq!(filter_games(&games, LibraryFilter::All, "", false).len(), 2);
+        assert_eq!(filter_games(&games, LibraryFilter::All, "", true).len(), 3);
+        assert_eq!(filter_games(&games, LibraryFilter::Finished, "", true).len(), 1);
+        assert_eq!(filter_games(&games, LibraryFilter::Unfinished, "", true).len(), 2);
+        assert_eq!(filter_games(&games, LibraryFilter::Hidden, "", true).len(), 1);
+        assert_eq!(filter_games(&games, LibraryFilter::Hidden, "", false).len(), 1);
+    }
+
+    #[test]
+    fn flexible_query_combines_text_hidden_and_sort() {
+        let conn = db::open_in_memory().expect("open");
+        let mut hidden = game("h", "Hidden Gem", false, true);
+        hidden.play_time_minutes = 99;
+        db::insert_game(&conn, &game("a", "Alpha", false, false)).expect("insert");
+        db::insert_game(&conn, &hidden).expect("insert");
+        let listed = query_games_with_filter(
+            &conn,
+            LibraryFilter::All,
+            "hidden",
+            false,
+            (SortBy::PlayTime, SortOrder::Desc),
+        )
+        .expect("query");
+        assert_eq!(listed.len(), 0);
+        let listed = query_games_with_filter(
+            &conn,
+            LibraryFilter::All,
+            "",
+            true,
+            (SortBy::PlayTime, SortOrder::Desc),
+        )
+        .expect("query");
+        assert_eq!(listed.len(), 2);
+        assert_eq!(listed[0].id, "h");
+        assert_eq!(listed[1].id, "a");
     }
 }

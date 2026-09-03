@@ -45,6 +45,7 @@ export component AppWindow inherits Window {
     in-out property <bool> set-blur;
     in-out property <[WineRow]> wine-runners;
     in-out property <string> playing-id;
+    in-out property <bool> show-hidden;
     in-out property <int> library-rev;
 
     in-out property <bool> edit-open;
@@ -66,6 +67,8 @@ export component AppWindow inherits Window {
 
     callback game-clicked(string);
     callback search-accepted(string);
+    callback search-query-changed(string);
+    callback toggle-show-hidden(bool);
     callback filter-changed(int);
     callback sort-changed(string, bool);
     callback open-settings;
@@ -104,6 +107,9 @@ export component AppWindow inherits Window {
         blur-nsfw <=> root.set-blur;
         game-clicked(id) => { root.game-clicked(id); }
         search-accepted(query) => { root.search-accepted(query); }
+        search-query-changed(query) => { root.search-query-changed(query); }
+        toggle-show-hidden(value) => { root.toggle-show-hidden(value); }
+        show-hidden <=> root.show-hidden;
         filter-changed(index) => { root.filter-changed(index); }
         sort-index <=> root.sort-index;
         sort-changed(field, asc) => { root.sort-changed(field, asc); }

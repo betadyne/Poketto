@@ -47,11 +47,12 @@ fn refresh(
     model: &VecModel<GameCardData>,
     conn: &poketto_core::db::Connection,
     filter: LibraryFilter,
+    show_hidden: bool,
     sort: (poketto_core::db::SortBy, poketto_core::db::SortOrder),
     loader: &ImageLoader,
 ) {
     let query = app.get_query().to_string();
-    match adapters::refresh_library(model, conn, filter, &query, sort) {
+    match adapters::refresh_library(model, conn, filter, &query, show_hidden, sort) {
         Ok(games) => {
             loader.next_generation();
             for game in &games {
@@ -541,13 +542,22 @@ fn main() -> Result<(), slint::PlatformError> {
         poketto_core::db::SortBy::Title,
         poketto_core::db::SortOrder::Asc,
     )));
+    let show_hidden = Rc::new(Cell::new(false));
     load_settings_into(&app);
     if let Ok(saved) = poketto_core::db::load_sort_pref(&conn.borrow()) {
         sort.set(saved);
         app.set_sort_index(adapters::sort_option_index(saved.0, saved.1));
     }
 
-    refresh(&app, &model, &conn.borrow(), *filter.borrow(), sort.get(), &loader);
+    refresh(
+        &app,
+        &model,
+        &conn.borrow(),
+        *filter.borrow(),
+        show_hidden.get(),
+        sort.get(),
+        &loader,
+    );
     {
         let handle = app.as_weak();
         app.on_open_settings(move || {
@@ -572,9 +582,10 @@ fn main() -> Result<(), slint::PlatformError> {
         let filter = filter.clone();
         let loader = loader.clone();
         let sort = sort.clone();
+        let show_hidden = show_hidden.clone();
         app.on_search_accepted(move |_| {
             if let Some(app) = handle.upgrade() {
-                refresh(&app, &model, &conn.borrow(), *filter.borrow(), sort.get(), &loader);
+                refresh(&app, &model, &conn.borrow(), *filter.borrow(), show_hidden.get(), sort.get(), &loader);
             }
         });
     }
@@ -583,13 +594,14 @@ fn main() -> Result<(), slint::PlatformError> {
         let model = model.clone();
         let conn = conn.clone();
         let filter = filter.clone();
-        let loader = loader.clone();
         let sort = sort.clone();
+        let show_hidden = show_hidden.clone();
+        let loader = loader.clone();
         app.on_filter_changed(move |index| {
             if let Some(app) = handle.upgrade() {
                 *filter.borrow_mut() = LibraryFilter::from_index(index);
                 app.set_active_filter(index);
-                refresh(&app, &model, &conn.borrow(), *filter.borrow(), sort.get(), &loader);
+                refresh(&app, &model, &conn.borrow(), *filter.borrow(), show_hidden.get(), sort.get(), &loader);
             }
         });
     }
@@ -599,6 +611,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let conn = conn.clone();
         let filter = filter.clone();
         let sort = sort.clone();
+        let show_hidden = show_hidden.clone();
         let loader = loader.clone();
         app.on_sort_changed(move |field, asc| {
             let order = if asc {
@@ -620,7 +633,37 @@ fn main() -> Result<(), slint::PlatformError> {
                 tracing::warn!("sort preference save failed: {e}");
             }
             if let Some(app) = handle.upgrade() {
-                refresh(&app, &model, &conn.borrow(), *filter.borrow(), sort.get(), &loader);
+                refresh(&app, &model, &conn.borrow(), *filter.borrow(), show_hidden.get(), sort.get(), &loader);
+            }
+        });
+    }
+    {
+        let handle = app.as_weak();
+        let model = model.clone();
+        let conn = conn.clone();
+        let filter = filter.clone();
+        let sort = sort.clone();
+        let show_hidden = show_hidden.clone();
+        let loader = loader.clone();
+        app.on_search_query_changed(move |_| {
+            if let Some(app) = handle.upgrade() {
+                refresh(&app, &model, &conn.borrow(), *filter.borrow(), show_hidden.get(), sort.get(), &loader);
+            }
+        });
+    }
+    {
+        let handle = app.as_weak();
+        let model = model.clone();
+        let conn = conn.clone();
+        let filter = filter.clone();
+        let sort = sort.clone();
+        let show_hidden = show_hidden.clone();
+        let loader = loader.clone();
+        app.on_toggle_show_hidden(move |value| {
+            show_hidden.set(value);
+            if let Some(app) = handle.upgrade() {
+                app.set_show_hidden(value);
+                refresh(&app, &model, &conn.borrow(), *filter.borrow(), show_hidden.get(), sort.get(), &loader);
             }
         });
     }
@@ -1162,6 +1205,7 @@ fn open_editor_for_edit(app: &AppWindow, game: &poketto_core::models::Game) {
     let drain_loader = loader.clone();
     let drain_conn = conn.clone();
     let drain_sort = sort.clone();
+    let drain_show_hidden = show_hidden.clone();
     let drain_filter = filter.clone();
     let drain_handle = app.as_weak();
     let drain_rev = last_rev.clone();
@@ -1192,6 +1236,7 @@ fn open_editor_for_edit(app: &AppWindow, game: &poketto_core::models::Game) {
                         &drain_model,
                         &drain_conn.borrow(),
                         *drain_filter.borrow(),
+                        drain_show_hidden.get(),
                         drain_sort.get(),
                         &drain_loader,
                     );

@@ -11,9 +11,12 @@ export component LibraryView inherits Rectangle {
     in-out property <int> active-filter;
     in property <int> columns: 4;
     in property <bool> blur-nsfw;
+    in property <bool> show-hidden: false;
 
     callback game-clicked(string);
     callback search-accepted(string);
+    callback search-query-changed(string);
+    callback toggle-show-hidden(bool);
     callback filter-changed(int);
     callback sort-changed(string, bool);
     callback open-settings;
@@ -23,6 +26,7 @@ export component LibraryView inherits Rectangle {
     callback toggle-hide(string);
     callback remove-game(string);
     callback reveal-cover(string);
+    changed query => { root.search-query-changed(root.query); }
     property <int> row-count: Math.ceil(games.length / root.columns);
 
     HorizontalLayout {
@@ -66,6 +70,12 @@ export component LibraryView inherits Rectangle {
                 fill: true;
                 primary: root.active-filter == 3;
                 clicked => { root.filter-changed(3); }
+            }
+            Button {
+                text: root.show-hidden ? "Hide Hidden" : "Show Hidden";
+                fill: true;
+                primary: root.show-hidden;
+                clicked => { root.toggle-show-hidden(!root.show-hidden); }
             }
             Rectangle {
                 vertical-stretch: 1;
