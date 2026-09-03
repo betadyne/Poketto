@@ -4,6 +4,7 @@ export component Button inherits Rectangle {
     in property <string> text;
     in property <bool> primary;
     in property <bool> fill;
+    in property <bool> disabled: false;
     callback clicked;
 
     background: root.primary
@@ -13,6 +14,7 @@ export component Button inherits Rectangle {
     height: 36px;
     min-width: layout.preferred-width;
     horizontal-stretch: root.fill ? 1 : 0;
+    opacity: root.disabled ? 0.5 : 1;
 
     layout := HorizontalLayout {
         padding-left: Theme.pad-md;
@@ -28,6 +30,7 @@ export component Button inherits Rectangle {
     }
 
     touch := TouchArea {
+        enabled: !root.disabled;
         mouse-cursor: pointer;
         clicked => { root.clicked(); }
     }

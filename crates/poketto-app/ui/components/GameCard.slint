@@ -88,11 +88,16 @@ export component GameCard inherits Rectangle {
                     padding-bottom: 4px;
                     spacing: 4px;
 
-                    Image {
-                        source: @image-url("../icons/star.svg");
+                    Rectangle {
                         width: 12px;
-                        height: 12px;
-                        colorize: Theme.primary;
+                        vertical-stretch: 1;
+                        Image {
+                            source: @image-url("../icons/star.svg");
+                            width: 12px;
+                            height: 12px;
+                            y: (parent.height - 12px) / 2;
+                            colorize: Theme.primary;
+                        }
                     }
 
                     Text {
@@ -100,6 +105,7 @@ export component GameCard inherits Rectangle {
                         color: Theme.text;
                         font-size: Theme.font-sm;
                         vertical-alignment: center;
+                        vertical-stretch: 1;
                     }
                 }
             }
@@ -114,11 +120,16 @@ export component GameCard inherits Rectangle {
                 HorizontalLayout {
                     alignment: center;
 
-                    Image {
-                        source: @image-url("../icons/player-play.svg");
+                    Rectangle {
                         width: 18px;
-                        height: 18px;
-                        colorize: Theme.text-on-primary;
+                        vertical-stretch: 1;
+                        Image {
+                            source: @image-url("../icons/player-play.svg");
+                            width: 18px;
+                            height: 18px;
+                            y: (parent.height - 18px) / 2;
+                            colorize: Theme.text-on-primary;
+                        }
                     }
 
                     Text {
@@ -126,6 +137,7 @@ export component GameCard inherits Rectangle {
                         color: Theme.text-on-primary;
                         font-size: Theme.font-md;
                         vertical-alignment: center;
+                        vertical-stretch: 1;
                     }
                 }
             }

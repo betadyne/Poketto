@@ -28,6 +28,7 @@ export component AppWindow inherits Window {
     in-out property <bool> detail-nsfw;
     in-out property <bool> detail-cover-revealed;
     in-out property <bool> detail-show-spoilers;
+    in-out property <bool> detail-refreshing;
     in-out property <[DetailTag]> detail-tags;
     in-out property <[DetailCharacter]> detail-characters;
 
@@ -58,15 +59,18 @@ export component AppWindow inherits Window {
     in-out property <string> edit-vndb-query;
     in-out property <[VndbHit]> edit-vndb-hits;
     in-out property <bool> edit-searching;
+    in-out property <int> sort-index;
 
     callback game-clicked(string);
     callback search-accepted(string);
     callback filter-changed(int);
+    callback sort-changed(string, bool);
     callback open-settings;
     callback detail-back;
     callback launch-clicked(string);
     callback configure-clicked;
     callback edit-clicked;
+    callback refresh-metadata;
     callback settings-back;
     callback settings-save;
     callback detect-wine;
@@ -93,6 +97,8 @@ export component AppWindow inherits Window {
         game-clicked(id) => { root.game-clicked(id); }
         search-accepted(query) => { root.search-accepted(query); }
         filter-changed(index) => { root.filter-changed(index); }
+        sort-index <=> root.sort-index;
+        sort-changed(field, asc) => { root.sort-changed(field, asc); }
         open-settings => { root.open-settings(); }
         add-clicked => { root.add-clicked(); }
         play-game(id) => { root.play-game(id); }
@@ -124,6 +130,8 @@ export component AppWindow inherits Window {
         launch => { root.launch-clicked(root.detail-id); }
         configure => { root.configure-clicked(); }
         edit-clicked => { root.edit-clicked(); }
+        refreshing <=> root.detail-refreshing;
+        refresh-metadata => { root.refresh-metadata(); }
         spoilers-toggled(allowed) => { root.spoilers-toggled(allowed); }
     }
 

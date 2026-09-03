@@ -16,11 +16,16 @@ export component SearchBar inherits Rectangle {
         padding-right: Theme.pad-md;
         spacing: Theme.space-sm;
 
-        Image {
-            source: @image-url("../icons/search.svg");
+        Rectangle {
             width: 16px;
-            height: 16px;
-            colorize: Theme.text-muted;
+            vertical-stretch: 1;
+            Image {
+                source: @image-url("../icons/search.svg");
+                width: 16px;
+                height: 16px;
+                y: (parent.height - 16px) / 2;
+                colorize: Theme.text-muted;
+            }
         }
 
         input := TextInput {
@@ -28,6 +33,7 @@ export component SearchBar inherits Rectangle {
             color: Theme.text;
             font-size: Theme.font-md;
             vertical-alignment: center;
+            vertical-stretch: 1;
             horizontal-stretch: 1;
         }
     }

@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 poketto-core = { path = "../poketto-core" }
+chrono.workspace = true
 slint.workspace = true
 dirs.workspace = true
 tracing.workspace = true

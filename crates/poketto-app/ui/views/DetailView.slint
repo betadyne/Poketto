@@ -28,6 +28,7 @@ export component DetailView inherits Rectangle {
     in property <bool> blur-nsfw;
     in-out property <bool> cover-revealed;
     in-out property <bool> show-spoilers;
+    in property <bool> refreshing: false;
     in property <[DetailTag]> tags;
     in property <[DetailCharacter]> characters;
 
@@ -35,6 +36,7 @@ export component DetailView inherits Rectangle {
     callback launch;
     callback configure;
     callback edit-clicked;
+    callback refresh-metadata;
     callback spoilers-toggled(bool);
 
     property <bool> cover-blocked: root.cover-nsfw && root.blur-nsfw && !root.cover-revealed;
@@ -167,6 +169,12 @@ export component DetailView inherits Rectangle {
                         Button {
                             text: "Edit";
                             clicked => { root.edit-clicked(); }
+                        }
+
+                        Button {
+                            text: root.refreshing ? "Refreshing…" : "Refresh";
+                            disabled: root.refreshing;
+                            clicked => { root.refresh-metadata(); }
                         }
                     }
                 }

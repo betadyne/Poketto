@@ -17,7 +17,7 @@ pub fn search_body(query: &str) -> serde_json::Value {
 pub fn detail_body(vndb_id: &str) -> serde_json::Value {
     serde_json::json!({
         "filters": ["id", "=", vndb_id],
-        "fields": "id, title, image.url, image.sexual, image.violence, released, rating, description, length, length_minutes, tags.id, tags.name, tags.rating, tags.spoiler, developers.id, developers.name",
+        "fields": "id, title, image.url, image.sexual, image.violence, released, rating, description, length, length_minutes, tags.id, tags.name, tags.rating, tags.spoiler, developers.id, developers.name, devstatus",
         "results": 1
     })
 }
@@ -247,6 +247,7 @@ mod tests {
         assert_eq!(body["filters"], serde_json::json!(["id", "=", "v17"]));
         assert_eq!(body["results"], serde_json::json!(1));
         assert!(body["fields"].as_str().expect("fields").contains("developers.name"));
+        assert!(body["fields"].as_str().expect("fields").contains("devstatus"));
     }
 
     #[test]
@@ -277,6 +278,11 @@ mod tests {
         let detail = &response.results[0];
         assert_eq!(detail.developers.as_ref().expect("devs")[0].name, "Age");
         assert_eq!(detail.tags.as_ref().expect("tags")[0].spoiler, 0);
+        assert_eq!(detail.devstatus, None);
+        let status_json = r#"{"results": [{"id": "v17", "title": "Muv-Luv", "devstatus": 1}]}"#;
+        let status: VndbResponse<VndbVnDetail> =
+            serde_json::from_str(status_json).expect("fixture parses");
+        assert_eq!(status.results[0].devstatus, Some(1));
     }
 
     #[test]

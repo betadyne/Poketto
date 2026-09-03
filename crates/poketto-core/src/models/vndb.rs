@@ -33,6 +33,8 @@ pub struct VndbVnDetail {
     pub description: Option<String>,
     pub length: Option<i32>,
     pub length_minutes: Option<i32>,
+    #[serde(default)]
+    pub devstatus: Option<i32>,
     pub tags: Option<Vec<VndbTag>>,
     pub developers: Option<Vec<VndbProducer>>,
 }

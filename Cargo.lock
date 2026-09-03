@@ -3968,6 +3968,7 @@ dependencies = [
 name = "poketto-app"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "dirs",
  "image",
  "poketto-core",

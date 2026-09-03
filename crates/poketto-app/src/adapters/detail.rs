@@ -1,3 +1,4 @@
+use chrono::NaiveDate;
 use poketto_core::models::{AppSettings, Game};
 
 pub fn plain_description(bbcode: &str) -> String {
@@ -19,6 +20,79 @@ pub fn format_playtime(minutes: u64) -> String {
         format!("{}h {}m", minutes / 60, minutes % 60)
     } else {
         format!("{minutes}m")
+    }
+}
+
+pub fn vn_length_label(length: Option<i32>, minutes: Option<i32>) -> Option<String> {
+    let band = if let Some(minutes) = minutes {
+        match minutes.max(0) {
+            0..=119 => 0,
+            120..=599 => 1,
+            600..=1799 => 2,
+            1800..=3000 => 3,
+            _ => 4,
+        }
+    } else {
+        match length {
+            Some(1) => 0,
+            Some(2) => 1,
+            Some(3) => 2,
+            Some(4) => 3,
+            Some(5) => 4,
+            _ => return None,
+        }
+    };
+    Some(
+        match band {
+            0 => "Very Short (~2h)",
+            1 => "Short (~10h)",
+            2 => "Medium (~30h)",
+            3 => "Long (~50h)",
+            _ => "Very Long (50h+)",
+        }
+        .to_string(),
+    )
+}
+
+pub fn character_role_label(role: &str) -> &str {
+    match role {
+        "main" => "Protagonist",
+        "primary" => "Main Characters",
+        "side" => "Side Characters",
+        "appears" => "Makes an Appearance",
+        _ => role,
+    }
+}
+
+pub fn release_status_label(devstatus: Option<i32>) -> Option<&'static str> {
+    match devstatus {
+        Some(0) => Some("Finished"),
+        Some(1) => Some("Ongoing"),
+        Some(2) => Some("Cancelled"),
+        _ => None,
+    }
+}
+
+pub fn relative_last_played(stamp: Option<&str>, today: NaiveDate) -> String {
+    let date = stamp
+        .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+        .map(|dt| dt.with_timezone(&chrono::Local).date_naive());
+    let Some(date) = date else {
+        return "Never played".to_string();
+    };
+    let diff = (today - date).num_days();
+    if diff <= 0 {
+        "Today".to_string()
+    } else if diff == 1 {
+        "Yesterday".to_string()
+    } else if diff < 7 {
+        format!("{diff} days ago")
+    } else if diff < 30 {
+        format!("{} weeks ago", diff / 7)
+    } else if diff < 365 {
+        format!("{} months ago", diff / 30)
+    } else {
+        date.format("%b %-d, %Y").to_string()
     }
 }
 
@@ -70,11 +144,14 @@ pub fn assemble_detail(
         if let Some(released) = detail.released.as_deref() {
             meta_parts.push(released.to_string());
         }
+        if let Some(status) = release_status_label(detail.devstatus) {
+            meta_parts.push(status.to_string());
+        }
         if let Some(rating) = detail.rating {
             meta_parts.push(format!("{rating:.2}"));
         }
-        if let Some(minutes) = detail.length_minutes {
-            meta_parts.push(format_playtime(minutes.max(0) as u64));
+        if let Some(label) = vn_length_label(detail.length, detail.length_minutes) {
+            meta_parts.push(label);
         }
         if let Some(description) = detail.description.as_deref() {
             let plain = plain_description(description);
@@ -102,7 +179,7 @@ pub fn assemble_detail(
                 .as_deref()
                 .unwrap_or_default()
                 .first()
-                .map(|vn| vn.role.clone())
+                .map(|vn| character_role_label(&vn.role).to_string())
                 .unwrap_or_default();
             let spoiler = character
                 .traits
@@ -126,6 +203,15 @@ pub fn assemble_detail(
     let mut playtime = format_playtime(game.play_time_minutes);
     if game.is_finished {
         playtime.push_str(" · Finished");
+    }
+    let relative = relative_last_played(
+        game.last_played.as_deref(),
+        chrono::Local::now().date_naive(),
+    );
+    if relative == "Never played" {
+        playtime.push_str(" · Never played");
+    } else {
+        playtime.push_str(&format!(" · Last played {relative}"));
     }
     DetailPayload {
         id: game.id.clone(),
@@ -248,7 +334,7 @@ mod tests {
     fn local_only_payload_has_fallbacks() {
         let payload = assemble_detail(&detail_game(), None, &[]);
         assert_eq!(payload.meta, "");
-        assert_eq!(payload.playtime, "Played 2h 5m · Finished");
+        assert_eq!(payload.playtime, "Played 2h 5m · Finished · Never played");
         assert_eq!(payload.synopsis, "(No synopsis available.)");
         assert_eq!(payload.tags.len(), 0);
         assert_eq!(payload.cover_url, None);
@@ -260,7 +346,7 @@ mod tests {
         let detail: poketto_core::models::VndbVnDetail =
             serde_json::from_str(json).expect("fixture");
         let payload = assemble_detail(&detail_game(), Some(&detail), &[]);
-        assert_eq!(payload.meta, "2003-02-28 · 8.55 · 50h 0m");
+        assert_eq!(payload.meta, "2003-02-28 · 8.55 · Long (~50h)");
         assert_eq!(payload.synopsis, "A story.");
         assert_eq!(payload.tags, vec![("Drama".to_string(), 0)]);
         assert_eq!(payload.cover_url.as_deref(), Some("https://img.jpg"));
@@ -274,7 +360,7 @@ mod tests {
         let payload = assemble_detail(&detail_game(), None, &[character]);
         assert_eq!(
             payload.characters,
-            vec![("Meiya".to_string(), "main".to_string(), 2)]
+            vec![("Meiya".to_string(), "Protagonist".to_string(), 2)]
         );
     }
 
@@ -288,5 +374,117 @@ mod tests {
         let spicy: poketto_core::models::VndbVnDetail =
             serde_json::from_str(spicy_json).expect("fixture");
         assert_eq!(assemble_detail(&detail_game(), Some(&spicy), &[]).nsfw, true);
+    }
+
+    #[test]
+    fn vn_length_bands_follow_vndb_scale() {
+        assert_eq!(
+            vn_length_label(Some(1), Some(119)).as_deref(),
+            Some("Very Short (~2h)")
+        );
+        assert_eq!(
+            vn_length_label(None, Some(120)).as_deref(),
+            Some("Short (~10h)")
+        );
+        assert_eq!(
+            vn_length_label(None, Some(599)).as_deref(),
+            Some("Short (~10h)")
+        );
+        assert_eq!(
+            vn_length_label(None, Some(600)).as_deref(),
+            Some("Medium (~30h)")
+        );
+        assert_eq!(
+            vn_length_label(None, Some(1799)).as_deref(),
+            Some("Medium (~30h)")
+        );
+        assert_eq!(
+            vn_length_label(None, Some(1800)).as_deref(),
+            Some("Long (~50h)")
+        );
+        assert_eq!(
+            vn_length_label(None, Some(2999)).as_deref(),
+            Some("Long (~50h)")
+        );
+        assert_eq!(
+            vn_length_label(None, Some(3000)).as_deref(),
+            Some("Long (~50h)")
+        );
+        assert_eq!(
+            vn_length_label(None, Some(9000)).as_deref(),
+            Some("Very Long (50h+)")
+        );
+    }
+
+    #[test]
+    fn vn_length_falls_back_to_enum() {
+        assert_eq!(
+            vn_length_label(Some(2), None).as_deref(),
+            Some("Short (~10h)")
+        );
+        assert_eq!(
+            vn_length_label(Some(5), None).as_deref(),
+            Some("Very Long (50h+)")
+        );
+        assert_eq!(vn_length_label(None, None), None);
+        assert_eq!(vn_length_label(Some(9), None), None);
+    }
+
+    #[test]
+    fn character_roles_use_legacy_names() {
+        assert_eq!(character_role_label("main"), "Protagonist");
+        assert_eq!(character_role_label("primary"), "Main Characters");
+        assert_eq!(character_role_label("side"), "Side Characters");
+        assert_eq!(character_role_label("appears"), "Makes an Appearance");
+        assert_eq!(character_role_label("cameo"), "cameo");
+        assert_eq!(character_role_label(""), "");
+    }
+
+    #[test]
+    fn release_status_labels_devstatus() {
+        assert_eq!(release_status_label(Some(0)), Some("Finished"));
+        assert_eq!(release_status_label(Some(1)), Some("Ongoing"));
+        assert_eq!(release_status_label(Some(2)), Some("Cancelled"));
+        assert_eq!(release_status_label(None), None);
+        assert_eq!(release_status_label(Some(99)), None);
+    }
+
+    #[test]
+    fn relative_last_played_follows_ladder() {
+        let today = NaiveDate::from_ymd_opt(2024, 6, 15).expect("date");
+        assert_eq!(
+            relative_last_played(Some("2024-06-15T12:00:00Z"), today),
+            "Today"
+        );
+        assert_eq!(
+            relative_last_played(Some("2024-06-14T12:00:00Z"), today),
+            "Yesterday"
+        );
+        assert_eq!(
+            relative_last_played(Some("2024-06-13T12:00:00Z"), today),
+            "2 days ago"
+        );
+        assert_eq!(
+            relative_last_played(Some("2024-06-10T12:00:00Z"), today),
+            "5 days ago"
+        );
+        assert_eq!(
+            relative_last_played(Some("2024-06-06T12:00:00Z"), today),
+            "1 weeks ago"
+        );
+        assert_eq!(
+            relative_last_played(Some("2024-05-06T12:00:00Z"), today),
+            "1 months ago"
+        );
+        assert_eq!(
+            relative_last_played(Some("2023-05-11T12:00:00Z"), today),
+            "May 11, 2023"
+        );
+        assert_eq!(relative_last_played(None, today), "Never played");
+        assert_eq!(relative_last_played(Some("garbage"), today), "Never played");
+        assert_eq!(
+            relative_last_played(Some("2024-06-20T12:00:00Z"), today),
+            "Today"
+        );
     }
 }

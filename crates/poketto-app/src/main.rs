@@ -42,10 +42,11 @@ fn refresh(
     model: &VecModel<GameCardData>,
     conn: &poketto_core::db::Connection,
     filter: LibraryFilter,
+    sort: (poketto_core::db::SortBy, poketto_core::db::SortOrder),
     loader: &ImageLoader,
 ) {
     let query = app.get_query().to_string();
-    match adapters::refresh_library(model, conn, filter, &query) {
+    match adapters::refresh_library(model, conn, filter, &query, sort) {
         Ok(games) => {
             loader.next_generation();
             for game in &games {
@@ -87,6 +88,129 @@ fn apply_cover(model: &VecModel<GameCardData>, loaded: &LoadedCover) {
             return;
         }
     }
+}
+
+fn persist_fresh_detail(
+    conn: &poketto_core::db::Connection,
+    game_id: &str,
+    vndb_id: &str,
+    detail: &poketto_core::models::VndbVnDetail,
+    characters: &[poketto_core::models::VndbCharacter],
+) -> Result<(poketto_core::models::Game, Option<String>), String> {
+    let game = poketto_core::db::get_game(conn, game_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Game not found.".to_string())?;
+    let old_cover = game.cover_url.clone().or_else(|| {
+        poketto_core::vndb::cached_detail_sync(conn, vndb_id)
+            .ok()
+            .flatten()
+            .and_then(|cached| cached.image.map(|image| image.url))
+    });
+    poketto_core::vndb::store_detail_sync(conn, vndb_id, detail).map_err(|e| e.to_string())?;
+    poketto_core::vndb::store_characters_sync(conn, vndb_id, characters)
+        .map_err(|e| e.to_string())?;
+    let mut updated = poketto_core::db::get_game(conn, game_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Game not found.".to_string())?;
+    if updated.cover_url.is_none() {
+        if let Some(url) = detail.image.as_ref().map(|image| image.url.clone()) {
+            updated.cover_url = Some(url);
+            poketto_core::db::update_game(conn, &updated).map_err(|e| e.to_string())?;
+        }
+    }
+    let evict = match (old_cover, updated.cover_url.clone()) {
+        (Some(old), Some(new)) if old != new => Some(old),
+        _ => None,
+    };
+    Ok((updated, evict))
+}
+
+fn refresh_detail(
+    rt: &tokio::runtime::Handle,
+    client: &Arc<VndbClient>,
+    loader: &Arc<ImageLoader>,
+    app: Weak<AppWindow>,
+    game_id: String,
+) {
+    let client = client.clone();
+    let loader = loader.clone();
+    rt.spawn(async move {
+        let id = game_id.clone();
+        let local = tokio::task::spawn_blocking(move || {
+            let conn = poketto_core::db::open(&db_path()).map_err(|e| e.to_string())?;
+            poketto_core::db::get_game(&conn, &id)
+                .map_err(|e| e.to_string())?
+                .ok_or_else(|| "Game not found.".to_string())
+        })
+        .await;
+        let fail = |target: &Weak<AppWindow>, message: String| {
+            let target = target.clone();
+            let _ = slint::invoke_from_event_loop(move || {
+                if let Some(app) = target.upgrade() {
+                    app.set_detail_error(message.into());
+                    app.set_detail_refreshing(false);
+                }
+            });
+        };
+        let game = match local {
+            Ok(Ok(game)) => game,
+            Ok(Err(message)) => {
+                fail(&app, format!("Refresh failed: {message}"));
+                return;
+            }
+            Err(e) => {
+                tracing::warn!("refresh task failed: {e}");
+                fail(&app, "Refresh failed: task cancelled.".to_string());
+                return;
+            }
+        };
+        let Some(vndb_id) = game.vndb_id.clone() else {
+            fail(&app, "Not linked to a VNDB entry.".to_string());
+            return;
+        };
+        let fetched = tokio::join!(client.detail(&vndb_id), client.characters(&vndb_id));
+        let (fresh_detail, fresh_characters) = match fetched {
+            (Ok(detail), Ok(characters)) => (detail, characters),
+            (Err(e), _) => {
+                fail(&app, format!("Refresh failed: {e}"));
+                return;
+            }
+            (_, Err(e)) => {
+                fail(&app, format!("Refresh failed: {e}"));
+                return;
+            }
+        };
+        let game_id = game.id.clone();
+        let stored = tokio::task::spawn_blocking(move || {
+            let conn = poketto_core::db::open(&db_path()).map_err(|e| e.to_string())?;
+            let persisted =
+                persist_fresh_detail(&conn, &game_id, &vndb_id, &fresh_detail, &fresh_characters)?;
+            Ok::<_, String>((persisted, (fresh_detail, fresh_characters)))
+        })
+        .await;
+        let ((game, evict), (fresh_detail, fresh_characters)) = match stored {
+            Ok(Ok(done)) => done,
+            Ok(Err(message)) => {
+                fail(&app, format!("Refresh failed: {message}"));
+                return;
+            }
+            Err(e) => {
+                tracing::warn!("refresh store failed: {e}");
+                fail(&app, "Refresh failed: task cancelled.".to_string());
+                return;
+            }
+        };
+        if let Some(old) = evict {
+            loader.evict_url(&old);
+        }
+        let payload = assemble_detail(&game, Some(&fresh_detail), &fresh_characters);
+        let _ = slint::invoke_from_event_loop(move || {
+            if let Some(app) = app.upgrade() {
+                show_detail(&app, &loader, payload, false);
+                app.set_detail_refreshing(false);
+            }
+        });
+    });
 }
 
 fn open_detail(
@@ -143,24 +267,7 @@ fn open_detail(
                 let stored = tokio::task::spawn_blocking(move || {
                     let conn =
                         poketto_core::db::open(&db_path()).map_err(|e| e.to_string())?;
-                    poketto_core::vndb::store_detail_sync(&conn, &vndb_id, &fresh_detail)
-                        .map_err(|e| e.to_string())?;
-                    poketto_core::vndb::store_characters_sync(&conn, &vndb_id, &fresh_characters)
-                        .map_err(|e| e.to_string())?;
-                    if fresh_detail.image.is_some() {
-                        if let Some(mut stored) = poketto_core::db::get_game(&conn, &game_id)
-                            .map_err(|e| e.to_string())?
-                        {
-                            if stored.cover_url.is_none() {
-                                stored.cover_url = fresh_detail
-                                    .image
-                                    .as_ref()
-                                    .map(|image| image.url.clone());
-                                poketto_core::db::update_game(&conn, &stored)
-                                    .map_err(|e| e.to_string())?;
-                            }
-                        }
-                    }
+                    persist_fresh_detail(&conn, &game_id, &vndb_id, &fresh_detail, &fresh_characters)?;
                     Ok::<_, String>((fresh_detail, fresh_characters))
                 })
                 .await;
@@ -173,13 +280,13 @@ fn open_detail(
         let payload = assemble_detail(&game, detail.as_ref(), &characters);
         let _ = slint::invoke_from_event_loop(move || {
             if let Some(app) = app.upgrade() {
-                show_detail(&app, &loader, payload);
+                show_detail(&app, &loader, payload, true);
             }
         });
     });
 }
 
-fn show_detail(app: &AppWindow, loader: &ImageLoader, payload: DetailPayload) {
+fn show_detail(app: &AppWindow, loader: &ImageLoader, payload: DetailPayload, navigate: bool) {
     app.set_detail_id(payload.id.clone().into());
     app.set_detail_title(payload.title.into());
     app.set_detail_meta(payload.meta.into());
@@ -214,7 +321,9 @@ fn show_detail(app: &AppWindow, loader: &ImageLoader, payload: DetailPayload) {
         loader.request(&payload.id, &url);
     }
     app.set_library_rev(app.get_library_rev() + 1);
-    app.set_screen(SCREEN_DETAIL);
+    if navigate {
+        app.set_screen(SCREEN_DETAIL);
+    }
 }
 
 fn begin_launch(
@@ -379,9 +488,17 @@ fn main() -> Result<(), slint::PlatformError> {
     let model: Rc<VecModel<GameCardData>> = Rc::new(VecModel::default());
     app.set_games(ModelRc::from(model.clone()));
     let filter = Rc::new(RefCell::new(LibraryFilter::default()));
+    let sort = Rc::new(Cell::new((
+        poketto_core::db::SortBy::Title,
+        poketto_core::db::SortOrder::Asc,
+    )));
     load_settings_into(&app);
+    if let Ok(saved) = poketto_core::db::load_sort_pref(&conn.borrow()) {
+        sort.set(saved);
+        app.set_sort_index(adapters::sort_option_index(saved.0, saved.1));
+    }
 
-    refresh(&app, &model, &conn.borrow(), *filter.borrow(), &loader);
+    refresh(&app, &model, &conn.borrow(), *filter.borrow(), sort.get(), &loader);
     {
         let handle = app.as_weak();
         app.on_open_settings(move || {
@@ -405,9 +522,10 @@ fn main() -> Result<(), slint::PlatformError> {
         let conn = conn.clone();
         let filter = filter.clone();
         let loader = loader.clone();
+        let sort = sort.clone();
         app.on_search_accepted(move |_| {
             if let Some(app) = handle.upgrade() {
-                refresh(&app, &model, &conn.borrow(), *filter.borrow(), &loader);
+                refresh(&app, &model, &conn.borrow(), *filter.borrow(), sort.get(), &loader);
             }
         });
     }
@@ -417,11 +535,43 @@ fn main() -> Result<(), slint::PlatformError> {
         let conn = conn.clone();
         let filter = filter.clone();
         let loader = loader.clone();
+        let sort = sort.clone();
         app.on_filter_changed(move |index| {
             if let Some(app) = handle.upgrade() {
                 *filter.borrow_mut() = LibraryFilter::from_index(index);
                 app.set_active_filter(index);
-                refresh(&app, &model, &conn.borrow(), *filter.borrow(), &loader);
+                refresh(&app, &model, &conn.borrow(), *filter.borrow(), sort.get(), &loader);
+            }
+        });
+    }
+    {
+        let handle = app.as_weak();
+        let model = model.clone();
+        let conn = conn.clone();
+        let filter = filter.clone();
+        let sort = sort.clone();
+        let loader = loader.clone();
+        app.on_sort_changed(move |field, asc| {
+            let order = if asc {
+                poketto_core::db::SortOrder::Asc
+            } else {
+                poketto_core::db::SortOrder::Desc
+            };
+            let sort_by = match field.as_str() {
+                "title" => poketto_core::db::SortBy::Title,
+                "last_played" => poketto_core::db::SortBy::LastPlayed,
+                "play_time" => poketto_core::db::SortBy::PlayTime,
+                _ => {
+                    tracing::warn!("unknown sort field: {field}");
+                    return;
+                }
+            };
+            sort.set((sort_by, order));
+            if let Err(e) = poketto_core::db::save_sort_pref(&conn.borrow(), sort_by, order) {
+                tracing::warn!("sort preference save failed: {e}");
+            }
+            if let Some(app) = handle.upgrade() {
+                refresh(&app, &model, &conn.borrow(), *filter.borrow(), sort.get(), &loader);
             }
         });
     }
@@ -721,6 +871,28 @@ fn open_editor_for_edit(app: &AppWindow, game: &poketto_core::models::Game) {
     {
         let handle = app.as_weak();
         let rt_handle = rt_handle.clone();
+        let client = client.clone();
+        let loader = loader.clone();
+        app.on_refresh_metadata(move || {
+            if let Some(app) = handle.upgrade() {
+                if app.get_detail_refreshing() {
+                    return;
+                }
+                app.set_detail_refreshing(true);
+                app.set_detail_error("".into());
+                refresh_detail(
+                    &rt_handle,
+                    &client,
+                    &loader,
+                    handle.clone(),
+                    app.get_detail_id().to_string(),
+                );
+            }
+        });
+    }
+    {
+        let handle = app.as_weak();
+        let rt_handle = rt_handle.clone();
         app.on_edit_browse(move || {
             let handle = handle.clone();
             rt_handle.spawn(async move {
@@ -856,6 +1028,7 @@ fn open_editor_for_edit(app: &AppWindow, game: &poketto_core::models::Game) {
     let drain_model = model.clone();
     let drain_loader = loader.clone();
     let drain_conn = conn.clone();
+    let drain_sort = sort.clone();
     let drain_filter = filter.clone();
     let drain_handle = app.as_weak();
     let drain_rev = last_rev.clone();
@@ -884,6 +1057,7 @@ fn open_editor_for_edit(app: &AppWindow, game: &poketto_core::models::Game) {
                         &drain_model,
                         &drain_conn.borrow(),
                         *drain_filter.borrow(),
+                        drain_sort.get(),
                         &drain_loader,
                     );
                 }
@@ -892,4 +1066,73 @@ fn open_editor_for_edit(app: &AppWindow, game: &poketto_core::models::Game) {
     );
 
     app.run()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_detail(image_url: Option<&str>) -> poketto_core::models::VndbVnDetail {
+        poketto_core::models::VndbVnDetail {
+            id: "v17".to_string(),
+            title: "Muv-Luv".to_string(),
+            image: image_url.map(|url| poketto_core::models::VndbImage {
+                url: url.to_string(),
+                sexual: 0.0,
+                violence: 0.0,
+            }),
+            released: None,
+            rating: None,
+            description: None,
+            length: None,
+            length_minutes: None,
+            devstatus: None,
+            tags: None,
+            developers: None,
+        }
+    }
+
+    fn test_game(conn: &poketto_core::db::Connection, cover: Option<&str>) {
+        let game = poketto_core::models::Game {
+            id: "g1".to_string(),
+            title: "Muv-Luv".to_string(),
+            path: "/games/g1".to_string(),
+            work_dir: None,
+            vndb_id: Some("v17".to_string()),
+            cover_url: cover.map(str::to_string),
+            play_time_minutes: 0,
+            is_finished: false,
+            last_played: None,
+            is_hidden: false,
+            show_spoilers: false,
+            game_type: None,
+            wine_settings: None,
+            rating: None,
+        };
+        poketto_core::db::insert_game(conn, &game).expect("insert");
+    }
+
+    #[test]
+    fn persist_adopt_returns_old_url_for_eviction() {
+        let conn = poketto_core::db::open_in_memory().expect("db");
+        test_game(&conn, None);
+        let cached = test_detail(Some("https://old.jpg"));
+        poketto_core::vndb::store_detail_sync(&conn, "v17", &cached).expect("seed");
+        let fresh = test_detail(Some("https://new.jpg"));
+        let (game, evict) =
+            persist_fresh_detail(&conn, "g1", "v17", &fresh, &[]).expect("persist");
+        assert_eq!(game.cover_url.as_deref(), Some("https://new.jpg"));
+        assert_eq!(evict.as_deref(), Some("https://old.jpg"));
+    }
+
+    #[test]
+    fn persist_no_change_returns_none() {
+        let conn = poketto_core::db::open_in_memory().expect("db");
+        test_game(&conn, Some("https://cover.jpg"));
+        let fresh = test_detail(Some("https://cover.jpg"));
+        let (game, evict) =
+            persist_fresh_detail(&conn, "g1", "v17", &fresh, &[]).expect("persist");
+        assert_eq!(game.cover_url.as_deref(), Some("https://cover.jpg"));
+        assert_eq!(evict, None);
+    }
 }

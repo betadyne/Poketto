@@ -101,6 +101,12 @@ impl MemCache {
         }
         self.map.insert(key, image);
     }
+
+    fn remove(&mut self, key: &str) {
+        if self.map.remove(key).is_some() {
+            self.order.retain(|key_| key_ != key);
+        }
+    }
 }
 
 struct Shared {
@@ -193,6 +199,11 @@ impl ImageLoader {
                 image,
             });
         });
+    }
+
+    pub fn evict_url(&self, url: &str) {
+        self.shared.mem.lock().expect("mem cache").remove(&cache_key(url));
+        let _ = std::fs::remove_file(thumbnail_path(&self.shared.cache_dir, url));
     }
 
     pub fn poll(&self) -> Vec<LoadedCover> {
@@ -381,5 +392,35 @@ mod tests {
             tokio::time::sleep(Duration::from_millis(50)).await;
         }
         None
+    }
+
+    #[test]
+    fn evict_url_clears_disk_and_memory() {
+        let dir = test_dir("evict");
+        let url = "https://example.com/evict.jpg";
+        let decoded = decode_thumbnail(&test_png(100, 100), THUMB_WIDTH).expect("decode");
+        std::fs::write(
+            thumbnail_path(&dir, url),
+            encode_jpeg(&decoded).expect("encode"),
+        )
+        .expect("seed");
+        let (_rt, loader) = test_loader(&dir);
+        loader
+            .shared
+            .mem
+            .lock()
+            .expect("mem cache")
+            .put(cache_key(url), decoded);
+        loader.evict_url(url);
+        assert!(!thumbnail_path(&dir, url).exists());
+        assert!(loader
+            .shared
+            .mem
+            .lock()
+            .expect("mem cache")
+            .get(&cache_key(url))
+            .is_none());
+        loader.evict_url(url);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
