@@ -25,6 +25,9 @@ export component AppWindow inherits Window {
     in-out property <bool> detail-finished;
     in-out property <bool> detail-playing;
     in-out property <string> detail-error;
+    in-out property <bool> detail-nsfw;
+    in-out property <bool> detail-cover-revealed;
+    in-out property <bool> detail-show-spoilers;
     in-out property <[DetailTag]> detail-tags;
     in-out property <[DetailCharacter]> detail-characters;
 
@@ -73,6 +76,8 @@ export component AppWindow inherits Window {
     callback edit-game(string);
     callback toggle-hide(string);
     callback remove-game(string);
+    callback reveal-cover(string);
+    callback spoilers-toggled(bool);
     callback edit-browse;
     callback edit-search(string);
     callback edit-save(GameFormData);
@@ -84,6 +89,7 @@ export component AppWindow inherits Window {
         games <=> root.games;
         query <=> root.query;
         active-filter <=> root.active-filter;
+        blur-nsfw <=> root.set-blur;
         game-clicked(id) => { root.game-clicked(id); }
         search-accepted(query) => { root.search-accepted(query); }
         filter-changed(index) => { root.filter-changed(index); }
@@ -93,6 +99,7 @@ export component AppWindow inherits Window {
         edit-game(id) => { root.edit-game(id); }
         toggle-hide(id) => { root.toggle-hide(id); }
         remove-game(id) => { root.remove-game(id); }
+        reveal-cover(id) => { root.reveal-cover(id); }
     }
 
     if root.screen == 1 : DetailView {
@@ -107,12 +114,17 @@ export component AppWindow inherits Window {
         finished <=> root.detail-finished;
         playing <=> root.detail-playing;
         launch-error <=> root.detail-error;
+        cover-nsfw <=> root.detail-nsfw;
+        blur-nsfw <=> root.set-blur;
+        cover-revealed <=> root.detail-cover-revealed;
+        show-spoilers <=> root.detail-show-spoilers;
         tags <=> root.detail-tags;
         characters <=> root.detail-characters;
         back => { root.detail-back(); }
         launch => { root.launch-clicked(root.detail-id); }
         configure => { root.configure-clicked(); }
         edit-clicked => { root.edit-clicked(); }
+        spoilers-toggled(allowed) => { root.spoilers-toggled(allowed); }
     }
 
     if root.screen == 2 : SettingsView {

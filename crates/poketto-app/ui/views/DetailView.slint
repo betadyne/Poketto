@@ -1,14 +1,17 @@
 import { Theme } from "../tokens.slint";
+import { Switch } from "std-widgets.slint";
 import { Button } from "../components/Button.slint";
 import { TagBadge } from "../components/TagBadge.slint";
 
 export struct DetailTag {
     name: string,
+    spoiler: int,
 }
 
 export struct DetailCharacter {
     name: string,
     role: string,
+    spoiler: int,
 }
 
 export component DetailView inherits Rectangle {
@@ -21,6 +24,10 @@ export component DetailView inherits Rectangle {
     in property <bool> finished;
     in property <bool> playing;
     in property <string> launch-error;
+    in property <bool> cover-nsfw;
+    in property <bool> blur-nsfw;
+    in-out property <bool> cover-revealed;
+    in-out property <bool> show-spoilers;
     in property <[DetailTag]> tags;
     in property <[DetailCharacter]> characters;
 
@@ -28,6 +35,9 @@ export component DetailView inherits Rectangle {
     callback launch;
     callback configure;
     callback edit-clicked;
+    callback spoilers-toggled(bool);
+
+    property <bool> cover-blocked: root.cover-nsfw && root.blur-nsfw && !root.cover-revealed;
 
     Flickable {
         width: 100%;
@@ -63,11 +73,37 @@ export component DetailView inherits Rectangle {
                         font-size: Theme.font-sm;
                     }
 
-                    if root.show-cover : Image {
+                    if root.show-cover && !root.cover-blocked : Image {
                         source: root.cover;
                         width: 100%;
                         height: 100%;
                         image-fit: ImageFit.cover;
+                    }
+
+                    if root.cover-blocked : Rectangle {
+                        background: Theme.surface;
+
+                        VerticalLayout {
+                            alignment: center;
+
+                            Text {
+                                text: "NSFW Content";
+                                color: Theme.text;
+                                font-size: Theme.font-md;
+                                horizontal-alignment: center;
+                            }
+
+                            Text {
+                                text: "Tap to reveal";
+                                color: Theme.text-muted;
+                                font-size: Theme.font-sm;
+                                horizontal-alignment: center;
+                            }
+                        }
+
+                        TouchArea {
+                            clicked => { root.cover-revealed = true; }
+                        }
                     }
                 }
 
@@ -149,6 +185,21 @@ export component DetailView inherits Rectangle {
                 wrap: word-wrap;
             }
 
+            HorizontalLayout {
+                Text {
+                    text: "Show Spoilers";
+                    color: Theme.text;
+                    font-size: Theme.font-md;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                }
+
+                Switch {
+                    checked <=> root.show-spoilers;
+                    toggled => { root.spoilers-toggled(root.show-spoilers); }
+                }
+            }
+
             if root.tags.length > 0 : Text {
                 text: "Tags";
                 color: Theme.text-muted;
@@ -160,6 +211,7 @@ export component DetailView inherits Rectangle {
 
                 for tag in root.tags : TagBadge {
                     text: tag.name;
+                    visible: root.show-spoilers || tag.spoiler == 0;
                 }
             }
 
@@ -176,6 +228,7 @@ export component DetailView inherits Rectangle {
                     text: ch.role == "" ? ch.name : ch.name + " · " + ch.role;
                     color: Theme.text;
                     font-size: Theme.font-md;
+                    visible: root.show-spoilers || ch.spoiler == 0;
                 }
             }
         }

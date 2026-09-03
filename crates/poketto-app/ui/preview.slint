@@ -83,10 +83,11 @@ export component LibraryPreview inherits Window {
         width: 100%;
         height: 100%;
         active-filter: 0;
+        blur-nsfw: true;
         games: [
             { id: "g1", title: "Muv-Luv Alternative", rating: 8.55, show-cover: false },
             { id: "g2", title: "Steins;Gate", rating: 9.1, show-cover: false },
-            { id: "g3", title: "A very long visual novel title that must elide gracefully", rating: 7.2, show-cover: false },
+            { id: "g3", title: "A very long visual novel title that must elide gracefully", rating: 7.2, show-cover: false, is-nsfw: true },
             { id: "g4", title: "Unrated Game", rating: 0, show-cover: false },
             { id: "g5", title: "Fate/stay night", rating: 8.9, show-cover: false },
             { id: "g6", title: "Clannad", rating: 8.7, show-cover: false },
@@ -111,15 +112,16 @@ export component DetailPreview inherits Window {
         finished: true;
         playing: true;
         tags: [
-            { name: "Drama" },
-            { name: "Sci-Fi" },
-            { name: "Mecha" },
+            { name: "Drama", spoiler: 0 },
+            { name: "Sci-Fi", spoiler: 0 },
+            { name: "Secret Ending", spoiler: 2 },
         ];
         characters: [
-            { name: "Takeru Shirogane", role: "main" },
-            { name: "Meiya Mitsurugi", role: "main" },
-            { name: "Yuuko Kouzuki", role: "supporting" },
+            { name: "Takeru Shirogane", role: "main", spoiler: 0 },
+            { name: "Meiya Mitsurugi", role: "main", spoiler: 0 },
+            { name: "Mystery Pilot", role: "supporting", spoiler: 1 },
         ];
+        show-spoilers: false;
     }
 }
 

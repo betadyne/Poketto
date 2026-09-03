@@ -50,9 +50,11 @@ pub struct DetailPayload {
     pub playtime: String,
     pub synopsis: String,
     pub finished: bool,
-    pub tags: Vec<String>,
-    pub characters: Vec<(String, String)>,
+    pub show_spoilers: bool,
+    pub tags: Vec<(String, i32)>,
+    pub characters: Vec<(String, String, i32)>,
     pub cover_url: Option<String>,
+    pub nsfw: bool,
 }
 
 pub fn assemble_detail(
@@ -81,7 +83,11 @@ pub fn assemble_detail(
             }
         }
         if let Some(detail_tags) = detail.tags.as_deref() {
-            tags = detail_tags.iter().take(8).map(|tag| tag.name.clone()).collect();
+            tags = detail_tags
+                .iter()
+                .take(8)
+                .map(|tag| (tag.name.clone(), tag.spoiler))
+                .collect();
         }
         if cover_url.is_none() {
             cover_url = detail.image.as_ref().map(|image| image.url.clone());
@@ -98,7 +104,23 @@ pub fn assemble_detail(
                 .first()
                 .map(|vn| vn.role.clone())
                 .unwrap_or_default();
-            (character.name.clone(), role)
+            let spoiler = character
+                .traits
+                .as_deref()
+                .unwrap_or_default()
+                .iter()
+                .map(|t| t.spoiler)
+                .chain(
+                    character
+                        .vns
+                        .as_deref()
+                        .unwrap_or_default()
+                        .iter()
+                        .map(|vn| vn.spoiler),
+                )
+                .max()
+                .unwrap_or(0);
+            (character.name.clone(), role, spoiler)
         })
         .collect();
     let mut playtime = format_playtime(game.play_time_minutes);
@@ -112,9 +134,14 @@ pub fn assemble_detail(
         playtime: format!("Played {playtime}"),
         synopsis,
         finished: game.is_finished,
+        show_spoilers: game.show_spoilers,
         tags,
         characters,
         cover_url,
+        nsfw: detail
+            .as_ref()
+            .and_then(|detail| detail.image.as_ref())
+            .is_some_and(|image| super::games::cover_nsfw(image.sexual, image.violence)),
     }
 }
 
@@ -235,7 +262,31 @@ mod tests {
         let payload = assemble_detail(&detail_game(), Some(&detail), &[]);
         assert_eq!(payload.meta, "2003-02-28 · 8.55 · 50h 0m");
         assert_eq!(payload.synopsis, "A story.");
-        assert_eq!(payload.tags, vec!["Drama".to_string()]);
+        assert_eq!(payload.tags, vec![("Drama".to_string(), 0)]);
         assert_eq!(payload.cover_url.as_deref(), Some("https://img.jpg"));
+    }
+
+    #[test]
+    fn spoiler_levels_carry_max_trait_and_vn_flags() {
+        let json = r#"{"id": "c1", "name": "Meiya", "vns": [{"id": "v17", "role": "main", "spoiler": 1}], "traits": [{"id": "t1", "name": "Twintails", "spoiler": 0}, {"id": "t2", "name": "Secret", "spoiler": 2}]}"#;
+        let character: poketto_core::models::VndbCharacter =
+            serde_json::from_str(json).expect("fixture");
+        let payload = assemble_detail(&detail_game(), None, &[character]);
+        assert_eq!(
+            payload.characters,
+            vec![("Meiya".to_string(), "main".to_string(), 2)]
+        );
+    }
+
+    #[test]
+    fn nsfw_flag_follows_cover_scores() {
+        let safe_json = r#"{"id": "v17", "title": "Safe", "image": {"url": "https://img.jpg", "sexual": 0.0, "violence": 0.0}}"#;
+        let safe: poketto_core::models::VndbVnDetail =
+            serde_json::from_str(safe_json).expect("fixture");
+        assert_eq!(assemble_detail(&detail_game(), Some(&safe), &[]).nsfw, false);
+        let spicy_json = r#"{"id": "v17", "title": "Spicy", "image": {"url": "https://img.jpg", "sexual": 0.0, "violence": 1.1}}"#;
+        let spicy: poketto_core::models::VndbVnDetail =
+            serde_json::from_str(spicy_json).expect("fixture");
+        assert_eq!(assemble_detail(&detail_game(), Some(&spicy), &[]).nsfw, true);
     }
 }

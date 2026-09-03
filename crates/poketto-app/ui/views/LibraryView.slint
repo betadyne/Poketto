@@ -9,6 +9,7 @@ export component LibraryView inherits Rectangle {
     in-out property <string> query;
     in-out property <int> active-filter;
     in property <int> columns: 4;
+    in property <bool> blur-nsfw;
 
     callback game-clicked(string);
     callback search-accepted(string);
@@ -19,6 +20,7 @@ export component LibraryView inherits Rectangle {
     callback edit-game(string);
     callback toggle-hide(string);
     callback remove-game(string);
+    callback reveal-cover(string);
     property <int> row-count: Math.ceil(games.length / root.columns);
 
     HorizontalLayout {
@@ -115,11 +117,13 @@ export component LibraryView inherits Rectangle {
 
                         if index < root.games.length : GameCard {
                             game: root.games[index];
+                            blur-nsfw: root.blur-nsfw;
                             clicked(id) => { root.game-clicked(id); }
                             play-game(id) => { root.play-game(id); }
                             edit-game(id) => { root.edit-game(id); }
                             toggle-hide(id) => { root.toggle-hide(id); }
                             remove-game(id) => { root.remove-game(id); }
+                            reveal-cover(id) => { root.reveal-cover(id); }
                         }
                     }
                 }

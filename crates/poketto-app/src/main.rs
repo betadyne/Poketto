@@ -186,20 +186,27 @@ fn show_detail(app: &AppWindow, loader: &ImageLoader, payload: DetailPayload) {
     app.set_detail_playtime(payload.playtime.into());
     app.set_detail_synopsis(payload.synopsis.into());
     app.set_detail_finished(payload.finished);
+    app.set_detail_nsfw(payload.nsfw);
+    app.set_detail_cover_revealed(false);
+    app.set_detail_show_spoilers(payload.show_spoilers);
     app.set_detail_playing(app.get_playing_id().as_str() == payload.id);
     app.set_detail_error("".into());
     let tags: Vec<DetailTag> = payload
         .tags
         .into_iter()
-        .map(|name| DetailTag { name: name.into() })
+        .map(|(name, spoiler)| DetailTag {
+            name: name.into(),
+            spoiler,
+        })
         .collect();
     app.set_detail_tags(ModelRc::from(Rc::new(VecModel::from(tags))));
     let characters: Vec<DetailCharacter> = payload
         .characters
         .into_iter()
-        .map(|(name, role)| DetailCharacter {
+        .map(|(name, role, spoiler)| DetailCharacter {
             name: name.into(),
             role: role.into(),
+            spoiler,
         })
         .collect();
     app.set_detail_characters(ModelRc::from(Rc::new(VecModel::from(characters))));
@@ -509,6 +516,47 @@ fn main() -> Result<(), slint::PlatformError> {
                     app.set_screen(SCREEN_LIBRARY);
                 }
                 app.set_library_rev(app.get_library_rev() + 1);
+            }
+        });
+    }
+    {
+        let model = model.clone();
+        app.on_reveal_cover(move |id| {
+            for row in 0..model.row_count() {
+                let Some(entry) = model.row_data(row) else {
+                    continue;
+                };
+                if entry.id.as_str() == id.as_str() {
+                    model.set_row_data(
+                        row,
+                        GameCardData {
+                            revealed: true,
+                            ..entry
+                        },
+                    );
+                    return;
+                }
+            }
+        });
+    }
+    {
+        let handle = app.as_weak();
+        let conn = conn.clone();
+        app.on_spoilers_toggled(move |allowed| {
+            let Some(app) = handle.upgrade() else {
+                return;
+            };
+            let id = app.get_detail_id().to_string();
+            let updated = (|| {
+                let conn = conn.borrow();
+                let mut game = poketto_core::db::get_game(&conn, &id)?
+                    .ok_or_else(|| poketto_core::db::DbError::GameNotFound(id.clone()))?;
+                game.show_spoilers = allowed;
+                poketto_core::db::update_game(&conn, &game)?;
+                Ok::<_, poketto_core::db::DbError>(())
+            })();
+            if let Err(e) = updated {
+                tracing::warn!("spoiler preference save failed: {e}");
             }
         });
     }
