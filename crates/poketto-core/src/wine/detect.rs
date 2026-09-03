@@ -135,7 +135,7 @@ mod tests {
         let found = detect_proton_in_folder(&dir).expect("detected");
         assert_eq!(found.version.as_deref(), Some("9.0-2"));
         assert_eq!(found.wine_type, WineType::Proton);
-        let _ = std::fs::remove_dir_all(dir.parent().expect("parent"));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
@@ -144,7 +144,7 @@ mod tests {
         std::fs::write(dir.join("proton"), "").expect("binary stub");
         let found = detect_proton_in_folder(&dir).expect("detected");
         assert_eq!(found.version.as_deref(), Some("9-7"));
-        let _ = std::fs::remove_dir_all(dir.parent().expect("parent"));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
@@ -152,7 +152,7 @@ mod tests {
         let dir = fixture_dir("empty");
         assert_eq!(detect_proton_in_folder(&dir).is_none(), true);
         assert_eq!(detect_wine_in_folder(&dir).is_none(), true);
-        let _ = std::fs::remove_dir_all(dir.parent().expect("parent"));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[cfg(target_os = "linux")]
@@ -168,7 +168,7 @@ mod tests {
             .expect("executable");
         let found = detect_wine_in_folder(&dir).expect("detected");
         assert_eq!(found.version.as_deref(), Some("9.0"));
-        let _ = std::fs::remove_dir_all(dir.parent().expect("parent"));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
@@ -186,6 +186,6 @@ mod tests {
             validate_wine_binary(dir.to_str().expect("unicode")),
             Err(WineError::NotAFile(_))
         ));
-        let _ = std::fs::remove_dir_all(dir.parent().expect("parent"));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

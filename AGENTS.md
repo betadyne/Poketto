@@ -168,8 +168,9 @@ Slint tooling (when installed): `slint-viewer` for live `.slint` preview,
 - Baseline: Rust 1.82+, edition 2021, `tokio` full, `slint` with
   `backend-winit` + `renderer-femtovg` by default. `renderer-skia` is an
   opt-in feature for release benchmarking only.
-- `reqwest` uses `default-features = false` with `rustls-tls`, `json`,
-  `stream`. Verify TLS root handling on Windows when touching network code.
+- `reqwest` uses `default-features = false` with `rustls`, `json`,
+  `stream` (0.13 renamed `rustls-tls` to `rustls`). Verify TLS root
+  handling on Windows when touching network code.
 
 ### Threading Rules
 

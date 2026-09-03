@@ -57,6 +57,22 @@ impl From<crate::wine::WineError> for AppError {
     }
 }
 
+impl From<crate::vndb::VndbError> for AppError {
+    fn from(e: crate::vndb::VndbError) -> Self {
+        match e {
+            crate::vndb::VndbError::NotFound(id) => AppError::NotFound(id),
+            crate::vndb::VndbError::AuthRequired(message) => AppError::AuthRequired(message),
+            other => AppError::VndbApi(other.to_string()),
+        }
+    }
+}
+
+impl From<crate::process::ProcessError> for AppError {
+    fn from(e: crate::process::ProcessError) -> Self {
+        AppError::ProcessLaunch(e.to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
