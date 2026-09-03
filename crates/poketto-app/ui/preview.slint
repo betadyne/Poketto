@@ -7,6 +7,7 @@ import { GameEditOverlay } from "components/GameEditOverlay.slint";
 import { LibraryView } from "views/LibraryView.slint";
 import { DetailView } from "views/DetailView.slint";
 import { SettingsView } from "views/SettingsView.slint";
+import { LogsView } from "views/LogsView.slint";
 
 export component Preview inherits Window {
     title: "Poketto UI Preview";
@@ -166,6 +167,24 @@ export component EditorPreview inherits Window {
         vndb-hits: [
             { id: "v17", title: "Muv-Luv Alternative", cover-url: "https://img.jpg" },
             { id: "v18", title: "Muv-Luv Unlimited", cover-url: "" },
+        ];
+    }
+}
+
+export component LogsPreview inherits Window {
+    title: "Poketto Logs Preview";
+    width: 700px;
+    height: 600px;
+    background: Theme.bg-dark;
+
+    LogsView {
+        width: 100%;
+        height: 100%;
+        status: "";
+        lines: [
+            { text: "12:01:01 [INFO] poketto_app: settings saved", level: 0 },
+            { text: "12:01:33 [WARN] poketto_core::vndb: slow response", level: 1 },
+            { text: "12:02:07 [ERROR] poketto_core::discord: connect failed", level: 2 },
         ];
     }
 }

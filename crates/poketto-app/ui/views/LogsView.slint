@@ -1,0 +1,70 @@
+import { ListView } from "std-widgets.slint";
+import { Theme } from "../tokens.slint";
+import { Button } from "../components/Button.slint";
+
+export struct LogLine {
+    text: string,
+    level: int,
+}
+
+export component LogsView inherits Rectangle {
+    in property <[LogLine]> lines;
+    in property <string> status;
+    callback back;
+    callback copy-logs;
+    callback clear-logs;
+
+    VerticalLayout {
+        padding: Theme.pad-lg;
+        spacing: Theme.space-md;
+
+        HorizontalLayout {
+            spacing: Theme.space-sm;
+            Button {
+                text: "Back";
+                clicked => { root.back(); }
+            }
+            Text {
+                text: "Logs";
+                color: Theme.text;
+                font-size: Theme.font-lg;
+                vertical-alignment: center;
+            }
+            Text {
+                text: root.lines.length + " lines";
+                color: Theme.text-muted;
+                font-size: Theme.font-sm;
+                vertical-alignment: center;
+            }
+        }
+
+        if root.status != "" : Text {
+            text: root.status;
+            color: Theme.text-muted;
+            font-size: Theme.font-md;
+        }
+
+        ListView {
+            vertical-stretch: 1;
+            for line in root.lines : Text {
+                text: line.text;
+                color: line.level == 2 ? Theme.danger : line.level == 1 ? Theme.warning : Theme.text;
+                font-size: Theme.font-sm;
+                wrap: word-wrap;
+            }
+        }
+
+        HorizontalLayout {
+            spacing: Theme.space-sm;
+            Button {
+                text: "Copy to Clipboard";
+                primary: true;
+                clicked => { root.copy-logs(); }
+            }
+            Button {
+                text: "Clear";
+                clicked => { root.clear-logs(); }
+            }
+        }
+    }
+}

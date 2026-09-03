@@ -2,6 +2,7 @@ slint::include_modules!();
 
 mod adapters;
 mod image_loader;
+mod log_buffer;
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -10,15 +11,19 @@ use std::time::Duration;
 
 use slint::{Model, ModelRc, VecModel, Weak};
 
-use adapters::{assemble_detail, presence_buttons, DetailPayload, LibraryFilter};
+use adapters::{assemble_detail, log_lines, presence_buttons, DetailPayload, LibraryFilter};
+use copypasta::ClipboardProvider;
 use image_loader::{ImageLoader, LoadedCover};
+use log_buffer::{LogBuffer, LogBufferLayer};
 use poketto_core::discord::{PresenceHandle, PresenceUpdate};
 use poketto_core::process::{self, LocalTimestamps, RunTracker};
 use poketto_core::vndb::VndbClient;
+use tracing_subscriber::{prelude::*, util::SubscriberInitExt};
 
 const SCREEN_LIBRARY: i32 = 0;
 const SCREEN_DETAIL: i32 = 1;
 const SCREEN_SETTINGS: i32 = 2;
+const SCREEN_LOGS: i32 = 3;
 
 fn data_dir() -> std::path::PathBuf {
     dirs::data_local_dir()
@@ -326,6 +331,22 @@ fn show_detail(app: &AppWindow, loader: &ImageLoader, payload: DetailPayload, na
     }
 }
 
+fn sync_logs(app: &AppWindow, buffer: &LogBuffer, seen: &Cell<u64>) {
+    let gen = buffer.generation();
+    if gen == seen.get() {
+        return;
+    }
+    seen.set(gen);
+    let rows: Vec<LogLine> = log_lines(buffer)
+        .into_iter()
+        .map(|(text, level)| LogLine {
+            text: text.into(),
+            level,
+        })
+        .collect();
+    app.set_logs_lines(ModelRc::from(Rc::new(VecModel::from(rows))));
+}
+
 fn begin_launch(
     app: &AppWindow,
     presence: &Arc<PresenceHandle>,
@@ -468,6 +489,12 @@ fn load_settings_into(app: &AppWindow) {
 }
 
 fn main() -> Result<(), slint::PlatformError> {
+    let log_buffer = LogBuffer::new();
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")))
+        .with(tracing_subscriber::fmt::layer())
+        .with(LogBufferLayer::new(log_buffer.clone()))
+        .init();
     if let Err(e) = std::fs::create_dir_all(data_dir()) {
         tracing::warn!("data dir unavailable: {e}");
     }
@@ -483,6 +510,7 @@ fn main() -> Result<(), slint::PlatformError> {
         poketto_core::discord::spawn_presence_worker(poketto_core::discord::DISCORD_CLIENT_ID);
     let presence = Arc::new(presence);
     let last_rev = Rc::new(Cell::new(0));
+    let logs_seen = Rc::new(Cell::new(0u64));
 
     let app = AppWindow::new()?;
     let model: Rc<VecModel<GameCardData>> = Rc::new(VecModel::default());
@@ -724,6 +752,53 @@ fn main() -> Result<(), slint::PlatformError> {
             if let Some(app) = handle.upgrade() {
                 app.set_screen(SCREEN_LIBRARY);
             }
+        });
+    }
+    {
+        let handle = app.as_weak();
+        let log_buffer = log_buffer.clone();
+        let logs_seen = logs_seen.clone();
+        app.on_open_logs(move || {
+            if let Some(app) = handle.upgrade() {
+                sync_logs(&app, &log_buffer, &logs_seen);
+                app.set_screen(SCREEN_LOGS);
+            }
+        });
+    }
+    {
+        let handle = app.as_weak();
+        app.on_logs_back(move || {
+            if let Some(app) = handle.upgrade() {
+                app.set_screen(SCREEN_SETTINGS);
+            }
+        });
+    }
+    {
+        let handle = app.as_weak();
+        let log_buffer = log_buffer.clone();
+        app.on_logs_copy(move || {
+            let Some(app) = handle.upgrade() else {
+                return;
+            };
+            let text = log_buffer.export_text();
+            let count = text.lines().count();
+            match copypasta::ClipboardContext::new().and_then(|mut ctx| ctx.set_contents(text)) {
+                Ok(()) => app.set_logs_status(format!("Copied {count} lines to clipboard.").into()),
+                Err(e) => app.set_logs_status(format!("Copy failed: {e}").into()),
+            }
+        });
+    }
+    {
+        let handle = app.as_weak();
+        let log_buffer = log_buffer.clone();
+        let logs_seen = logs_seen.clone();
+        app.on_logs_clear(move || {
+            let Some(app) = handle.upgrade() else {
+                return;
+            };
+            log_buffer.clear();
+            sync_logs(&app, &log_buffer, &logs_seen);
+            app.set_logs_status("Log cleared.".into());
         });
     }
     {
@@ -1032,6 +1107,8 @@ fn open_editor_for_edit(app: &AppWindow, game: &poketto_core::models::Game) {
     let drain_filter = filter.clone();
     let drain_handle = app.as_weak();
     let drain_rev = last_rev.clone();
+    let drain_buffer = log_buffer.clone();
+    let drain_seen = logs_seen.clone();
     let _cover_timer = slint::Timer::default();
     _cover_timer.start(
         slint::TimerMode::Repeated,
@@ -1060,6 +1137,9 @@ fn open_editor_for_edit(app: &AppWindow, game: &poketto_core::models::Game) {
                         drain_sort.get(),
                         &drain_loader,
                     );
+                }
+                if app.get_screen() == SCREEN_LOGS {
+                    sync_logs(&app, &drain_buffer, &drain_seen);
                 }
             }
         },

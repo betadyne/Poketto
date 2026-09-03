@@ -63,6 +63,7 @@ export component SettingsView inherits Rectangle {
     callback save;
     callback detect-wine;
     callback select-wine(string);
+    callback open-logs;
 
     Flickable {
         width: 100%;
@@ -201,6 +202,13 @@ export component SettingsView inherits Rectangle {
                     text: "Save";
                     primary: true;
                     clicked => { root.save(); }
+                }
+            }
+
+            HorizontalLayout {
+                Button {
+                    text: "View Logs";
+                    clicked => { root.open-logs(); }
                 }
             }
         }
