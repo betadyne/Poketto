@@ -38,6 +38,15 @@ impl From<std::io::Error> for AppError {
     }
 }
 
+impl From<crate::db::DbError> for AppError {
+    fn from(e: crate::db::DbError) -> Self {
+        match e {
+            crate::db::DbError::GameNotFound(id) => AppError::NotFound(id),
+            other => AppError::Database(other.to_string()),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
