@@ -13,6 +13,7 @@ export component LibraryView inherits Rectangle {
     callback game-clicked(string);
     callback search-accepted(string);
     callback filter-changed(int);
+    callback open-settings;
 
     property <int> row-count: Math.ceil(games.length / root.columns);
 
@@ -57,6 +58,15 @@ export component LibraryView inherits Rectangle {
                 fill: true;
                 primary: root.active-filter == 3;
                 clicked => { root.filter-changed(3); }
+            }
+            Rectangle {
+                vertical-stretch: 1;
+            }
+
+            Button {
+                text: "Settings";
+                fill: true;
+                clicked => { root.open-settings(); }
             }
         }
         }

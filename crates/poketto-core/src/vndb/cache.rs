@@ -33,7 +33,7 @@ fn load_cached<T: serde::de::DeserializeOwned>(
     }
 }
 
-fn store_cached<T: serde::Serialize>(
+fn store_cached<T: serde::Serialize + ?Sized>(
     conn: &Connection,
     kind: &str,
     key: &str,
@@ -43,6 +43,33 @@ fn store_cached<T: serde::Serialize>(
     db::cache_put(conn, kind, key, &json, now_unix()).map_err(db_error)
 }
 
+pub fn cached_detail_sync(conn: &Connection, vndb_id: &str) -> VndbResult<Option<VndbVnDetail>> {
+    load_cached(conn, KIND_DETAIL, vndb_id)
+}
+
+pub fn cached_characters_sync(
+    conn: &Connection,
+    vndb_id: &str,
+) -> VndbResult<Option<Vec<VndbCharacter>>> {
+    load_cached(conn, KIND_CHARACTERS, vndb_id)
+}
+
+pub fn store_detail_sync(
+    conn: &Connection,
+    vndb_id: &str,
+    detail: &VndbVnDetail,
+) -> VndbResult<()> {
+    store_cached(conn, KIND_DETAIL, vndb_id, detail)
+}
+
+pub fn store_characters_sync(
+    conn: &Connection,
+    vndb_id: &str,
+    characters: &[VndbCharacter],
+) -> VndbResult<()> {
+    store_cached(conn, KIND_CHARACTERS, vndb_id, characters)
+}
+
 pub async fn detail_cached(
     conn: &Connection,
     client: &VndbClient,
@@ -50,12 +77,12 @@ pub async fn detail_cached(
     force_refresh: bool,
 ) -> VndbResult<VndbVnDetail> {
     if !force_refresh {
-        if let Some(cached) = load_cached(conn, KIND_DETAIL, vndb_id)? {
+        if let Some(cached) = cached_detail_sync(conn, vndb_id)? {
             return Ok(cached);
         }
     }
     let detail = client.detail(vndb_id).await?;
-    store_cached(conn, KIND_DETAIL, vndb_id, &detail)?;
+    store_detail_sync(conn, vndb_id, &detail)?;
     Ok(detail)
 }
 
@@ -66,12 +93,12 @@ pub async fn characters_cached(
     force_refresh: bool,
 ) -> VndbResult<Vec<VndbCharacter>> {
     if !force_refresh {
-        if let Some(cached) = load_cached(conn, KIND_CHARACTERS, vndb_id)? {
+        if let Some(cached) = cached_characters_sync(conn, vndb_id)? {
             return Ok(cached);
         }
     }
     let characters = client.characters(vndb_id).await?;
-    store_cached(conn, KIND_CHARACTERS, vndb_id, &characters)?;
+    store_characters_sync(conn, vndb_id, &characters)?;
     Ok(characters)
 }
 

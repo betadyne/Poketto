@@ -116,7 +116,7 @@ struct Shared {
 
 pub struct ImageLoader {
     shared: Arc<Shared>,
-    done_rx: std::sync::mpsc::Receiver<LoadedCover>,
+    done_rx: std::sync::Mutex<std::sync::mpsc::Receiver<LoadedCover>>,
 }
 
 impl ImageLoader {
@@ -142,7 +142,7 @@ impl ImageLoader {
                 done_tx,
                 downloads: tokio::sync::Semaphore::new(MAX_CONCURRENT_DOWNLOADS),
             }),
-            done_rx,
+            done_rx: Mutex::new(done_rx),
         })
     }
 
@@ -198,7 +198,8 @@ impl ImageLoader {
     pub fn poll(&self) -> Vec<LoadedCover> {
         let current = self.shared.generation.load(Ordering::SeqCst);
         let mut loaded = Vec::new();
-        while let Ok(cover) = self.done_rx.try_recv() {
+        let rx = self.done_rx.lock().expect("completions");
+        while let Ok(cover) = rx.try_recv() {
             if cover.generation == current {
                 loaded.push(cover);
             }

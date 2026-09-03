@@ -3926,6 +3926,7 @@ dependencies = [
  "image",
  "poketto-core",
  "reqwest",
+ "serde_json",
  "slint",
  "slint-build",
  "tokio",
@@ -3936,6 +3937,7 @@ dependencies = [
 name = "poketto-core"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "dirs",
  "discord-rich-presence",
  "reqwest",

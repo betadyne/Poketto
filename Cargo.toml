@@ -11,6 +11,7 @@ edition = "2021"
 rusqlite = { version = "0.40.2", features = ["bundled"] }
 dirs = "6.0.0"
 serde = { version = "1.0.229", features = ["derive"] }
+chrono = "0.4.45"
 serde_json = "1.0.151"
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp"] }
 slint = "1.17.1"

@@ -37,6 +37,21 @@ impl CompletedRun {
     }
 }
 
+pub struct LocalTimestamps {
+    pub rfc3339: String,
+    pub date: String,
+}
+
+impl LocalTimestamps {
+    pub fn now() -> Self {
+        let now = chrono::Local::now();
+        Self {
+            rfc3339: now.to_rfc3339(),
+            date: now.format("%Y-%m-%d").to_string(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

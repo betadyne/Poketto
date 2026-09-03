@@ -4,6 +4,8 @@ import { TagBadge } from "components/TagBadge.slint";
 import { SearchBar } from "components/SearchBar.slint";
 import { GameCardData } from "components/GameCard.slint";
 import { LibraryView } from "views/LibraryView.slint";
+import { DetailView } from "views/DetailView.slint";
+import { SettingsView } from "views/SettingsView.slint";
 
 export component Preview inherits Window {
     title: "Poketto UI Preview";
@@ -87,6 +89,59 @@ export component LibraryPreview inherits Window {
             { id: "g4", title: "Unrated Game", rating: 0, show-cover: false },
             { id: "g5", title: "Fate/stay night", rating: 8.9, show-cover: false },
             { id: "g6", title: "Clannad", rating: 8.7, show-cover: false },
+        ];
+    }
+}
+
+export component DetailPreview inherits Window {
+    title: "Poketto Detail Preview";
+    width: 900px;
+    height: 700px;
+    background: Theme.bg-dark;
+
+    DetailView {
+        width: 100%;
+        height: 100%;
+        title: "Muv-Luv Alternative";
+        show-cover: false;
+        meta-line: "2006 · 8.55 · 3000 min";
+        playtime-line: "Played 2h 5m · Finished";
+        synopsis: "A story of humanity fighting against the alien BETA invaders.";
+        finished: true;
+        playing: true;
+        tags: [
+            { name: "Drama" },
+            { name: "Sci-Fi" },
+            { name: "Mecha" },
+        ];
+        characters: [
+            { name: "Takeru Shirogane", role: "main" },
+            { name: "Meiya Mitsurugi", role: "main" },
+            { name: "Yuuko Kouzuki", role: "supporting" },
+        ];
+    }
+}
+
+export component SettingsPreview inherits Window {
+    title: "Poketto Settings Preview";
+    width: 700px;
+    height: 720px;
+    background: Theme.bg-dark;
+
+    SettingsView {
+        width: 100%;
+        height: 100%;
+        wine-binary: "/usr/bin/wine";
+        wine-prefix: "/home/user/Games/Poketto/GlobalPrefix";
+        steam-runtime: true;
+        discord-enabled: true;
+        btn-game: true;
+        btn-profile: false;
+        btn-github: true;
+        blur-nsfw: true;
+        runners: [
+            { name: "Wine 9.0 (64-bit)", binary: "/usr/bin/wine64" },
+            { name: "GE-Proton9-7", binary: "/home/user/.steam/root/compatibilitytools.d/GE-Proton9-7/proton" },
         ];
     }
 }
