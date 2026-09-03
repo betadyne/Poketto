@@ -1,0 +1,44 @@
+import { Theme } from "../tokens.slint";
+
+export component SearchBar inherits Rectangle {
+    in-out property <string> text;
+    in property <string> placeholder: "Search library...";
+    callback accepted(string);
+
+    background: Theme.surface;
+    border-width: 1px;
+    border-color: Theme.border;
+    border-radius: Theme.radius-md;
+    height: 40px;
+
+    HorizontalLayout {
+        padding-left: Theme.pad-md;
+        padding-right: Theme.pad-md;
+        spacing: Theme.space-sm;
+
+        Image {
+            source: @image-url("../icons/search.svg");
+            width: 16px;
+            height: 16px;
+            colorize: Theme.text-muted;
+        }
+
+        input := TextInput {
+            text <=> root.text;
+            color: Theme.text;
+            font-size: Theme.font-md;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+    }
+
+    if root.text == "" : hint := Text {
+        x: 38px;
+        y: 0;
+        height: 100%;
+        text: root.placeholder;
+        color: Theme.text-muted;
+        font-size: Theme.font-md;
+        vertical-alignment: center;
+    }
+}

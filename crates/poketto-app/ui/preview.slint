@@ -1,0 +1,69 @@
+import { Theme } from "tokens.slint";
+import { Button } from "components/Button.slint";
+import { TagBadge } from "components/TagBadge.slint";
+import { SearchBar } from "components/SearchBar.slint";
+
+export component Preview inherits Window {
+    title: "Poketto UI Preview";
+    width: 560px;
+    height: 440px;
+    background: Theme.bg-dark;
+
+    VerticalLayout {
+        padding: Theme.pad-lg;
+        spacing: Theme.space-md;
+
+        Text {
+            text: "Buttons";
+            color: Theme.text-muted;
+            font-size: Theme.font-sm;
+        }
+
+        HorizontalLayout {
+            spacing: Theme.space-sm;
+
+            Button {
+                text: "Default";
+            }
+
+            Button {
+                text: "Primary";
+                primary: true;
+            }
+        }
+
+        Text {
+            text: "Badges";
+            color: Theme.text-muted;
+            font-size: Theme.font-sm;
+        }
+
+        HorizontalLayout {
+            spacing: Theme.space-sm;
+
+            TagBadge {
+                text: "Drama";
+            }
+
+            TagBadge {
+                text: "Finished";
+                highlighted: true;
+            }
+        }
+
+        Text {
+            text: "Search";
+            color: Theme.text-muted;
+            font-size: Theme.font-sm;
+        }
+
+        query := SearchBar {
+        }
+
+        Text {
+            text: "Query: \{query.text}";
+            color: Theme.text;
+            font-size: Theme.font-md;
+        }
+    }
+}

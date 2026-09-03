@@ -1,0 +1,32 @@
+import { Theme } from "../tokens.slint";
+
+export component Button inherits Rectangle {
+    in property <string> text;
+    in property <bool> primary;
+    callback clicked;
+
+    background: root.primary
+        ? (touch.pressed ? Theme.primary-pressed : touch.has-hover ? Theme.primary-hover : Theme.primary)
+        : (touch.pressed ? Theme.surface-pressed : touch.has-hover ? Theme.surface-hover : Theme.surface);
+    border-radius: Theme.radius-md;
+    height: 36px;
+    width: layout.preferred-width;
+
+    layout := HorizontalLayout {
+        padding-left: Theme.pad-md;
+        padding-right: Theme.pad-md;
+        alignment: center;
+
+        Text {
+            text: root.text;
+            color: root.primary ? Theme.text-on-primary : Theme.text;
+            font-size: Theme.font-md;
+            vertical-alignment: center;
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}

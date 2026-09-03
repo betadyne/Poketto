@@ -1,0 +1,26 @@
+import { Theme } from "../tokens.slint";
+
+export component TagBadge inherits Rectangle {
+    in property <string> text;
+    in property <bool> highlighted;
+
+    background: Theme.surface;
+    border-width: 1px;
+    border-radius: Theme.radius-sm;
+    width: layout.preferred-width;
+    height: layout.preferred-height;
+
+    layout := HorizontalLayout {
+        padding-left: Theme.pad-sm;
+        padding-right: Theme.pad-sm;
+        padding-top: 4px;
+        padding-bottom: 4px;
+
+        Text {
+            text: root.text;
+            color: root.highlighted ? Theme.primary : Theme.text-muted;
+            font-size: Theme.font-sm;
+            vertical-alignment: center;
+        }
+    }
+}
