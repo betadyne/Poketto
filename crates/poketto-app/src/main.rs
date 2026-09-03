@@ -351,6 +351,8 @@ fn begin_launch(
     app: &AppWindow,
     presence: &Arc<PresenceHandle>,
     rt_handle: &tokio::runtime::Handle,
+    client: &Arc<VndbClient>,
+    loader: &Arc<ImageLoader>,
     handle: &Weak<AppWindow>,
     id: &slint::SharedString,
 ) {
@@ -362,16 +364,21 @@ fn begin_launch(
     if app.get_detail_id() == *id {
         app.set_detail_playing(true);
     }
-    launch_game(rt_handle, presence, handle.clone(), id.to_string());
+    launch_game(rt_handle, presence, client, loader, handle.clone(), id.to_string());
 }
 
 fn launch_game(
     rt: &tokio::runtime::Handle,
     presence: &Arc<PresenceHandle>,
+    client: &Arc<VndbClient>,
+    loader: &Arc<ImageLoader>,
     app: Weak<AppWindow>,
     game_id: String,
 ) {
     let presence = presence.clone();
+    let client = client.clone();
+    let loader = loader.clone();
+    let rt_task = rt.clone();
     rt.spawn(async move {
         let id = game_id.clone();
         let prep = tokio::task::spawn_blocking(move || {
@@ -424,13 +431,15 @@ fn launch_game(
                 return;
             }
         };
-        presence.set_playing(PresenceUpdate::playing(
-            &game.title,
-            developer.as_deref(),
-            game.cover_url.as_deref(),
-            presence_buttons(&game, &settings),
-            poketto_core::discord::unix_timestamp(),
-        ));
+        if settings.discord_rpc_enabled {
+            presence.set_playing(PresenceUpdate::playing(
+                &game.title,
+                developer.as_deref(),
+                game.cover_url.as_deref(),
+                presence_buttons(&game, &settings),
+                poketto_core::discord::unix_timestamp(),
+            ));
+        }
         let tracker = RunTracker::start(&game.id, &game.title);
         let minutes = tracker
             .wait_for_exit(child)
@@ -458,12 +467,24 @@ fn launch_game(
             .map_err(|e| e.to_string())
         })
         .await;
-        presence.clear();
+        if settings.discord_rpc_enabled {
+            presence.set_playing(PresenceUpdate::browsing());
+        }
+        let finished = game.id.clone();
         let _ = slint::invoke_from_event_loop(move || {
             if let Some(app) = app.upgrade() {
                 app.set_playing_id("".into());
                 app.set_detail_playing(false);
                 app.set_library_rev(app.get_library_rev() + 1);
+                if app.get_detail_id().as_str() == finished.as_str() {
+                    open_detail(
+                        &rt_task,
+                        &client,
+                        &loader,
+                        app.as_weak(),
+                        finished.clone(),
+                    );
+                }
             }
         });
     });
@@ -615,9 +636,11 @@ fn main() -> Result<(), slint::PlatformError> {
         let handle = app.as_weak();
         let rt_handle = rt_handle.clone();
         let presence = presence.clone();
+        let client = client.clone();
+        let loader = loader.clone();
         app.on_launch_clicked(move |id| {
             if let Some(app) = handle.upgrade() {
-                begin_launch(&app, &presence, &rt_handle, &handle, &id);
+                begin_launch(&app, &presence, &rt_handle, &client, &loader, &handle, &id);
             }
         });
     }
@@ -625,9 +648,11 @@ fn main() -> Result<(), slint::PlatformError> {
         let handle = app.as_weak();
         let rt_handle = rt_handle.clone();
         let presence = presence.clone();
+        let client = client.clone();
+        let loader = loader.clone();
         app.on_play_game(move |id| {
             if let Some(app) = handle.upgrade() {
-                begin_launch(&app, &presence, &rt_handle, &handle, &id);
+                begin_launch(&app, &presence, &rt_handle, &client, &loader, &handle, &id);
             }
         });
     }
@@ -804,6 +829,7 @@ fn main() -> Result<(), slint::PlatformError> {
     {
         let handle = app.as_weak();
         let conn = conn.clone();
+        let presence = presence.clone();
         app.on_settings_save(move || {
             let Some(app) = handle.upgrade() else {
                 return;
@@ -824,12 +850,44 @@ fn main() -> Result<(), slint::PlatformError> {
             stored.discord_btn_vndb_game = app.get_set_btn_game();
             stored.discord_btn_vndb_profile = app.get_set_btn_profile();
             stored.discord_btn_github = app.get_set_btn_github();
+            let previous_blur = stored.blur_nsfw;
             stored.blur_nsfw = app.get_set_blur();
             if let Err(e) = poketto_core::db::save_settings(&conn.borrow(), &stored) {
                 tracing::warn!("settings save failed: {e}");
             } else {
                 tracing::info!("settings saved");
+                if stored.blur_nsfw != previous_blur {
+                    app.set_library_rev(app.get_library_rev() + 1);
+                }
+                if stored.discord_rpc_enabled {
+                    presence.set_playing(PresenceUpdate::browsing());
+                } else {
+                    presence.clear();
+                }
             }
+        });
+    }
+    {
+        let handle = app.as_weak();
+        let rt_handle = rt_handle.clone();
+        app.on_browse_default_prefix(move || {
+            let handle = handle.clone();
+            rt_handle.spawn(async move {
+                let picked = rfd::AsyncFileDialog::new()
+                    .set_title("Select default prefix folder")
+                    .pick_folder()
+                    .await;
+                if let Some(folder) = picked {
+                    let path = folder.path().to_path_buf();
+                    let _ = slint::invoke_from_event_loop(move || {
+                        if let Some(app) = handle.upgrade() {
+                            app.set_set_wine_prefix(
+                                path.to_str().unwrap_or_default().into(),
+                            );
+                        }
+                    });
+                }
+            });
         });
     }
     {

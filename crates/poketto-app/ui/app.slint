@@ -77,6 +77,7 @@ export component AppWindow inherits Window {
     callback refresh-metadata;
     callback settings-back;
     callback settings-save;
+    callback browse-default-prefix;
     callback logs-back;
     callback logs-copy;
     callback logs-clear;
@@ -154,8 +155,8 @@ export component AppWindow inherits Window {
         btn-github <=> root.set-btn-github;
         blur-nsfw <=> root.set-blur;
         runners <=> root.wine-runners;
-        back => { root.settings-back(); }
         save => { root.settings-save(); }
+        browse-default-prefix => { root.browse-default-prefix(); }
         detect-wine => { root.detect-wine(); }
         select-wine(binary) => { root.select-wine(binary); }
         open-logs => { root.open-logs(); }

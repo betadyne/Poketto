@@ -1,6 +1,6 @@
-use poketto_core::db::{self, Connection, DbResult};
+use poketto_core::db::{self, Connection, DbResult, SortBy, SortOrder};
 use poketto_core::models::Game;
-use slint::VecModel;
+use slint::{Model, VecModel};
 
 use crate::GameCardData;
 
@@ -66,13 +66,58 @@ pub fn game_nsfw(conn: &Connection, game: &Game) -> bool {
         .is_some_and(|image| cover_nsfw(image.sexual, image.violence))
 }
 
+pub fn sort_option_index(sort: SortBy, order: SortOrder) -> i32 {
+    match (sort, order) {
+        (SortBy::Title, SortOrder::Asc) => 0,
+        (SortBy::Title, SortOrder::Desc) => 1,
+        (SortBy::PlayTime, SortOrder::Desc) => 2,
+        (SortBy::LastPlayed, SortOrder::Desc) => 3,
+        _ => 0,
+    }
+}
+#[allow(dead_code)]
+pub fn sort_option_at(index: i32) -> (SortBy, SortOrder) {
+    match index {
+        1 => (SortBy::Title, SortOrder::Desc),
+        2 => (SortBy::PlayTime, SortOrder::Desc),
+        3 => (SortBy::LastPlayed, SortOrder::Desc),
+        _ => (SortBy::Title, SortOrder::Asc),
+    }
+}
+
+fn reconcile_model(model: &VecModel<GameCardData>, cards: &[GameCardData]) {
+    let shared = model.row_count().min(cards.len());
+    for (index, card) in cards.iter().enumerate().take(shared) {
+        let old = model.row_data(index);
+        let merged = match &old {
+            Some(existing) if existing.id == card.id => GameCardData {
+                revealed: existing.revealed,
+                cover: existing.cover.clone(),
+                show_cover: existing.show_cover,
+                ..card.clone()
+            },
+            _ => card.clone(),
+        };
+        if old.as_ref() != Some(&merged) {
+            model.set_row_data(index, merged);
+        }
+    }
+    for card in cards.iter().skip(shared) {
+        model.push(card.clone());
+    }
+    for _ in cards.len()..model.row_count() {
+        model.remove(cards.len());
+    }
+}
+
 pub fn refresh_library(
     model: &VecModel<GameCardData>,
     conn: &Connection,
     filter: LibraryFilter,
     query: &str,
+    sort: (SortBy, SortOrder),
 ) -> DbResult<Vec<Game>> {
-    let games = db::get_all_games(conn)?;
+    let games = db::get_all_games(conn, sort.0, sort.1)?;
     let visible: Vec<Game> = filter_games(&games, filter, query)
         .into_iter()
         .cloned()
@@ -81,14 +126,13 @@ pub fn refresh_library(
         .iter()
         .map(|game| card_data(game, game_nsfw(conn, game)))
         .collect();
-    model.set_vec(cards);
+    reconcile_model(model, &cards);
     Ok(visible)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use slint::Model;
     use poketto_core::models::GameType;
 
     fn game(id: &str, title: &str, finished: bool, hidden: bool) -> Game {
@@ -160,7 +204,8 @@ mod tests {
         db::insert_game(&conn, &game("a", "Alpha", false, false)).expect("insert");
         db::insert_game(&conn, &game("b", "Beta", true, false)).expect("insert");
         let model = VecModel::default();
-        refresh_library(&model, &conn, LibraryFilter::Finished, "").expect("refresh");
+        refresh_library(&model, &conn, LibraryFilter::Finished, "", (SortBy::Title, SortOrder::Asc))
+            .expect("refresh");
         assert_eq!(model.row_count(), 1);
         assert_eq!(model.row_data(0).expect("row").title.as_str(), "Beta");
     }
@@ -189,11 +234,67 @@ mod tests {
         )
         .expect("seed");
         let model = VecModel::default();
-        refresh_library(&model, &conn, LibraryFilter::All, "").expect("refresh");
+        refresh_library(&model, &conn, LibraryFilter::All, "", (SortBy::Title, SortOrder::Asc))
+            .expect("refresh");
         assert_eq!(model.row_count(), 2);
         let spicy_card = model.row_data(1).expect("row");
         assert_eq!(spicy_card.title.as_str(), "Spicy");
         assert_eq!(spicy_card.is_nsfw, true);
         assert_eq!(model.row_data(0).expect("row").is_nsfw, false);
+    }
+
+    #[test]
+    fn sort_options_round_trip() {
+        use poketto_core::db::{SortBy, SortOrder};
+        assert_eq!(sort_option_index(SortBy::Title, SortOrder::Asc), 0);
+        assert_eq!(sort_option_index(SortBy::Title, SortOrder::Desc), 1);
+        assert_eq!(sort_option_index(SortBy::PlayTime, SortOrder::Desc), 2);
+        assert_eq!(sort_option_index(SortBy::LastPlayed, SortOrder::Desc), 3);
+        assert_eq!(sort_option_index(SortBy::PlayTime, SortOrder::Asc), 0);
+        assert_eq!(sort_option_at(0), (SortBy::Title, SortOrder::Asc));
+        assert_eq!(sort_option_at(1), (SortBy::Title, SortOrder::Desc));
+        assert_eq!(sort_option_at(2), (SortBy::PlayTime, SortOrder::Desc));
+        assert_eq!(sort_option_at(3), (SortBy::LastPlayed, SortOrder::Desc));
+        assert_eq!(sort_option_at(99), (SortBy::Title, SortOrder::Asc));
+    }
+
+    #[test]
+    fn refresh_resorts_in_place_and_keeps_covers() {
+        use poketto_core::db::{SortBy, SortOrder};
+        let conn = db::open_in_memory().expect("open");
+        let mut alpha = game("a", "Alpha", false, false);
+        alpha.play_time_minutes = 10;
+        let mut zulu = game("z", "Zulu", false, false);
+        zulu.play_time_minutes = 90;
+        db::insert_game(&conn, &alpha).expect("insert");
+        db::insert_game(&conn, &zulu).expect("insert");
+        let model = VecModel::default();
+        let asc = (SortBy::Title, SortOrder::Asc);
+        refresh_library(&model, &conn, LibraryFilter::All, "", asc).expect("refresh");
+        assert_eq!(model.row_count(), 2);
+        let mut covered = model.row_data(0).expect("row");
+        covered.show_cover = true;
+        covered.revealed = true;
+        model.set_row_data(0, covered);
+        zulu.play_time_minutes = 1;
+        db::update_game(&conn, &zulu).expect("update");
+        refresh_library(
+            &model,
+            &conn,
+            LibraryFilter::All,
+            "",
+            (SortBy::PlayTime, SortOrder::Desc),
+        )
+        .expect("refresh");
+        assert_eq!(model.row_count(), 2);
+        assert_eq!(model.row_data(0).expect("row").id.as_str(), "a");
+        assert_eq!(model.row_data(0).expect("row").show_cover, true);
+        assert_eq!(model.row_data(0).expect("row").revealed, true);
+        assert_eq!(model.row_data(1).expect("row").id.as_str(), "z");
+        db::delete_game(&conn, "z").expect("delete");
+        refresh_library(&model, &conn, LibraryFilter::All, "", asc).expect("refresh");
+        assert_eq!(model.row_count(), 1);
+        assert_eq!(model.row_data(0).expect("row").id.as_str(), "a");
+        assert_eq!(model.row_data(0).expect("row").show_cover, true);
     }
 }

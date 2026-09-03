@@ -1,4 +1,4 @@
-import { ListView } from "std-widgets.slint";
+import { ComboBox, ListView } from "std-widgets.slint";
 import { Theme } from "../tokens.slint";
 import { Button } from "../components/Button.slint";
 import { GameCard, GameCardData } from "../components/GameCard.slint";
@@ -7,6 +7,7 @@ import { SearchBar } from "../components/SearchBar.slint";
 export component LibraryView inherits Rectangle {
     in-out property <[GameCardData]> games;
     in-out property <string> query;
+    in-out property <int> sort-index: 0;
     in-out property <int> active-filter;
     in property <int> columns: 4;
     in property <bool> blur-nsfw;
@@ -14,6 +15,7 @@ export component LibraryView inherits Rectangle {
     callback game-clicked(string);
     callback search-accepted(string);
     callback filter-changed(int);
+    callback sort-changed(string, bool);
     callback open-settings;
     callback add-clicked;
     callback play-game(string);
@@ -88,6 +90,17 @@ export component LibraryView inherits Rectangle {
                     text <=> root.query;
                     accepted(query) => { root.search-accepted(query); }
                     horizontal-stretch: 1;
+                }
+
+                ComboBox {
+                    model: ["Title A-Z", "Title Z-A", "Most Played", "Recently Played"];
+                    current-index <=> root.sort-index;
+                    selected(value) => {
+                        if (value == "Title A-Z") { root.sort-changed("title", true); }
+                        else if (value == "Title Z-A") { root.sort-changed("title", false); }
+                        else if (value == "Most Played") { root.sort-changed("play_time", false); }
+                        else { root.sort-changed("last_played", false); }
+                    }
                 }
 
                 Button {

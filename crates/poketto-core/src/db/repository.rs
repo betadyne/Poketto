@@ -52,9 +52,44 @@ fn wine_blob(settings: &Option<WineSettings>) -> DbResult<Option<String>> {
         .map_err(DbError::from)
 }
 
-pub fn get_all_games(conn: &Connection) -> DbResult<Vec<Game>> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SortBy {
+    Title,
+    LastPlayed,
+    PlayTime,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SortOrder {
+    Asc,
+    Desc,
+}
+
+fn sort_order_by(sort: SortBy, order: SortOrder) -> &'static str {
+    match (sort, order) {
+        (SortBy::Title, SortOrder::Asc) => "title COLLATE NOCASE ASC, id ASC",
+        (SortBy::Title, SortOrder::Desc) => "title COLLATE NOCASE DESC, id ASC",
+        (SortBy::LastPlayed, SortOrder::Asc) => {
+            "last_played IS NULL, last_played ASC, title COLLATE NOCASE, id ASC"
+        }
+        (SortBy::LastPlayed, SortOrder::Desc) => {
+            "last_played IS NULL, last_played DESC, title COLLATE NOCASE, id ASC"
+        }
+        (SortBy::PlayTime, SortOrder::Asc) => "play_time_minutes ASC, title COLLATE NOCASE, id ASC",
+        (SortBy::PlayTime, SortOrder::Desc) => {
+            "play_time_minutes DESC, title COLLATE NOCASE, id ASC"
+        }
+    }
+}
+
+pub fn get_all_games(
+    conn: &Connection,
+    sort: SortBy,
+    order: SortOrder,
+) -> DbResult<Vec<Game>> {
     let mut stmt = conn.prepare(&format!(
-        "SELECT {GAME_COLUMNS} FROM games ORDER BY title COLLATE NOCASE"
+        "SELECT {GAME_COLUMNS} FROM games ORDER BY {}",
+        sort_order_by(sort, order)
     ))?;
     let games = stmt
         .query_map([], game_from_row)?
@@ -200,6 +235,46 @@ pub fn load_settings(conn: &Connection) -> DbResult<AppSettings> {
         default_wine_binary: text("default_wine_binary"),
         use_steam_runtime: flag("use_steam_runtime"),
     })
+}
+
+pub fn save_sort_pref(conn: &Connection, sort: SortBy, order: SortOrder) -> DbResult<()> {
+    let by = match sort {
+        SortBy::Title => "title",
+        SortBy::LastPlayed => "last_played",
+        SortBy::PlayTime => "play_time",
+    };
+    let direction = match order {
+        SortOrder::Asc => "asc",
+        SortOrder::Desc => "desc",
+    };
+    for (key, value) in [("sort_by", by), ("sort_order", direction)] {
+        conn.execute(
+            "INSERT INTO settings (key, value) VALUES (?1, ?2)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            params![key, value],
+        )?;
+    }
+    Ok(())
+}
+
+pub fn load_sort_pref(conn: &Connection) -> DbResult<(SortBy, SortOrder)> {
+    let value = |key: &str| -> DbResult<Option<String>> {
+        Ok(conn
+            .query_row("SELECT value FROM settings WHERE key = ?1", params![key], |row| {
+                row.get(0)
+            })
+            .optional()?)
+    };
+    let sort = match value("sort_by")?.as_deref() {
+        Some("last_played") => SortBy::LastPlayed,
+        Some("play_time") => SortBy::PlayTime,
+        _ => SortBy::Title,
+    };
+    let order = match value("sort_order")?.as_deref() {
+        Some("desc") => SortOrder::Desc,
+        _ => SortOrder::Asc,
+    };
+    Ok((sort, order))
 }
 
 pub fn record_play_session(
@@ -360,6 +435,58 @@ mod tests {
     }
 
     #[test]
+    fn get_all_sorts_by_all_orders() {
+        let conn = setup();
+        let mut alpha = sample_game("a", "Alpha");
+        alpha.play_time_minutes = 10;
+        alpha.last_played = Some("2024-01-01T00:00:00+00:00".to_string());
+        let mut aaron = sample_game("t", "Aaron");
+        aaron.play_time_minutes = 10;
+        aaron.last_played = None;
+        let mut mid = sample_game("m", "Mid");
+        mid.play_time_minutes = 50;
+        mid.last_played = None;
+        let mut zulu = sample_game("z", "Zulu");
+        zulu.play_time_minutes = 90;
+        zulu.last_played = Some("2024-06-01T00:00:00+00:00".to_string());
+        insert_game(&conn, &zulu).expect("insert");
+        insert_game(&conn, &mid).expect("insert");
+        insert_game(&conn, &alpha).expect("insert");
+        insert_game(&conn, &aaron).expect("insert");
+        let titles = |games: Vec<Game>| {
+            games
+                .into_iter()
+                .map(|game| game.title)
+                .collect::<Vec<_>>()
+        };
+        let listed = |sort, order| titles(get_all_games(&conn, sort, order).expect("list"));
+        assert_eq!(
+            listed(SortBy::Title, SortOrder::Asc),
+            ["Aaron", "Alpha", "Mid", "Zulu"]
+        );
+        assert_eq!(
+            listed(SortBy::Title, SortOrder::Desc),
+            ["Zulu", "Mid", "Alpha", "Aaron"]
+        );
+        assert_eq!(
+            listed(SortBy::PlayTime, SortOrder::Asc),
+            ["Aaron", "Alpha", "Mid", "Zulu"]
+        );
+        assert_eq!(
+            listed(SortBy::PlayTime, SortOrder::Desc),
+            ["Zulu", "Mid", "Aaron", "Alpha"]
+        );
+        assert_eq!(
+            listed(SortBy::LastPlayed, SortOrder::Asc),
+            ["Alpha", "Zulu", "Aaron", "Mid"]
+        );
+        assert_eq!(
+            listed(SortBy::LastPlayed, SortOrder::Desc),
+            ["Zulu", "Alpha", "Aaron", "Mid"]
+        );
+    }
+
+    #[test]
     fn insert_and_get_round_trip() {
         let conn = setup();
         let game = sample_game("g1", "Round Trip");
@@ -374,16 +501,6 @@ mod tests {
         assert_eq!(wine.wine_version.as_deref(), Some("Proton-GE"));
     }
 
-    #[test]
-    fn get_all_orders_by_title() {
-        let conn = setup();
-        insert_game(&conn, &sample_game("b", "Zulu")).expect("insert");
-        insert_game(&conn, &sample_game("a", "Alpha")).expect("insert");
-        let games = get_all_games(&conn).expect("list");
-        assert_eq!(games.len(), 2);
-        assert_eq!(games[0].title, "Alpha");
-        assert_eq!(games[1].title, "Zulu");
-    }
 
     #[test]
     fn get_missing_returns_none() {
@@ -476,6 +593,39 @@ mod tests {
         assert_eq!(loaded.discord_rpc_enabled, true);
         assert_eq!(loaded.discord_btn_vndb_game, true);
         assert_eq!(loaded.blur_nsfw, false);
+    }
+
+    #[test]
+    fn sort_pref_round_trip() {
+        let conn = setup();
+        assert_eq!(
+            load_sort_pref(&conn).expect("load"),
+            (SortBy::Title, SortOrder::Asc)
+        );
+        save_sort_pref(&conn, SortBy::PlayTime, SortOrder::Desc).expect("save");
+        assert_eq!(
+            load_sort_pref(&conn).expect("load"),
+            (SortBy::PlayTime, SortOrder::Desc)
+        );
+        save_sort_pref(&conn, SortBy::LastPlayed, SortOrder::Asc).expect("save");
+        assert_eq!(
+            load_sort_pref(&conn).expect("load"),
+            (SortBy::LastPlayed, SortOrder::Asc)
+        );
+    }
+
+    #[test]
+    fn sort_pref_falls_back_on_corrupt_values() {
+        let conn = setup();
+        conn.execute(
+            "INSERT INTO settings (key, value) VALUES ('sort_by', 'bogus'), ('sort_order', 'sideways')",
+            [],
+        )
+        .expect("seed");
+        assert_eq!(
+            load_sort_pref(&conn).expect("load"),
+            (SortBy::Title, SortOrder::Asc)
+        );
     }
 
     #[test]

@@ -61,6 +61,7 @@ export component SettingsView inherits Rectangle {
 
     callback back;
     callback save;
+    callback browse-default-prefix;
     callback detect-wine;
     callback select-wine(string);
     callback open-logs;
@@ -150,9 +151,18 @@ export component SettingsView inherits Rectangle {
                 color: Theme.text-muted;
                 font-size: Theme.font-sm;
             }
+            HorizontalLayout {
+                spacing: Theme.space-sm;
 
-            Field {
-                text <=> root.wine-prefix;
+                Field {
+                    text <=> root.wine-prefix;
+                    horizontal-stretch: 1;
+                }
+
+                Button {
+                    text: "Browse";
+                    clicked => { root.browse-default-prefix(); }
+                }
             }
 
             SwitchRow {

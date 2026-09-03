@@ -35,6 +35,16 @@ impl PresenceUpdate {
             start_timestamp,
         }
     }
+
+    pub fn browsing() -> Self {
+        Self {
+            title: "Poketto".to_string(),
+            state: "Browsing Library".to_string(),
+            cover_url: None,
+            buttons: Vec::new(),
+            start_timestamp: unix_timestamp(),
+        }
+    }
 }
 
 pub fn unix_timestamp() -> u64 {
@@ -200,6 +210,15 @@ mod tests {
     fn playing_defaults_state_text() {
         let update = PresenceUpdate::playing("Title", None, None, Vec::new(), 0);
         assert_eq!(update.state, DEFAULT_STATE_TEXT);
+        assert_eq!(update.buttons.len(), 0);
+    }
+
+    #[test]
+    fn browsing_reports_library_state() {
+        let update = PresenceUpdate::browsing();
+        assert_eq!(update.title, "Poketto");
+        assert_eq!(update.state, "Browsing Library");
+        assert_eq!(update.cover_url, None);
         assert_eq!(update.buttons.len(), 0);
     }
 
