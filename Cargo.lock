@@ -3923,9 +3923,12 @@ name = "poketto-app"
 version = "0.1.0"
 dependencies = [
  "dirs",
+ "image",
  "poketto-core",
+ "reqwest",
  "slint",
  "slint-build",
+ "tokio",
  "tracing",
 ]
 

@@ -56,14 +56,15 @@ pub fn refresh_library(
     conn: &Connection,
     filter: LibraryFilter,
     query: &str,
-) -> DbResult<()> {
+) -> DbResult<Vec<Game>> {
     let games = db::get_all_games(conn)?;
-    let cards: Vec<GameCardData> = filter_games(&games, filter, query)
+    let visible: Vec<Game> = filter_games(&games, filter, query)
         .into_iter()
-        .map(card_data)
+        .cloned()
         .collect();
+    let cards: Vec<GameCardData> = visible.iter().map(card_data).collect();
     model.set_vec(cards);
-    Ok(())
+    Ok(visible)
 }
 
 #[cfg(test)]

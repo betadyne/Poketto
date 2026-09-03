@@ -8,6 +8,9 @@ poketto-core = { path = "../poketto-core" }
 slint.workspace = true
 dirs.workspace = true
 tracing.workspace = true
+image.workspace = true
+reqwest.workspace = true
+tokio.workspace = true
 
 [build-dependencies]
 slint-build.workspace = true
