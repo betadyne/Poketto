@@ -113,9 +113,9 @@ export component DetailPreview inherits Window {
         finished: true;
         playing: true;
         tags: [
-            { name: "Drama", spoiler: 0 },
-            { name: "Sci-Fi", spoiler: 0 },
-            { name: "Secret Ending", spoiler: 2 },
+            { name: "Drama", spoiler: 0, is-spoiler: false },
+            { name: "Sci-Fi", spoiler: 0, is-spoiler: false },
+            { name: "Secret Ending", spoiler: 2, is-spoiler: true },
         ];
         characters: [
             { name: "Takeru Shirogane", role: "main", spoiler: 0 },

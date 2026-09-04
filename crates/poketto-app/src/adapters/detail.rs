@@ -118,6 +118,7 @@ pub fn visible_tags(tags: &[(String, i32)], show_spoilers: bool) -> Vec<DetailTa
         .map(|(name, spoiler)| DetailTag {
             name: name.clone().into(),
             spoiler: *spoiler,
+            is_spoiler: *spoiler != 0,
         })
         .collect()
 }
@@ -128,7 +129,7 @@ pub fn visible_characters(
 ) -> Vec<DetailCharacter> {
     characters
         .iter()
-        .filter(|(_, _, _, spoiler)| show_spoilers || *spoiler == 0)
+        .filter(|(_, _, _, spoiler)| show_spoilers || *spoiler < 2)
         .map(|(id, name, role, spoiler)| DetailCharacter {
             id: id.clone().into(),
             name: name.clone().into(),
@@ -556,22 +557,26 @@ mod tests {
         let hidden = visible_tags(&tags, false);
         assert_eq!(hidden.len(), 1);
         assert_eq!(hidden[0].name.as_str(), "Plot");
+        assert!(!hidden[0].is_spoiler);
         let shown = visible_tags(&tags, true);
         assert_eq!(shown.len(), 2);
         assert_eq!(shown[1].spoiler, 2);
+        assert!(shown[1].is_spoiler);
     }
 
     #[test]
-    fn spoiler_characters_hidden_until_allowed() {
+    fn minor_spoiler_characters_stay_visible() {
         let characters = vec![
-            ("c1".to_string(), "Meiya".to_string(), "Heroine".to_string(), 0),
+            ("c1".to_string(), "Meiya".to_string(), "Protagonist".to_string(), 0),
             ("c2".to_string(), "Ghost".to_string(), String::new(), 1),
+            ("c3".to_string(), "Traitor".to_string(), "Side Characters".to_string(), 2),
         ];
         let hidden = visible_characters(&characters, false);
-        assert_eq!(hidden.len(), 1);
+        assert_eq!(hidden.len(), 2);
         assert_eq!(hidden[0].id.as_str(), "c1");
+        assert_eq!(hidden[1].id.as_str(), "c2");
         let shown = visible_characters(&characters, true);
-        assert_eq!(shown.len(), 2);
-        assert_eq!(shown[1].spoiler, 1);
+        assert_eq!(shown.len(), 3);
+        assert_eq!(shown[2].spoiler, 2);
     }
 }

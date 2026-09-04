@@ -6,6 +6,7 @@ import { TagBadge } from "../components/TagBadge.slint";
 export struct DetailTag {
     name: string,
     spoiler: int,
+    is-spoiler: bool,
 }
 
 export struct DetailCharacter {
@@ -291,7 +292,7 @@ export component DetailView inherits Rectangle {
                         text: tag.name;
                     }
 
-                    if tag.spoiler != 0 : TagBadge {
+                    if tag.is-spoiler : TagBadge {
                         text: "[Spoiler]";
                         alert: true;
                     }
