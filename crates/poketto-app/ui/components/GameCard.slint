@@ -9,6 +9,7 @@ export struct GameCardData {
     hidden: bool,
     is-nsfw: bool,
     revealed: bool,
+    playing: bool,
     cover: image,
 }
 
@@ -120,6 +121,29 @@ export component GameCard inherits Rectangle {
                         font-size: Theme.font-sm;
                         vertical-alignment: center;
                         vertical-stretch: 1;
+                    }
+                }
+            }
+
+            if root.game.playing : Rectangle {
+                x: parent.width - self.width - 8px;
+                y: 8px;
+                width: play-layout.preferred-width;
+                height: play-layout.preferred-height;
+                background: Theme.primary;
+                border-radius: Theme.radius-sm;
+
+                play-layout := HorizontalLayout {
+                    padding-left: Theme.pad-sm;
+                    padding-right: Theme.pad-sm;
+                    padding-top: 4px;
+                    padding-bottom: 4px;
+
+                    Text {
+                        text: "Playing";
+                        color: Theme.text-on-primary;
+                        font-size: Theme.font-sm;
+                        vertical-alignment: center;
                     }
                 }
             }

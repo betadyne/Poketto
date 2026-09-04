@@ -342,6 +342,7 @@ mod tests {
             "/tmp/poketto-test-prefix".to_string()
         )));
         assert!(env.contains(&("WINEDEBUG".to_string(), "-all".to_string())));
+        assert_eq!(std_cmd.get_current_dir(), exe.parent());
         let _ = std::fs::remove_dir_all("/tmp/poketto-test-prefix");
     }
 }

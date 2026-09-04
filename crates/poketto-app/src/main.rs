@@ -62,6 +62,16 @@ fn refresh(
     match adapters::refresh_library(model, conn, filter, &query, show_hidden, sort) {
         Ok(games) => {
             loader.next_generation();
+            let running = app.get_playing_id().to_string();
+            for row in 0..model.row_count() {
+                let Some(entry) = model.row_data(row) else {
+                    continue;
+                };
+                let playing = !running.is_empty() && entry.id.as_str() == running;
+                if entry.playing != playing {
+                    model.set_row_data(row, GameCardData { playing, ..entry });
+                }
+            }
             for game in &games {
                 if let Some(url) = game.cover_url.as_deref() {
                     loader.request(&game.id, url);
@@ -381,6 +391,7 @@ fn begin_launch(
     handle: &Weak<AppWindow>,
     id: &slint::SharedString,
     spoilers: Arc<std::sync::Mutex<SpoilerStore>>,
+    model: &Rc<VecModel<GameCardData>>,
 ) {
     if !app.get_playing_id().is_empty() {
         return;
@@ -389,6 +400,15 @@ fn begin_launch(
     app.set_playing_id(id.clone());
     if app.get_detail_id() == *id {
         app.set_detail_playing(true);
+    }
+    for row in 0..model.row_count() {
+        let Some(entry) = model.row_data(row) else {
+            continue;
+        };
+        if entry.id.as_str() == id.as_str() {
+            model.set_row_data(row, GameCardData { playing: true, ..entry });
+            break;
+        }
     }
     launch_game(rt_handle, presence, client, loader, avatar_loader, handle.clone(), id.to_string(), spoilers);
 }
@@ -741,9 +761,10 @@ fn main() -> Result<(), slint::PlatformError> {
         let loader = loader.clone();
         let avatar_loader = avatar_loader.clone();
         let spoilers = spoilers.clone();
+        let model = model.clone();
         app.on_launch_clicked(move |id| {
             if let Some(app) = handle.upgrade() {
-                begin_launch(&app, &presence, &rt_handle, &client, &loader, &avatar_loader, &handle, &id, spoilers.clone());
+                begin_launch(&app, &presence, &rt_handle, &client, &loader, &avatar_loader, &handle, &id, spoilers.clone(), &model);
             }
         });
     }
@@ -755,9 +776,10 @@ fn main() -> Result<(), slint::PlatformError> {
         let loader = loader.clone();
         let avatar_loader = avatar_loader.clone();
         let spoilers = spoilers.clone();
+        let model = model.clone();
         app.on_play_game(move |id| {
             if let Some(app) = handle.upgrade() {
-                begin_launch(&app, &presence, &rt_handle, &client, &loader, &avatar_loader, &handle, &id, spoilers.clone());
+                begin_launch(&app, &presence, &rt_handle, &client, &loader, &avatar_loader, &handle, &id, spoilers.clone(), &model);
             }
         });
     }

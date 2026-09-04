@@ -69,6 +69,7 @@ pub fn card_data(game: &Game, nsfw: bool) -> GameCardData {
         hidden: game.is_hidden,
         is_nsfw: nsfw,
         revealed: false,
+        playing: false,
         cover: slint::Image::default(),
     }
 }
@@ -212,6 +213,7 @@ mod tests {
         assert_eq!(card.show_cover, false);
         assert_eq!(card.is_nsfw, true);
         assert_eq!(card.revealed, false);
+        assert_eq!(card.playing, false);
     }
 
     #[test]

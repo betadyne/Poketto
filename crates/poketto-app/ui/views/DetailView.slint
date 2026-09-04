@@ -166,6 +166,7 @@ export component DetailView inherits Rectangle {
                         Button {
                             text: root.playing ? "Playing..." : "Launch";
                             primary: true;
+                            disabled: root.playing;
                             clicked => { root.launch(); }
                         }
 
