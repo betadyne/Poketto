@@ -5,9 +5,9 @@ export component TagBadge inherits Rectangle {
     in property <bool> highlighted;
     in property <bool> spoiler: false;
 
-    background: Theme.surface;
+    background: root.spoiler ? #381014 : #1c1e24;
     border-width: 1px;
-    border-color: root.spoiler ? #e06c75 : Theme.border;
+    border-color: root.spoiler ? #7f1d1d : #2e323b;
     border-radius: Theme.radius-sm;
     width: layout.preferred-width;
     height: layout.preferred-height;
@@ -20,7 +20,7 @@ export component TagBadge inherits Rectangle {
 
         Text {
             text: root.text;
-            color: root.highlighted ? Theme.primary : Theme.text;
+            color: root.highlighted ? Theme.primary : (root.spoiler ? #fca5a5 : #e2e8f0);
             font-size: Theme.font-sm;
             vertical-alignment: center;
         }

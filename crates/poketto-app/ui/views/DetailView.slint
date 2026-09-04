@@ -14,6 +14,7 @@ export struct DetailCharacter {
     name: string,
     role: string,
     spoiler: int,
+    description: string,
     avatar: image,
 }
 
@@ -313,11 +314,29 @@ export component DetailView inherits Rectangle {
                         }
                     }
 
-                    Text {
-                        text: ch.role == "" ? ch.name : ch.name + " · " + ch.role;
-                        color: Theme.text;
-                        font-size: Theme.font-md;
-                        vertical-alignment: center;
+                    VerticalLayout {
+                        spacing: 2px;
+                        vertical-stretch: 1;
+
+                        Text {
+                            text: ch.role == "" ? ch.name : ch.name + " · " + ch.role;
+                            color: Theme.text;
+                            font-size: Theme.font-md;
+                            vertical-alignment: center;
+                        }
+
+                        if ch.description != "" : Text {
+                            text: ch.description;
+                            color: Theme.text-muted;
+                            font-size: Theme.font-sm;
+                            wrap: word-wrap;
+                        }
+
+                        if ch.description == "" && ch.spoiler > 0 && !root.show-spoilers : Text {
+                            text: "Description hidden — enable spoilers";
+                            color: Theme.text-muted;
+                            font-size: Theme.font-sm;
+                        }
                     }
                 }
             }

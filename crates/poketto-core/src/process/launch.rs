@@ -3,14 +3,14 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use super::error::{ProcessError, ProcessResult};
-use crate::models::{AppSettings, Game, GameType, WineSettings, WineType};
+use crate::models::{AppSettings, Game, Platform, WineSettings, WineType};
 
-pub fn resolve_game_type(game: &Game, path: &Path) -> GameType {
+pub fn resolve_game_type(game: &Game, path: &Path) -> Platform {
     game.game_type.clone().unwrap_or_else(|| {
         if path.extension().and_then(|e| e.to_str()) == Some("exe") {
-            GameType::Wine
+            Platform::Wine
         } else {
-            GameType::Native
+            Platform::Native
         }
     })
 }
@@ -53,8 +53,8 @@ pub fn build_command(
     #[cfg(target_os = "linux")]
     {
         match resolve_game_type(game, path) {
-            GameType::Native => Ok(native_command(game, path)),
-            GameType::Wine => wine_command(game, path, settings),
+            Platform::Native => Ok(native_command(game, path)),
+            Platform::Wine => wine_command(game, path, settings),
         }
     }
 
@@ -219,7 +219,7 @@ pub fn spawn(
 mod tests {
     use super::*;
 
-    fn game_with(path: &str, game_type: Option<GameType>) -> Game {
+    fn game_with(path: &str, game_type: Option<Platform>) -> Game {
         Game {
             id: "g1".to_string(),
             title: "Test".to_string(),
@@ -242,10 +242,10 @@ mod tests {
 
     #[test]
     fn explicit_game_type_wins() {
-        let game = game_with("/games/a.x86_64", Some(GameType::Wine));
+        let game = game_with("/games/a.x86_64", Some(Platform::Wine));
         assert_eq!(
             resolve_game_type(&game, Path::new(&game.path)),
-            GameType::Wine
+            Platform::Wine
         );
     }
 
@@ -254,14 +254,14 @@ mod tests {
         let game = game_with("/games/a.exe", None);
         assert_eq!(
             resolve_game_type(&game, Path::new(&game.path)),
-            GameType::Wine
+            Platform::Wine
         );
     }
     fn other_extension_defaults_to_native() {
         let game = game_with("/games/a.x86_64", None);
         assert_eq!(
             resolve_game_type(&game, Path::new(&game.path)),
-            GameType::Native
+            Platform::Native
         );
     }
 
@@ -313,7 +313,7 @@ mod tests {
     #[test]
     fn native_command_targets_game_dir() {
         let exe = std::env::current_exe().expect("current exe");
-        let game = game_with(exe.to_str().expect("unicode"), Some(GameType::Native));
+        let game = game_with(exe.to_str().expect("unicode"), Some(Platform::Native));
         let cmd = build_command(&game, &AppSettings::default()).expect("build");
         let std_cmd = cmd.as_std();
         assert_eq!(std_cmd.get_program(), exe.as_os_str());
@@ -324,7 +324,7 @@ mod tests {
     #[test]
     fn wine_command_sets_prefix_env() {
         let exe = std::env::current_exe().expect("current exe");
-        let mut game = game_with(exe.to_str().expect("unicode"), Some(GameType::Wine));
+        let mut game = game_with(exe.to_str().expect("unicode"), Some(Platform::Wine));
         game.wine_settings = Some(WineSettings {
             wine_version: Some("/bin/true".to_string()),
             wine_prefix: Some("/tmp/poketto-test-prefix".to_string()),

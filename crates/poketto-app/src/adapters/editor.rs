@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use poketto_core::models::{Game, GameType, WineSettings, WineType};
+use poketto_core::models::{Game, Platform, WineSettings, WineType};
 
 use crate::GameFormData;
 
@@ -80,7 +80,7 @@ pub fn apply_form(
                 .or(classified)
                 .unwrap_or(WineType::Wine);
             (
-                GameType::Wine,
+                Platform::Wine,
                 Some(WineSettings {
                     use_global_prefix: wine_prefix.is_none(),
                     wine_prefix,
@@ -91,7 +91,7 @@ pub fn apply_form(
                 }),
             )
         }
-        _ => (GameType::Native, None),
+        _ => (Platform::Native, None),
     };
     Game {
         id: existing.map(|game| game.id.clone()).unwrap_or_else(|| new_id.to_string()),
@@ -115,7 +115,7 @@ pub fn apply_form(
 
 pub fn platform_index(game: &Game) -> i32 {
     match game.game_type {
-        Some(GameType::Wine) => 1,
+        Some(Platform::Wine) => 1,
         _ => 0,
     }
 }
@@ -160,7 +160,7 @@ mod tests {
     fn add_builds_wine_game_with_defaults() {
         let game = apply_form(None, &form(), false, "new-id");
         assert_eq!(game.id, "new-id");
-        assert_eq!(game.game_type, Some(GameType::Wine));
+        assert_eq!(game.game_type, Some(Platform::Wine));
         let wine = game.wine_settings.expect("wine settings");
         assert_eq!(wine.wine_type, Some(WineType::Wine));
         assert_eq!(wine.use_global_prefix, true);
@@ -190,7 +190,7 @@ mod tests {
         assert_eq!(game.title, "Renamed");
         assert_eq!(game.play_time_minutes, 90);
         assert_eq!(game.is_finished, true);
-        assert_eq!(game.game_type, Some(GameType::Native));
+        assert_eq!(game.game_type, Some(Platform::Native));
         assert_eq!(game.wine_settings, None);
     }
 

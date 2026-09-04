@@ -68,8 +68,8 @@ export component AppWindow inherits Window {
     in-out property <string> edit-vndb-query;
     in-out property <[VndbHit]> edit-vndb-hits;
     in-out property <bool> edit-searching;
-    in-out property <[string]> edit-detected-runners;
-    in-out property <[string]> edit-detected-prefixes;
+    in-out property <[string]> edit-available-runners;
+    in-out property <[string]> edit-available-prefixes;
     in-out property <int> sort-index;
 
     callback game-clicked(string);
@@ -211,8 +211,8 @@ export component AppWindow inherits Window {
         vndb-query <=> root.edit-vndb-query;
         vndb-hits <=> root.edit-vndb-hits;
         searching <=> root.edit-searching;
-        detected-runners <=> root.edit-detected-runners;
-        detected-prefixes <=> root.edit-detected-prefixes;
+        available-runners <=> root.edit-available-runners;
+        available-prefixes <=> root.edit-available-prefixes;
         browse => { root.edit-browse(); }
         browse-cover => { root.edit-browse-cover(); }
         browse-prefix => { root.edit-browse-prefix(); }

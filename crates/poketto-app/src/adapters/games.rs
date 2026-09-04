@@ -150,7 +150,7 @@ pub fn refresh_library(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use poketto_core::models::GameType;
+    use poketto_core::models::Platform;
 
     fn game(id: &str, title: &str, finished: bool, hidden: bool) -> Game {
         Game {
@@ -167,7 +167,7 @@ mod tests {
             show_spoilers: false,
             user_status: 0,
             user_vote: 0,
-            game_type: Some(GameType::Wine),
+            game_type: Some(Platform::Wine),
             wine_settings: None,
             rating: Some(8.5),
         }

@@ -577,8 +577,8 @@ fn refresh_wine_candidates(app: &AppWindow) {
                 .collect();
         let _ = slint::invoke_from_event_loop(move || {
             if let Some(app) = handle.upgrade() {
-                app.set_edit_detected_runners(ModelRc::from(Rc::new(VecModel::from(runners))));
-                app.set_edit_detected_prefixes(ModelRc::from(Rc::new(VecModel::from(prefixes))));
+                app.set_edit_available_runners(ModelRc::from(Rc::new(VecModel::from(runners))));
+                app.set_edit_available_prefixes(ModelRc::from(Rc::new(VecModel::from(prefixes))));
             }
         });
     });
@@ -1157,8 +1157,8 @@ fn open_editor_for_add(app: &AppWindow) {
     app.set_edit_vndb_query("".into());
     app.set_edit_vndb_hits(ModelRc::from(Rc::new(VecModel::<VndbHit>::default())));
     app.set_edit_searching(false);
-    app.set_edit_detected_runners(ModelRc::from(Rc::new(VecModel::<slint::SharedString>::default())));
-    app.set_edit_detected_prefixes(ModelRc::from(Rc::new(VecModel::<slint::SharedString>::default())));
+    app.set_edit_available_runners(ModelRc::from(Rc::new(VecModel::<slint::SharedString>::default())));
+    app.set_edit_available_prefixes(ModelRc::from(Rc::new(VecModel::<slint::SharedString>::default())));
     app.set_edit_open(true);
     refresh_wine_candidates(app);
 }
@@ -1188,8 +1188,8 @@ fn open_editor_for_edit(app: &AppWindow, game: &poketto_core::models::Game) {
     app.set_edit_vndb_query("".into());
     app.set_edit_vndb_hits(ModelRc::from(Rc::new(VecModel::<VndbHit>::default())));
     app.set_edit_searching(false);
-    app.set_edit_detected_runners(ModelRc::from(Rc::new(VecModel::<slint::SharedString>::default())));
-    app.set_edit_detected_prefixes(ModelRc::from(Rc::new(VecModel::<slint::SharedString>::default())));
+    app.set_edit_available_runners(ModelRc::from(Rc::new(VecModel::<slint::SharedString>::default())));
+    app.set_edit_available_prefixes(ModelRc::from(Rc::new(VecModel::<slint::SharedString>::default())));
     app.set_edit_open(true);
     refresh_wine_candidates(app);
 }

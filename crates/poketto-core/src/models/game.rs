@@ -31,7 +31,7 @@ pub enum WineSource {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub enum GameType {
+pub enum Platform {
     #[default]
     #[serde(alias = "LinuxNative")]
     Native,
@@ -39,22 +39,22 @@ pub enum GameType {
     Wine,
 }
 
-impl GameType {
+impl Platform {
     pub fn as_str(&self) -> &'static str {
         match self {
-            GameType::Native => "Native",
-            GameType::Wine => "Wine",
+            Platform::Native => "Native",
+            Platform::Wine => "Wine",
         }
     }
 }
 
-impl FromStr for GameType {
+impl FromStr for Platform {
     type Err = String;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
-            "Native" | "LinuxNative" => Ok(GameType::Native),
-            "Wine" | "WindowsExe" => Ok(GameType::Wine),
+            "Native" | "LinuxNative" | "native" => Ok(Platform::Native),
+            "Wine" | "WindowsExe" | "wine" | "proton" => Ok(Platform::Wine),
             _ => Err(value.to_string()),
         }
     }
@@ -105,7 +105,7 @@ pub struct Game {
     #[serde(default)]
     pub user_vote: i32,
     #[serde(default)]
-    pub game_type: Option<GameType>,
+    pub game_type: Option<Platform>,
     #[serde(default)]
     pub wine_settings: Option<WineSettings>,
     #[serde(default)]
@@ -152,12 +152,15 @@ mod tests {
     }
     #[test]
     fn game_type_round_trips_through_str() {
-        assert_eq!("Native".parse::<GameType>(), Ok(GameType::Native));
-        assert_eq!("LinuxNative".parse::<GameType>(), Ok(GameType::Native));
-        assert_eq!("Wine".parse::<GameType>(), Ok(GameType::Wine));
-        assert_eq!("WindowsExe".parse::<GameType>(), Ok(GameType::Wine));
-        assert_eq!("Unknown".parse::<GameType>().is_err(), true);
-        assert_eq!(GameType::Wine.as_str(), "Wine");
-        assert_eq!(GameType::Native.as_str(), "Native");
+        assert_eq!("Native".parse::<Platform>(), Ok(Platform::Native));
+        assert_eq!("LinuxNative".parse::<Platform>(), Ok(Platform::Native));
+        assert_eq!("native".parse::<Platform>(), Ok(Platform::Native));
+        assert_eq!("Wine".parse::<Platform>(), Ok(Platform::Wine));
+        assert_eq!("WindowsExe".parse::<Platform>(), Ok(Platform::Wine));
+        assert_eq!("wine".parse::<Platform>(), Ok(Platform::Wine));
+        assert_eq!("proton".parse::<Platform>(), Ok(Platform::Wine));
+        assert_eq!("Unknown".parse::<Platform>().is_err(), true);
+        assert_eq!(Platform::Wine.as_str(), "Wine");
+        assert_eq!(Platform::Native.as_str(), "Native");
     }
 }

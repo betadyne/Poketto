@@ -106,9 +106,19 @@ pub fn presence_buttons(game: &Game, settings: &AppSettings) -> Vec<(String, Str
 }
 
 #[derive(Clone, Default)]
+pub struct CharacterEntry {
+    pub id: String,
+    pub name: String,
+    pub role: String,
+    pub raw_role: String,
+    pub spoiler: i32,
+    pub description: String,
+}
+
+#[derive(Clone, Default)]
 pub struct SpoilerStore {
     pub tags: Vec<(String, i32)>,
-    pub characters: Vec<(String, String, String, i32)>,
+    pub characters: Vec<CharacterEntry>,
     pub avatars: Vec<(String, String)>,
 }
 
@@ -122,17 +132,24 @@ pub fn visible_tags(tags: &[(String, i32)], show_spoilers: bool) -> Vec<DetailTa
         })
         .collect()
 }
+
 pub fn visible_characters(
-    characters: &[(String, String, String, i32)],
-    _show_spoilers: bool,
+    characters: &[CharacterEntry],
+    show_spoilers: bool,
 ) -> Vec<DetailCharacter> {
     characters
         .iter()
-        .map(|(id, name, role, spoiler)| DetailCharacter {
-            id: id.clone().into(),
-            name: name.clone().into(),
-            role: role.clone().into(),
-            spoiler: *spoiler,
+        .filter(|entry| show_spoilers || entry.spoiler < 2 || entry.raw_role != "appears")
+        .map(|entry| DetailCharacter {
+            id: entry.id.clone().into(),
+            name: entry.name.clone().into(),
+            role: entry.role.clone().into(),
+            spoiler: entry.spoiler,
+            description: if show_spoilers || entry.spoiler == 0 {
+                entry.description.clone().into()
+            } else {
+                "".into()
+            },
             avatar: slint::Image::default(),
         })
         .collect()
@@ -149,7 +166,7 @@ pub struct DetailPayload {
     pub user_status: i32,
     pub user_vote: i32,
     pub tags: Vec<(String, i32)>,
-    pub characters: Vec<(String, String, String, i32)>,
+    pub characters: Vec<CharacterEntry>,
     pub character_avatars: Vec<(String, String)>,
     pub cover_url: Option<String>,
     pub nsfw: bool,
@@ -186,7 +203,7 @@ pub fn assemble_detail(
         if let Some(detail_tags) = detail.tags.as_deref() {
             tags = detail_tags
                 .iter()
-                .take(8)
+                .filter(|tag| tag.rating >= 2.0)
                 .map(|tag| (tag.name.clone(), tag.spoiler))
                 .collect();
         }
@@ -204,15 +221,12 @@ pub fn assemble_detail(
                 .map(|image| (character.id.clone(), image.url.clone()))
         })
         .collect();
-    let characters: Vec<(String, String, String, i32)> = characters
+    let characters: Vec<CharacterEntry> = characters
         .iter()
-        .take(12)
         .map(|character| {
-            let role = character
-                .vns
-                .as_deref()
-                .unwrap_or_default()
-                .first()
+            let first_vn = character.vns.as_deref().unwrap_or_default().first();
+            let raw_role = first_vn.map(|vn| vn.role.clone()).unwrap_or_default();
+            let role = first_vn
                 .map(|vn| character_role_label(&vn.role).to_string())
                 .unwrap_or_default();
             let spoiler = character
@@ -231,7 +245,19 @@ pub fn assemble_detail(
                 )
                 .max()
                 .unwrap_or(0);
-            (character.id.clone(), character.name.clone(), role, spoiler)
+            let description = character
+                .description
+                .as_deref()
+                .map(poketto_core::vndb::clean_bbcode)
+                .unwrap_or_default();
+            CharacterEntry {
+                id: character.id.clone(),
+                name: character.name.clone(),
+                role,
+                raw_role,
+                spoiler,
+                description,
+            }
         })
         .collect();
     let mut playtime = format_playtime(game.play_time_minutes);
@@ -400,14 +426,17 @@ mod tests {
 
     #[test]
     fn spoiler_levels_carry_max_trait_and_vn_flags() {
-        let json = r#"{"id": "c1", "name": "Meiya", "vns": [{"id": "v17", "role": "main", "spoiler": 1}], "traits": [{"id": "t1", "name": "Twintails", "spoiler": 0}, {"id": "t2", "name": "Secret", "spoiler": 2}]}"#;
+        let json = r#"{"id": "c1", "name": "Meiya", "description": "A [b]pilot[/b].", "vns": [{"id": "v17", "role": "main", "spoiler": 1}], "traits": [{"id": "t1", "name": "Twintails", "spoiler": 0}, {"id": "t2", "name": "Secret", "spoiler": 2}]}"#;
         let character: poketto_core::models::VndbCharacter =
             serde_json::from_str(json).expect("fixture");
         let payload = assemble_detail(&detail_game(), None, &[character]);
-        assert_eq!(
-            payload.characters,
-            vec![("c1".to_string(), "Meiya".to_string(), "Protagonist".to_string(), 2)]
-        );
+        assert_eq!(payload.characters.len(), 1);
+        let entry = &payload.characters[0];
+        assert_eq!(entry.id, "c1");
+        assert_eq!(entry.role, "Protagonist");
+        assert_eq!(entry.raw_role, "main");
+        assert_eq!(entry.spoiler, 2);
+        assert_eq!(entry.description, "A pilot.");
     }
 
     #[test]
@@ -562,17 +591,51 @@ mod tests {
         assert!(shown[1].is_spoiler);
     }
 
-    #[test]
-    fn all_characters_stay_visible_regardless_of_spoilers() {
-        let characters = vec![
-            ("c1".to_string(), "Meiya".to_string(), "Protagonist".to_string(), 0),
-            ("c2".to_string(), "Ghost".to_string(), String::new(), 1),
-            ("c3".to_string(), "Traitor".to_string(), "Side Characters".to_string(), 2),
-        ];
-        for show in [false, true] {
-            let shown = visible_characters(&characters, show);
-            assert_eq!(shown.len(), 3);
-            assert_eq!(shown[2].spoiler, 2);
+    fn entry(id: &str, raw_role: &str, spoiler: i32, description: &str) -> CharacterEntry {
+        CharacterEntry {
+            id: id.to_string(),
+            name: id.to_string(),
+            role: raw_role.to_string(),
+            raw_role: raw_role.to_string(),
+            spoiler,
+            description: description.to_string(),
         }
+    }
+
+    #[test]
+    fn only_secret_cameos_hide_when_spoilers_off() {
+        let characters = vec![
+            entry("main", "main", 2, "Hero bio."),
+            entry("side", "side", 2, "Friend bio."),
+            entry("cameo", "appears", 2, "Secret bio."),
+            entry("minor", "appears", 1, "Extra bio."),
+        ];
+        let hidden = visible_characters(&characters, false);
+        assert_eq!(hidden.len(), 3);
+        assert!(hidden.iter().all(|item| item.id.as_str() != "cameo"));
+        let shown = visible_characters(&characters, true);
+        assert_eq!(shown.len(), 4);
+    }
+
+    #[test]
+    fn spoiler_descriptions_mask_until_allowed() {
+        let characters = vec![
+            entry("safe", "main", 0, "Hero bio."),
+            entry("minor", "side", 1, "Friend bio."),
+        ];
+        let hidden = visible_characters(&characters, false);
+        assert_eq!(hidden[0].description.as_str(), "Hero bio.");
+        assert_eq!(hidden[1].description.as_str(), "");
+        let shown = visible_characters(&characters, true);
+        assert_eq!(shown[1].description.as_str(), "Friend bio.");
+    }
+
+    #[test]
+    fn low_rated_tags_drop_at_assembly() {
+        let json = r#"{"id": "v17", "title": "Tagged", "tags": [{"id": "g1", "name": "Drama", "rating": 8.0}, {"id": "g2", "name": "Niche", "rating": 1.0}]}"#;
+        let detail: poketto_core::models::VndbVnDetail =
+            serde_json::from_str(json).expect("fixture");
+        let payload = assemble_detail(&detail_game(), Some(&detail), &[]);
+        assert_eq!(payload.tags, vec![("Drama".to_string(), 0)]);
     }
 }

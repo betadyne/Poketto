@@ -68,8 +68,8 @@ export component GameEditOverlay inherits Rectangle {
     in-out property <string> vndb-query;
     in-out property <[VndbHit]> vndb-hits;
     in-out property <bool> searching;
-    in-out property <[string]> detected-runners;
-    in-out property <[string]> detected-prefixes;
+    in-out property <[string]> available-runners;
+    in-out property <[string]> available-prefixes;
 
     callback browse;
     callback browse-cover;
@@ -262,13 +262,13 @@ export component GameEditOverlay inherits Rectangle {
                         }
                     }
 
-                    if root.detected-prefixes.length > 0 : Text {
+                    if root.available-prefixes.length > 0 : Text {
                         text: "Detected prefixes (tap to use)";
                         color: Theme.text-muted;
                         font-size: Theme.font-sm;
                     }
 
-                    for candidate in root.detected-prefixes : TouchArea {
+                    for candidate in root.available-prefixes : TouchArea {
                         clicked => { root.pick-prefix(candidate); }
 
                         HorizontalLayout {
@@ -314,13 +314,13 @@ export component GameEditOverlay inherits Rectangle {
                         }
                     }
 
-                    if root.detected-runners.length > 0 : Text {
+                    if root.available-runners.length > 0 : Text {
                         text: "Detected runners (tap to use)";
                         color: Theme.text-muted;
                         font-size: Theme.font-sm;
                     }
 
-                    for runner in root.detected-runners : TouchArea {
+                    for runner in root.available-runners : TouchArea {
                         clicked => { root.pick-runner(runner); }
 
                         HorizontalLayout {
