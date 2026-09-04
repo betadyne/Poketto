@@ -1,6 +1,7 @@
 use chrono::NaiveDate;
 use poketto_core::models::{AppSettings, Game};
 
+use crate::{DetailCharacter, DetailTag};
 
 pub fn format_playtime(minutes: u64) -> String {
     if minutes >= 60 {
@@ -104,6 +105,40 @@ pub fn presence_buttons(game: &Game, settings: &AppSettings) -> Vec<(String, Str
     buttons
 }
 
+#[derive(Clone, Default)]
+pub struct SpoilerStore {
+    pub tags: Vec<(String, i32)>,
+    pub characters: Vec<(String, String, String, i32)>,
+    pub avatars: Vec<(String, String)>,
+}
+
+pub fn visible_tags(tags: &[(String, i32)], show_spoilers: bool) -> Vec<DetailTag> {
+    tags.iter()
+        .filter(|(_, spoiler)| show_spoilers || *spoiler == 0)
+        .map(|(name, spoiler)| DetailTag {
+            name: name.clone().into(),
+            spoiler: *spoiler,
+        })
+        .collect()
+}
+
+pub fn visible_characters(
+    characters: &[(String, String, String, i32)],
+    show_spoilers: bool,
+) -> Vec<DetailCharacter> {
+    characters
+        .iter()
+        .filter(|(_, _, _, spoiler)| show_spoilers || *spoiler == 0)
+        .map(|(id, name, role, spoiler)| DetailCharacter {
+            id: id.clone().into(),
+            name: name.clone().into(),
+            role: role.clone().into(),
+            spoiler: *spoiler,
+            avatar: slint::Image::default(),
+        })
+        .collect()
+}
+
 pub struct DetailPayload {
     pub id: String,
     pub title: String,
@@ -112,6 +147,8 @@ pub struct DetailPayload {
     pub synopsis: String,
     pub finished: bool,
     pub show_spoilers: bool,
+    pub user_status: i32,
+    pub user_vote: i32,
     pub tags: Vec<(String, i32)>,
     pub characters: Vec<(String, String, String, i32)>,
     pub character_avatars: Vec<(String, String)>,
@@ -219,6 +256,8 @@ pub fn assemble_detail(
         synopsis,
         finished: game.is_finished,
         show_spoilers: game.show_spoilers,
+        user_status: game.user_status,
+        user_vote: game.user_vote,
         tags,
         characters,
         character_avatars,
@@ -273,6 +312,8 @@ mod tests {
             last_played: None,
             is_hidden: false,
             show_spoilers: false,
+            user_status: 0,
+            user_vote: 0,
             game_type: None,
             wine_settings: None,
             rating: None,
@@ -304,6 +345,8 @@ mod tests {
             last_played: None,
             is_hidden: false,
             show_spoilers: false,
+            user_status: 0,
+            user_vote: 0,
             game_type: None,
             wine_settings: None,
             rating: None,
@@ -326,6 +369,8 @@ mod tests {
             last_played: None,
             is_hidden: false,
             show_spoilers: false,
+            user_status: 0,
+            user_vote: 0,
             game_type: None,
             wine_settings: None,
             rating: None,
@@ -503,5 +548,30 @@ mod tests {
             payload.character_avatars,
             vec![("c1".to_string(), "https://img.jpg/c1.jpg".to_string())]
         );
+    }
+
+    #[test]
+    fn spoiler_tags_hidden_until_allowed() {
+        let tags = vec![("Plot".to_string(), 0), ("Twist".to_string(), 2)];
+        let hidden = visible_tags(&tags, false);
+        assert_eq!(hidden.len(), 1);
+        assert_eq!(hidden[0].name.as_str(), "Plot");
+        let shown = visible_tags(&tags, true);
+        assert_eq!(shown.len(), 2);
+        assert_eq!(shown[1].spoiler, 2);
+    }
+
+    #[test]
+    fn spoiler_characters_hidden_until_allowed() {
+        let characters = vec![
+            ("c1".to_string(), "Meiya".to_string(), "Heroine".to_string(), 0),
+            ("c2".to_string(), "Ghost".to_string(), String::new(), 1),
+        ];
+        let hidden = visible_characters(&characters, false);
+        assert_eq!(hidden.len(), 1);
+        assert_eq!(hidden[0].id.as_str(), "c1");
+        let shown = visible_characters(&characters, true);
+        assert_eq!(shown.len(), 2);
+        assert_eq!(shown[1].spoiler, 1);
     }
 }

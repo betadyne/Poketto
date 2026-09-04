@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use slint::{Model, ModelRc, VecModel, Weak};
 
-use adapters::{assemble_detail, log_lines, presence_buttons, DetailPayload, LibraryFilter};
+use adapters::{assemble_detail, log_lines, presence_buttons, DetailPayload, LibraryFilter, SpoilerStore};
 use copypasta::ClipboardProvider;
 use image_loader::{ImageLoader, LoadedCover};
 use log_buffer::{LogBuffer, LogBufferLayer};
@@ -145,6 +145,7 @@ fn refresh_detail(
     avatar_loader: &Arc<ImageLoader>,
     app: Weak<AppWindow>,
     game_id: String,
+    spoilers: Arc<std::sync::Mutex<SpoilerStore>>,
 ) {
     let client = client.clone();
     let loader = loader.clone();
@@ -219,15 +220,15 @@ fn refresh_detail(
             loader.evict_url(&old);
         }
         let payload = assemble_detail(&game, Some(&fresh_detail), &fresh_characters);
+        let spoiler_store = spoilers.clone();
         let _ = slint::invoke_from_event_loop(move || {
             if let Some(app) = app.upgrade() {
-                show_detail(&app, &loader, &avatar_loader, payload, false);
+                show_detail(&app, &loader, &avatar_loader, payload, false, &spoiler_store);
                 app.set_detail_refreshing(false);
             }
         });
     });
 }
-
 fn open_detail(
     rt: &tokio::runtime::Handle,
     client: &Arc<VndbClient>,
@@ -235,6 +236,7 @@ fn open_detail(
     avatar_loader: &Arc<ImageLoader>,
     app: Weak<AppWindow>,
     game_id: String,
+    spoilers: Arc<std::sync::Mutex<SpoilerStore>>,
 ) {
     let client = client.clone();
     let loader = loader.clone();
@@ -295,9 +297,10 @@ fn open_detail(
             }
         }
         let payload = assemble_detail(&game, detail.as_ref(), &characters);
+        let spoiler_store = spoilers.clone();
         let _ = slint::invoke_from_event_loop(move || {
             if let Some(app) = app.upgrade() {
-                show_detail(&app, &loader, &avatar_loader, payload, true);
+                show_detail(&app, &loader, &avatar_loader, payload, true, &spoiler_store);
             }
         });
     });
@@ -309,6 +312,7 @@ fn show_detail(
     avatar_loader: &ImageLoader,
     payload: DetailPayload,
     navigate: bool,
+    spoiler_store: &Arc<std::sync::Mutex<SpoilerStore>>,
 ) {
     app.set_detail_id(payload.id.clone().into());
     app.set_detail_title(payload.title.into());
@@ -317,30 +321,26 @@ fn show_detail(
     app.set_detail_synopsis(payload.synopsis.into());
     app.set_detail_finished(payload.finished);
     app.set_detail_nsfw(payload.nsfw);
-    app.set_detail_cover_revealed(false);
     app.set_detail_show_spoilers(payload.show_spoilers);
+    app.set_detail_collection_status(payload.user_status);
+    app.set_detail_collection_vote(payload.user_vote);
+    app.set_detail_collection_msg("".into());
+    app.set_detail_collection_error(false);
     app.set_detail_playing(app.get_playing_id().as_str() == payload.id);
     app.set_detail_error("".into());
-    let tags: Vec<DetailTag> = payload
-        .tags
-        .into_iter()
-        .map(|(name, spoiler)| DetailTag {
-            name: name.into(),
-            spoiler,
-        })
-        .collect();
+    *spoiler_store.lock().expect("spoiler store") = SpoilerStore {
+        tags: payload.tags.clone(),
+        characters: payload.characters.clone(),
+        avatars: payload.character_avatars.clone(),
+    };
+    let (tags, characters) = {
+        let store = spoiler_store.lock().expect("spoiler store");
+        (
+            adapters::visible_tags(&store.tags, payload.show_spoilers),
+            adapters::visible_characters(&store.characters, payload.show_spoilers),
+        )
+    };
     app.set_detail_tags(ModelRc::from(Rc::new(VecModel::from(tags))));
-    let characters: Vec<DetailCharacter> = payload
-        .characters
-        .into_iter()
-        .map(|(id, name, role, spoiler)| DetailCharacter {
-            id: id.into(),
-            name: name.into(),
-            role: role.into(),
-            spoiler,
-            avatar: slint::Image::default(),
-        })
-        .collect();
     app.set_detail_characters(ModelRc::from(Rc::new(VecModel::from(characters))));
     if let Some(url) = payload.cover_url {
         loader.request(&payload.id, &url);
@@ -380,6 +380,7 @@ fn begin_launch(
     avatar_loader: &Arc<ImageLoader>,
     handle: &Weak<AppWindow>,
     id: &slint::SharedString,
+    spoilers: Arc<std::sync::Mutex<SpoilerStore>>,
 ) {
     if !app.get_playing_id().is_empty() {
         return;
@@ -389,9 +390,10 @@ fn begin_launch(
     if app.get_detail_id() == *id {
         app.set_detail_playing(true);
     }
-    launch_game(rt_handle, presence, client, loader, avatar_loader, handle.clone(), id.to_string());
+    launch_game(rt_handle, presence, client, loader, avatar_loader, handle.clone(), id.to_string(), spoilers);
 }
 
+#[allow(clippy::too_many_arguments)]
 fn launch_game(
     rt: &tokio::runtime::Handle,
     presence: &Arc<PresenceHandle>,
@@ -400,6 +402,7 @@ fn launch_game(
     avatar_loader: &Arc<ImageLoader>,
     app: Weak<AppWindow>,
     game_id: String,
+    spoilers: Arc<std::sync::Mutex<SpoilerStore>>,
 ) {
     let presence = presence.clone();
     let client = client.clone();
@@ -511,6 +514,7 @@ fn launch_game(
                         &avatar_loader,
                         app.as_weak(),
                         finished.clone(),
+                        spoilers.clone(),
                     );
                 }
             }
@@ -535,6 +539,28 @@ fn load_settings_into(app: &AppWindow) {
     app.set_set_btn_profile(settings.discord_btn_vndb_profile);
     app.set_set_btn_github(settings.discord_btn_github);
     app.set_set_blur(settings.blur_nsfw);
+}
+
+fn refresh_wine_candidates(app: &AppWindow) {
+    let handle = app.as_weak();
+    std::thread::spawn(move || {
+        let runners: Vec<slint::SharedString> =
+            poketto_core::wine::detect::detect_wine_environments()
+                .into_iter()
+                .map(|runner| runner.binary_path.into())
+                .collect();
+        let prefixes: Vec<slint::SharedString> =
+            poketto_core::wine::scan::scan_common_prefixes()
+                .into_iter()
+                .filter_map(|path| path.to_str().map(|text| text.to_owned().into()))
+                .collect();
+        let _ = slint::invoke_from_event_loop(move || {
+            if let Some(app) = handle.upgrade() {
+                app.set_edit_detected_runners(ModelRc::from(Rc::new(VecModel::from(runners))));
+                app.set_edit_detected_prefixes(ModelRc::from(Rc::new(VecModel::from(prefixes))));
+            }
+        });
+    });
 }
 
 fn main() -> Result<(), slint::PlatformError> {
@@ -571,6 +597,7 @@ fn main() -> Result<(), slint::PlatformError> {
         poketto_core::db::SortOrder::Asc,
     )));
     let show_hidden = Rc::new(Cell::new(false));
+    let spoilers = Arc::new(std::sync::Mutex::new(SpoilerStore::default()));
     load_settings_into(&app);
     if let Ok(saved) = poketto_core::db::load_sort_pref(&conn.borrow()) {
         sort.set(saved);
@@ -600,8 +627,9 @@ fn main() -> Result<(), slint::PlatformError> {
         let client = client.clone();
         let loader = loader.clone();
         let avatar_loader = avatar_loader.clone();
+        let spoilers = spoilers.clone();
         app.on_game_clicked(move |id| {
-            open_detail(&rt_handle, &client, &loader, &avatar_loader, handle.clone(), id.to_string());
+            open_detail(&rt_handle, &client, &loader, &avatar_loader, handle.clone(), id.to_string(), spoilers.clone());
         });
     }
     {
@@ -711,9 +739,10 @@ fn main() -> Result<(), slint::PlatformError> {
         let client = client.clone();
         let loader = loader.clone();
         let avatar_loader = avatar_loader.clone();
+        let spoilers = spoilers.clone();
         app.on_launch_clicked(move |id| {
             if let Some(app) = handle.upgrade() {
-                begin_launch(&app, &presence, &rt_handle, &client, &loader, &avatar_loader, &handle, &id);
+                begin_launch(&app, &presence, &rt_handle, &client, &loader, &avatar_loader, &handle, &id, spoilers.clone());
             }
         });
     }
@@ -724,9 +753,10 @@ fn main() -> Result<(), slint::PlatformError> {
         let client = client.clone();
         let loader = loader.clone();
         let avatar_loader = avatar_loader.clone();
+        let spoilers = spoilers.clone();
         app.on_play_game(move |id| {
             if let Some(app) = handle.upgrade() {
-                begin_launch(&app, &presence, &rt_handle, &client, &loader, &avatar_loader, &handle, &id);
+                begin_launch(&app, &presence, &rt_handle, &client, &loader, &avatar_loader, &handle, &id, spoilers.clone());
             }
         });
     }
@@ -819,6 +849,8 @@ fn main() -> Result<(), slint::PlatformError> {
     {
         let handle = app.as_weak();
         let conn = conn.clone();
+        let spoilers = spoilers.clone();
+        let avatar_loader = avatar_loader.clone();
         app.on_spoilers_toggled(move |allowed| {
             let Some(app) = handle.upgrade() else {
                 return;
@@ -835,6 +867,95 @@ fn main() -> Result<(), slint::PlatformError> {
             if let Err(e) = updated {
                 tracing::warn!("spoiler preference save failed: {e}");
             }
+            let (tags, characters, avatars) = {
+                let store = spoilers.lock().expect("spoiler store");
+                (
+                    adapters::visible_tags(&store.tags, allowed),
+                    adapters::visible_characters(&store.characters, allowed),
+                    store.avatars.clone(),
+                )
+            };
+            app.set_detail_tags(ModelRc::from(Rc::new(VecModel::from(tags))));
+            app.set_detail_characters(ModelRc::from(Rc::new(VecModel::from(characters))));
+            for (avatar_id, url) in &avatars {
+                avatar_loader.request(avatar_id, url);
+            }
+        });
+    }
+    {
+        let handle = app.as_weak();
+        let conn = conn.clone();
+        let rt_handle = rt_handle.clone();
+        app.on_collection_save(move |status, vote| {
+            let Some(app) = handle.upgrade() else {
+                return;
+            };
+            if !poketto_core::models::is_user_status(status)
+                || !poketto_core::models::is_user_vote(vote)
+            {
+                app.set_detail_collection_msg("Invalid status or vote.".into());
+                app.set_detail_collection_error(true);
+                return;
+            }
+            let id = app.get_detail_id().to_string();
+            let saved = (|| {
+                let conn = conn.borrow();
+                let game = poketto_core::db::get_game(&conn, &id)?
+                    .ok_or_else(|| poketto_core::db::DbError::GameNotFound(id.clone()))?;
+                poketto_core::db::update_game_status(&conn, &id, status, vote)?;
+                Ok::<_, poketto_core::db::DbError>(game.vndb_id.clone())
+            })();
+            let vndb_id = match saved {
+                Ok(vndb_id) => vndb_id,
+                Err(e) => {
+                    app.set_detail_collection_msg(format!("Save failed: {e}").into());
+                    app.set_detail_collection_error(true);
+                    return;
+                }
+            };
+            app.set_detail_collection_status(status);
+            app.set_detail_collection_vote(vote);
+            app.set_detail_collection_msg("Saved.".into());
+            app.set_detail_collection_error(false);
+            let token = poketto_core::db::load_settings(&conn.borrow())
+                .ok()
+                .and_then(|settings| settings.vndb_token);
+            let (Some(token), Some(vndb_id)) = (token, vndb_id) else {
+                return;
+            };
+            let handle = handle.clone();
+            rt_handle.spawn(async move {
+                let mut client = VndbClient::new();
+                client.set_token(Some(token));
+                let synced = async {
+                    if status > 0 {
+                        client.set_status(&vndb_id, status).await?;
+                    }
+                    if vote > 0 {
+                        client.set_vote(&vndb_id, vote * 10).await?;
+                    } else {
+                        client.remove_vote(&vndb_id).await?;
+                    }
+                    Ok::<_, poketto_core::vndb::VndbError>(())
+                }
+                .await;
+                let _ = slint::invoke_from_event_loop(move || {
+                    if let Some(app) = handle.upgrade() {
+                        match synced {
+                            Ok(()) => {
+                                app.set_detail_collection_msg("Saved and synced to VNDB.".into());
+                                app.set_detail_collection_error(false);
+                            }
+                            Err(e) => {
+                                app.set_detail_collection_msg(
+                                    format!("Saved locally. VNDB sync failed: {e}").into(),
+                                );
+                                app.set_detail_collection_error(true);
+                            }
+                        }
+                    }
+                });
+            });
         });
     }
     {
@@ -1013,7 +1134,10 @@ fn open_editor_for_add(app: &AppWindow) {
     app.set_edit_vndb_query("".into());
     app.set_edit_vndb_hits(ModelRc::from(Rc::new(VecModel::<VndbHit>::default())));
     app.set_edit_searching(false);
+    app.set_edit_detected_runners(ModelRc::from(Rc::new(VecModel::<slint::SharedString>::default())));
+    app.set_edit_detected_prefixes(ModelRc::from(Rc::new(VecModel::<slint::SharedString>::default())));
     app.set_edit_open(true);
+    refresh_wine_candidates(app);
 }
 
 fn open_editor_for_edit(app: &AppWindow, game: &poketto_core::models::Game) {
@@ -1041,7 +1165,10 @@ fn open_editor_for_edit(app: &AppWindow, game: &poketto_core::models::Game) {
     app.set_edit_vndb_query("".into());
     app.set_edit_vndb_hits(ModelRc::from(Rc::new(VecModel::<VndbHit>::default())));
     app.set_edit_searching(false);
+    app.set_edit_detected_runners(ModelRc::from(Rc::new(VecModel::<slint::SharedString>::default())));
+    app.set_edit_detected_prefixes(ModelRc::from(Rc::new(VecModel::<slint::SharedString>::default())));
     app.set_edit_open(true);
+    refresh_wine_candidates(app);
 }
 
     {
@@ -1081,6 +1208,7 @@ fn open_editor_for_edit(app: &AppWindow, game: &poketto_core::models::Game) {
         let client = client.clone();
         let loader = loader.clone();
         let avatar_loader = avatar_loader.clone();
+        let spoilers = spoilers.clone();
         app.on_refresh_metadata(move || {
             if let Some(app) = handle.upgrade() {
                 if app.get_detail_refreshing() {
@@ -1095,6 +1223,7 @@ fn open_editor_for_edit(app: &AppWindow, game: &poketto_core::models::Game) {
                     &avatar_loader,
                     handle.clone(),
                     app.get_detail_id().to_string(),
+                    spoilers.clone(),
                 );
             }
         });
@@ -1120,6 +1249,69 @@ fn open_editor_for_edit(app: &AppWindow, game: &poketto_core::models::Game) {
                     });
                 }
             });
+        });
+    }
+    {
+        let handle = app.as_weak();
+        let rt_handle = rt_handle.clone();
+        app.on_edit_browse_cover(move || {
+            let handle = handle.clone();
+            rt_handle.spawn(async move {
+                let picked = rfd::AsyncFileDialog::new()
+                    .set_title("Select cover image")
+                    .add_filter("Images", &["png", "jpg", "jpeg", "webp"])
+                    .pick_file()
+                    .await;
+                if let Some(file) = picked {
+                    let path = file.path().to_path_buf();
+                    let _ = slint::invoke_from_event_loop(move || {
+                        if let Some(app) = handle.upgrade() {
+                            app.set_edit_cover_url(
+                                path.to_str().unwrap_or_default().into(),
+                            );
+                        }
+                    });
+                }
+            });
+        });
+    }
+    {
+        let handle = app.as_weak();
+        let rt_handle = rt_handle.clone();
+        app.on_edit_browse_prefix(move || {
+            let handle = handle.clone();
+            rt_handle.spawn(async move {
+                let picked = rfd::AsyncFileDialog::new()
+                    .set_title("Select wine prefix folder")
+                    .pick_folder()
+                    .await;
+                if let Some(folder) = picked {
+                    let path = folder.path().to_path_buf();
+                    let _ = slint::invoke_from_event_loop(move || {
+                        if let Some(app) = handle.upgrade() {
+                            app.set_edit_wine_prefix(
+                                path.to_str().unwrap_or_default().into(),
+                            );
+                        }
+                    });
+                }
+            });
+        });
+    }
+    {
+        let handle = app.as_weak();
+        app.on_edit_pick_runner(move |binary| {
+            if let Some(app) = handle.upgrade() {
+                app.set_edit_wine_binary(binary);
+            }
+        });
+    }
+    {
+        let handle = app.as_weak();
+        app.on_edit_pick_prefix(move |prefix| {
+            if let Some(app) = handle.upgrade() {
+                app.set_edit_wine_prefix(prefix);
+            }
         });
     }
     {
@@ -1170,6 +1362,7 @@ fn open_editor_for_edit(app: &AppWindow, game: &poketto_core::models::Game) {
         let client = client.clone();
         let loader = loader.clone();
         let avatar_loader = avatar_loader.clone();
+        let spoilers = spoilers.clone();
         app.on_edit_save(move |form| {
             let Some(app) = handle.upgrade() else {
                 return;
@@ -1229,6 +1422,7 @@ fn open_editor_for_edit(app: &AppWindow, game: &poketto_core::models::Game) {
                             &avatar_loader,
                             handle.clone(),
                             saved_id,
+                            spoilers.clone(),
                         );
                     }
                 }
@@ -1342,6 +1536,8 @@ mod tests {
             last_played: None,
             is_hidden: false,
             show_spoilers: false,
+            user_status: 0,
+            user_vote: 0,
             game_type: None,
             wine_settings: None,
             rating: None,

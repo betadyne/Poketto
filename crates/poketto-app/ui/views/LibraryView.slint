@@ -9,9 +9,9 @@ export component LibraryView inherits Rectangle {
     in-out property <string> query;
     in-out property <int> sort-index: 0;
     in-out property <int> active-filter;
-    in property <int> columns: 4;
     in property <bool> blur-nsfw;
     in property <bool> show-hidden: false;
+    in property <int> columns: Math.max(1, Math.floor((list.width / 1px - 16) / 204));
 
     callback game-clicked(string);
     callback search-accepted(string);
@@ -90,7 +90,8 @@ export component LibraryView inherits Rectangle {
         }
 
         VerticalLayout {
-            padding: Theme.pad-md;
+            padding: Theme.pad-lg;
+            padding-right: Theme.pad-lg + 16px;
             spacing: Theme.space-md;
 
             HorizontalLayout {
@@ -126,27 +127,32 @@ export component LibraryView inherits Rectangle {
                 font-size: Theme.font-md;
             }
 
-            ListView {
+            list := ListView {
                 vertical-stretch: 1;
 
-                for r in root.row-count : HorizontalLayout {
-                    height: 262px;
-                    spacing: Theme.space-md;
+                for r in root.row-count : Rectangle {
+                    height: 312px;
 
-                    for c in root.columns : Rectangle {
-                        width: 150px;
+                    HorizontalLayout {
+                        height: 300px;
+                        spacing: Theme.space-md;
+                        alignment: center;
 
-                        property <int> index: r * root.columns + c;
+                        for c in root.columns : Rectangle {
+                            width: 190px;
 
-                        if index < root.games.length : GameCard {
-                            game: root.games[index];
-                            blur-nsfw: root.blur-nsfw;
-                            clicked(id) => { root.game-clicked(id); }
-                            play-game(id) => { root.play-game(id); }
-                            edit-game(id) => { root.edit-game(id); }
-                            toggle-hide(id) => { root.toggle-hide(id); }
-                            remove-game(id) => { root.remove-game(id); }
-                            reveal-cover(id) => { root.reveal-cover(id); }
+                            property <int> index: r * root.columns + c;
+
+                            if index < root.games.length : GameCard {
+                                game: root.games[index];
+                                blur-nsfw: root.blur-nsfw;
+                                clicked(id) => { root.game-clicked(id); }
+                                play-game(id) => { root.play-game(id); }
+                                edit-game(id) => { root.edit-game(id); }
+                                toggle-hide(id) => { root.toggle-hide(id); }
+                                remove-game(id) => { root.remove-game(id); }
+                                reveal-cover(id) => { root.reveal-cover(id); }
+                            }
                         }
                     }
                 }

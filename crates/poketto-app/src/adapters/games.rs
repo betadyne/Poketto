@@ -164,6 +164,8 @@ mod tests {
             last_played: None,
             is_hidden: hidden,
             show_spoilers: false,
+            user_status: 0,
+            user_vote: 0,
             game_type: Some(GameType::WindowsExe),
             wine_settings: None,
             rating: Some(8.5),

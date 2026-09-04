@@ -71,6 +71,8 @@ pub fn apply_form(
         last_played: existing.and_then(|game| game.last_played.clone()),
         is_hidden: existing.map(|game| game.is_hidden).unwrap_or(false),
         show_spoilers: existing.map(|game| game.show_spoilers).unwrap_or(false),
+        user_status: existing.map(|game| game.user_status).unwrap_or(0),
+        user_vote: existing.map(|game| game.user_vote).unwrap_or(0),
         game_type: Some(game_type),
         wine_settings,
         rating: existing.and_then(|game| game.rating),

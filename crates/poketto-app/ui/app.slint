@@ -30,6 +30,10 @@ export component AppWindow inherits Window {
     in-out property <bool> detail-cover-revealed;
     in-out property <bool> detail-show-spoilers;
     in-out property <bool> detail-refreshing;
+    in-out property <int> detail-collection-status;
+    in-out property <int> detail-collection-vote;
+    in-out property <string> detail-collection-msg;
+    in-out property <bool> detail-collection-error;
     in-out property <[DetailTag]> detail-tags;
     in-out property <[DetailCharacter]> detail-characters;
     in-out property <[LogLine]> logs-lines;
@@ -63,6 +67,8 @@ export component AppWindow inherits Window {
     in-out property <string> edit-vndb-query;
     in-out property <[VndbHit]> edit-vndb-hits;
     in-out property <bool> edit-searching;
+    in-out property <[string]> edit-detected-runners;
+    in-out property <[string]> edit-detected-prefixes;
     in-out property <int> sort-index;
 
     callback game-clicked(string);
@@ -93,7 +99,12 @@ export component AppWindow inherits Window {
     callback remove-game(string);
     callback reveal-cover(string);
     callback spoilers-toggled(bool);
+    callback collection-save(int, int);
     callback edit-browse;
+    callback edit-browse-cover;
+    callback edit-browse-prefix;
+    callback edit-pick-runner(string);
+    callback edit-pick-prefix(string);
     callback edit-search(string);
     callback edit-save(GameFormData);
     callback edit-cancel;
@@ -138,6 +149,10 @@ export component AppWindow inherits Window {
         blur-nsfw <=> root.set-blur;
         cover-revealed <=> root.detail-cover-revealed;
         show-spoilers <=> root.detail-show-spoilers;
+        collection-status <=> root.detail-collection-status;
+        collection-vote <=> root.detail-collection-vote;
+        collection-msg <=> root.detail-collection-msg;
+        collection-error <=> root.detail-collection-error;
         tags <=> root.detail-tags;
         characters <=> root.detail-characters;
         back => { root.detail-back(); }
@@ -147,6 +162,7 @@ export component AppWindow inherits Window {
         refreshing <=> root.detail-refreshing;
         refresh-metadata => { root.refresh-metadata(); }
         spoilers-toggled(allowed) => { root.spoilers-toggled(allowed); }
+        collection-save(status, vote) => { root.collection-save(status, vote); }
     }
 
     if root.screen == 2 : SettingsView {
@@ -177,7 +193,6 @@ export component AppWindow inherits Window {
         copy-logs => { root.logs-copy(); }
         clear-logs => { root.logs-clear(); }
     }
-
     if root.edit-open : GameEditOverlay {
         heading <=> root.edit-heading;
         game-id <=> root.edit-id;
@@ -193,7 +208,13 @@ export component AppWindow inherits Window {
         vndb-query <=> root.edit-vndb-query;
         vndb-hits <=> root.edit-vndb-hits;
         searching <=> root.edit-searching;
+        detected-runners <=> root.edit-detected-runners;
+        detected-prefixes <=> root.edit-detected-prefixes;
         browse => { root.edit-browse(); }
+        browse-cover => { root.edit-browse-cover(); }
+        browse-prefix => { root.edit-browse-prefix(); }
+        pick-runner(binary) => { root.edit-pick-runner(binary); }
+        pick-prefix(prefix) => { root.edit-pick-prefix(prefix); }
         search-vndb(query) => { root.edit-search(query); }
         save-game(form) => { root.edit-save(form); }
         cancel => { root.edit-cancel(); }

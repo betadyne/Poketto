@@ -1,5 +1,5 @@
 import { Theme } from "../tokens.slint";
-import { Switch } from "std-widgets.slint";
+import { ComboBox, Switch } from "std-widgets.slint";
 import { Button } from "../components/Button.slint";
 import { TagBadge } from "../components/TagBadge.slint";
 
@@ -30,6 +30,10 @@ export component DetailView inherits Rectangle {
     in property <bool> blur-nsfw;
     in-out property <bool> cover-revealed;
     in-out property <bool> show-spoilers;
+    in-out property <int> collection-status: 0;
+    in-out property <int> collection-vote: 0;
+    in-out property <string> collection-msg;
+    in-out property <bool> collection-error: false;
     in property <bool> refreshing: false;
     in property <[DetailTag]> tags;
     in property <[DetailCharacter]> characters;
@@ -40,6 +44,7 @@ export component DetailView inherits Rectangle {
     callback edit-clicked;
     callback refresh-metadata;
     callback spoilers-toggled(bool);
+    callback collection-save(int, int);
 
     property <bool> cover-blocked: root.cover-nsfw && root.blur-nsfw && !root.cover-revealed;
 
@@ -183,6 +188,66 @@ export component DetailView inherits Rectangle {
             }
 
             Text {
+                text: "My Collection";
+                color: Theme.text-muted;
+                font-size: Theme.font-sm;
+            }
+
+            HorizontalLayout {
+                spacing: Theme.space-md;
+
+                VerticalLayout {
+                    spacing: 4px;
+                    horizontal-stretch: 1;
+
+                    Text {
+                        text: "Status";
+                        color: Theme.text-muted;
+                        font-size: Theme.font-sm;
+                    }
+
+                    ComboBox {
+                        model: ["None", "Playing", "Finished", "Staged", "Dropped"];
+                        current-index <=> root.collection-status;
+                    }
+                }
+
+                VerticalLayout {
+                    spacing: 4px;
+                    horizontal-stretch: 1;
+
+                    Text {
+                        text: "My Vote";
+                        color: Theme.text-muted;
+                        font-size: Theme.font-sm;
+                    }
+
+                    ComboBox {
+                        model: ["Unrated", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
+                        current-index <=> root.collection-vote;
+                    }
+                }
+
+                VerticalLayout {
+                    spacing: 4px;
+                    alignment: end;
+
+                    Button {
+                        text: "Update Status";
+                        primary: true;
+                        clicked => { root.collection-save(root.collection-status, root.collection-vote); }
+                    }
+                }
+            }
+
+            if root.collection-msg != "" : Text {
+                text: root.collection-msg;
+                color: root.collection-error ? Theme.danger : Theme.text-muted;
+                font-size: Theme.font-md;
+                wrap: word-wrap;
+            }
+
+            Text {
                 text: "Synopsis";
                 color: Theme.text-muted;
                 font-size: Theme.font-sm;
@@ -219,9 +284,17 @@ export component DetailView inherits Rectangle {
             if root.tags.length > 0 : HorizontalLayout {
                 spacing: Theme.space-sm;
 
-                for tag in root.tags : TagBadge {
-                    text: tag.name;
-                    visible: root.show-spoilers || tag.spoiler == 0;
+                for tag in root.tags : HorizontalLayout {
+                    spacing: Theme.space-sm;
+
+                    TagBadge {
+                        text: tag.name;
+                    }
+
+                    if tag.spoiler != 0 : TagBadge {
+                        text: "[Spoiler]";
+                        alert: true;
+                    }
                 }
             }
 
@@ -230,7 +303,6 @@ export component DetailView inherits Rectangle {
 
                 for ch in root.characters : HorizontalLayout {
                     spacing: Theme.space-sm;
-                    visible: root.show-spoilers || ch.spoiler == 0;
 
                     Rectangle {
                         width: 40px;

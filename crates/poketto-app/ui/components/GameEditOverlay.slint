@@ -68,8 +68,14 @@ export component GameEditOverlay inherits Rectangle {
     in-out property <string> vndb-query;
     in-out property <[VndbHit]> vndb-hits;
     in-out property <bool> searching;
+    in-out property <[string]> detected-runners;
+    in-out property <[string]> detected-prefixes;
 
     callback browse;
+    callback browse-cover;
+    callback browse-prefix;
+    callback pick-runner(string);
+    callback pick-prefix(string);
     callback search-vndb(string);
     callback save-game(GameFormData);
     callback cancel;
@@ -157,9 +163,41 @@ export component GameEditOverlay inherits Rectangle {
                     text <=> root.work-dir;
                 }
 
-                LabeledField {
-                    label: "Cover image URL (optional)";
-                    text <=> root.cover-url;
+                Text {
+                    text: "Cover image URL or path (optional)";
+                    color: Theme.text-muted;
+                    font-size: Theme.font-sm;
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.space-sm;
+
+                    Rectangle {
+                        height: 40px;
+                        background: Theme.surface;
+                        border-width: 1px;
+                        border-color: Theme.border;
+                        border-radius: Theme.radius-md;
+                        horizontal-stretch: 1;
+
+                        HorizontalLayout {
+                            padding-left: Theme.pad-md;
+                            padding-right: Theme.pad-md;
+
+                            TextInput {
+                                text <=> root.cover-url;
+                                color: Theme.text;
+                                font-size: Theme.font-md;
+                                vertical-alignment: center;
+                                horizontal-stretch: 1;
+                            }
+                        }
+                    }
+
+                    Button {
+                        text: "Browse...";
+                        clicked => { root.browse-cover(); }
+                    }
                 }
 
                 Text {
@@ -190,14 +228,118 @@ export component GameEditOverlay inherits Rectangle {
                     }
                 }
 
-                if root.platform != 0 : LabeledField {
-                    label: "Wine prefix (optional)";
-                    text <=> root.wine-prefix;
+                if root.platform != 0 : VerticalLayout {
+                    spacing: 4px;
+
+                    Text {
+                        text: "Wine prefix (optional)";
+                        color: Theme.text-muted;
+                        font-size: Theme.font-sm;
+                    }
+
+                    HorizontalLayout {
+                        spacing: Theme.space-sm;
+
+                        Rectangle {
+                            height: 40px;
+                            background: Theme.surface;
+                            border-width: 1px;
+                            border-color: Theme.border;
+                            border-radius: Theme.radius-md;
+                            horizontal-stretch: 1;
+
+                            HorizontalLayout {
+                                padding-left: Theme.pad-md;
+                                padding-right: Theme.pad-md;
+
+                                TextInput {
+                                    text <=> root.wine-prefix;
+                                    color: Theme.text;
+                                    font-size: Theme.font-md;
+                                    vertical-alignment: center;
+                                    horizontal-stretch: 1;
+                                }
+                            }
+                        }
+
+                        Button {
+                            text: "Browse...";
+                            clicked => { root.browse-prefix(); }
+                        }
+                    }
+
+                    if root.detected-prefixes.length > 0 : Text {
+                        text: "Detected prefixes (tap to use)";
+                        color: Theme.text-muted;
+                        font-size: Theme.font-sm;
+                    }
+
+                    for candidate in root.detected-prefixes : TouchArea {
+                        clicked => { root.pick-prefix(candidate); }
+
+                        HorizontalLayout {
+                            Text {
+                                text: candidate;
+                                color: Theme.text;
+                                font-size: Theme.font-md;
+                                vertical-alignment: center;
+                                horizontal-stretch: 1;
+                                overflow: elide;
+                            }
+                        }
+                    }
                 }
 
-                if root.platform != 0 : LabeledField {
-                    label: "Custom runner binary (optional)";
-                    text <=> root.wine-binary;
+                if root.platform != 0 : VerticalLayout {
+                    spacing: 4px;
+
+                    Text {
+                        text: "Custom runner binary (optional)";
+                        color: Theme.text-muted;
+                        font-size: Theme.font-sm;
+                    }
+
+                    Rectangle {
+                        height: 40px;
+                        background: Theme.surface;
+                        border-width: 1px;
+                        border-color: Theme.border;
+                        border-radius: Theme.radius-md;
+
+                        HorizontalLayout {
+                            padding-left: Theme.pad-md;
+                            padding-right: Theme.pad-md;
+
+                            TextInput {
+                                text <=> root.wine-binary;
+                                color: Theme.text;
+                                font-size: Theme.font-md;
+                                vertical-alignment: center;
+                                horizontal-stretch: 1;
+                            }
+                        }
+                    }
+
+                    if root.detected-runners.length > 0 : Text {
+                        text: "Detected runners (tap to use)";
+                        color: Theme.text-muted;
+                        font-size: Theme.font-sm;
+                    }
+
+                    for runner in root.detected-runners : TouchArea {
+                        clicked => { root.pick-runner(runner); }
+
+                        HorizontalLayout {
+                            Text {
+                                text: runner;
+                                color: Theme.text;
+                                font-size: Theme.font-md;
+                                vertical-alignment: center;
+                                horizontal-stretch: 1;
+                                overflow: elide;
+                            }
+                        }
+                    }
                 }
 
                 Text {
