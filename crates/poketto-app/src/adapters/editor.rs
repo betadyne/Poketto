@@ -31,6 +31,28 @@ pub fn is_vndb_id(value: &str) -> bool {
     digits > 0
 }
 
+fn classify_runner_binary(binary: &str) -> WineType {
+    let path = std::path::Path::new(binary);
+    let file_name = path.file_name().and_then(|name| name.to_str());
+    let typed = file_name.map(poketto_core::wine::classify_wine_type);
+    let generic = typed.as_ref().is_none_or(|kind| {
+        matches!(kind, WineType::Wine | WineType::Proton | WineType::Custom)
+    });
+    if generic {
+        if let Some(parent) = path
+            .parent()
+            .and_then(|parent| parent.file_name())
+            .and_then(|name| name.to_str())
+            .map(poketto_core::wine::classify_wine_type)
+        {
+            if !matches!(parent, WineType::Wine | WineType::Custom) {
+                return parent;
+            }
+        }
+    }
+    typed.unwrap_or(WineType::Wine)
+}
+
 pub fn apply_form(
     existing: Option<&Game>,
     form: &GameFormData,
@@ -45,20 +67,32 @@ pub fn apply_form(
             Some(trimmed)
         }
     };
-    let (game_type, wine_type) = match form.platform {
-        1 => (GameType::WindowsExe, Some(WineType::Wine)),
-        2 => (GameType::WindowsExe, Some(WineType::Proton)),
-        _ => (GameType::LinuxNative, None),
-    };
+    let wine_binary = text(form.wine_binary.as_str());
     let wine_prefix = text(form.wine_prefix.as_str());
-    let wine_settings = wine_type.map(|wine_type| WineSettings {
-        use_global_prefix: wine_prefix.is_none(),
-        wine_prefix,
-        wine_version: text(form.wine_binary.as_str()),
-        wine_type: Some(wine_type),
-        use_steam_runtime,
-        env_vars: HashMap::new(),
-    });
+    let previous = existing.and_then(|game| game.wine_settings.as_ref());
+    let binary_unchanged = previous.and_then(|wine| wine.wine_version.clone()) == wine_binary;
+    let classified = wine_binary.as_deref().map(classify_runner_binary);
+    let (game_type, wine_settings) = match form.platform {
+        1 => {
+            let wine_type = previous
+                .filter(|_| binary_unchanged)
+                .and_then(|wine| wine.wine_type.clone())
+                .or(classified)
+                .unwrap_or(WineType::Wine);
+            (
+                GameType::Wine,
+                Some(WineSettings {
+                    use_global_prefix: wine_prefix.is_none(),
+                    wine_prefix,
+                    wine_version: wine_binary,
+                    wine_type: Some(wine_type),
+                    use_steam_runtime,
+                    env_vars: HashMap::new(),
+                }),
+            )
+        }
+        _ => (GameType::Native, None),
+    };
     Game {
         id: existing.map(|game| game.id.clone()).unwrap_or_else(|| new_id.to_string()),
         title: form.title.trim().to_string(),
@@ -81,12 +115,7 @@ pub fn apply_form(
 
 pub fn platform_index(game: &Game) -> i32 {
     match game.game_type {
-        Some(GameType::WindowsExe) => match game.wine_settings.as_ref().and_then(|w| w.wine_type.clone()) {
-            Some(
-                WineType::Proton | WineType::ProtonGE | WineType::ProtonCachyOS | WineType::ProtonTKG,
-            ) => 2,
-            _ => 1,
-        },
+        Some(GameType::Wine) => 1,
         _ => 0,
     }
 }
@@ -103,7 +132,7 @@ mod tests {
             exec_path: "/games/test/game.exe".into(),
             work_dir: "".into(),
             cover_url: "".into(),
-            platform: 2,
+            platform: 1,
             wine_prefix: "".into(),
             wine_binary: "".into(),
         }
@@ -128,14 +157,24 @@ mod tests {
     }
 
     #[test]
-    fn add_builds_proton_game_with_defaults() {
+    fn add_builds_wine_game_with_defaults() {
         let game = apply_form(None, &form(), false, "new-id");
         assert_eq!(game.id, "new-id");
-        assert_eq!(game.game_type, Some(GameType::WindowsExe));
+        assert_eq!(game.game_type, Some(GameType::Wine));
         let wine = game.wine_settings.expect("wine settings");
-        assert_eq!(wine.wine_type, Some(WineType::Proton));
+        assert_eq!(wine.wine_type, Some(WineType::Wine));
         assert_eq!(wine.use_global_prefix, true);
         assert_eq!(game.play_time_minutes, 0);
+    }
+
+    #[test]
+    fn proton_binary_classifies_runner_type() {
+        let mut proton_form = form();
+        proton_form.wine_binary = "/opt/GE-Proton9-7/proton".into();
+        let game = apply_form(None, &proton_form, false, "g1");
+        assert_eq!(platform_index(&game), 1);
+        let wine = game.wine_settings.as_ref().expect("wine settings");
+        assert_eq!(wine.wine_type, Some(WineType::ProtonGE));
     }
 
     #[test]
@@ -151,14 +190,14 @@ mod tests {
         assert_eq!(game.title, "Renamed");
         assert_eq!(game.play_time_minutes, 90);
         assert_eq!(game.is_finished, true);
-        assert_eq!(game.game_type, Some(GameType::LinuxNative));
+        assert_eq!(game.game_type, Some(GameType::Native));
         assert_eq!(game.wine_settings, None);
     }
 
     #[test]
     fn platform_index_round_trips() {
-        let proton = apply_form(None, &form(), false, "g1");
-        assert_eq!(platform_index(&proton), 2);
+        let wine = apply_form(None, &form(), false, "g1");
+        assert_eq!(platform_index(&wine), 1);
         let mut native_form = form();
         native_form.platform = 0;
         let native = apply_form(None, &native_form, false, "g2");

@@ -216,15 +216,9 @@ export component GameEditOverlay inherits Rectangle {
                     }
 
                     Button {
-                        text: "Wine";
+                        text: "Wine / Proton";
                         primary: root.platform == 1;
                         clicked => { root.platform = 1; }
-                    }
-
-                    Button {
-                        text: "Proton";
-                        primary: root.platform == 2;
-                        clicked => { root.platform = 2; }
                     }
                 }
 

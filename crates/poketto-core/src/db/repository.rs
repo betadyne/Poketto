@@ -449,7 +449,7 @@ mod tests {
             show_spoilers: true,
             user_status: 0,
             user_vote: 0,
-            game_type: Some(GameType::WindowsExe),
+            game_type: Some(GameType::Wine),
             wine_settings: Some(WineSettings {
                 use_global_prefix: true,
                 wine_version: Some("Proton-GE".to_string()),
@@ -520,7 +520,7 @@ mod tests {
         assert_eq!(loaded.title, "Round Trip");
         assert_eq!(loaded.play_time_minutes, 42);
         assert_eq!(loaded.rating, Some(8.55));
-        assert_eq!(loaded.game_type, Some(GameType::WindowsExe));
+        assert_eq!(loaded.game_type, Some(GameType::Wine));
         let wine = loaded.wine_settings.expect("wine settings");
         assert_eq!(wine.use_global_prefix, true);
         assert_eq!(wine.wine_version.as_deref(), Some("Proton-GE"));

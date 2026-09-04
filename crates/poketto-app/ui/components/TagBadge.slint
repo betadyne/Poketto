@@ -3,10 +3,11 @@ import { Theme } from "../tokens.slint";
 export component TagBadge inherits Rectangle {
     in property <string> text;
     in property <bool> highlighted;
-    in property <bool> alert: false;
+    in property <bool> spoiler: false;
 
     background: Theme.surface;
     border-width: 1px;
+    border-color: root.spoiler ? #e06c75 : Theme.border;
     border-radius: Theme.radius-sm;
     width: layout.preferred-width;
     height: layout.preferred-height;
@@ -19,7 +20,7 @@ export component TagBadge inherits Rectangle {
 
         Text {
             text: root.text;
-            color: root.alert ? Theme.danger : (root.highlighted ? Theme.primary : Theme.text-muted);
+            color: root.highlighted ? Theme.primary : Theme.text;
             font-size: Theme.font-sm;
             vertical-alignment: center;
         }

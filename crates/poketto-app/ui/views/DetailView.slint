@@ -286,17 +286,9 @@ export component DetailView inherits Rectangle {
             if root.tags.length > 0 : HorizontalLayout {
                 spacing: Theme.space-sm;
 
-                for tag in root.tags : HorizontalLayout {
-                    spacing: Theme.space-sm;
-
-                    TagBadge {
-                        text: tag.name;
-                    }
-
-                    if tag.is-spoiler : TagBadge {
-                        text: "[Spoiler]";
-                        alert: true;
-                    }
+                for tag in root.tags : TagBadge {
+                    text: tag.name;
+                    spoiler: tag.is-spoiler;
                 }
             }
 

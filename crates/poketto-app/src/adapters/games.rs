@@ -167,7 +167,7 @@ mod tests {
             show_spoilers: false,
             user_status: 0,
             user_vote: 0,
-            game_type: Some(GameType::WindowsExe),
+            game_type: Some(GameType::Wine),
             wine_settings: None,
             rating: Some(8.5),
         }

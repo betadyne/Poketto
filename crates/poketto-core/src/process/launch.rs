@@ -8,9 +8,9 @@ use crate::models::{AppSettings, Game, GameType, WineSettings, WineType};
 pub fn resolve_game_type(game: &Game, path: &Path) -> GameType {
     game.game_type.clone().unwrap_or_else(|| {
         if path.extension().and_then(|e| e.to_str()) == Some("exe") {
-            GameType::WindowsExe
+            GameType::Wine
         } else {
-            GameType::LinuxNative
+            GameType::Native
         }
     })
 }
@@ -53,8 +53,8 @@ pub fn build_command(
     #[cfg(target_os = "linux")]
     {
         match resolve_game_type(game, path) {
-            GameType::LinuxNative => Ok(native_command(game, path)),
-            GameType::WindowsExe => wine_command(game, path, settings),
+            GameType::Native => Ok(native_command(game, path)),
+            GameType::Wine => wine_command(game, path, settings),
         }
     }
 
@@ -242,10 +242,10 @@ mod tests {
 
     #[test]
     fn explicit_game_type_wins() {
-        let game = game_with("/games/a.x86_64", Some(GameType::WindowsExe));
+        let game = game_with("/games/a.x86_64", Some(GameType::Wine));
         assert_eq!(
             resolve_game_type(&game, Path::new(&game.path)),
-            GameType::WindowsExe
+            GameType::Wine
         );
     }
 
@@ -254,14 +254,14 @@ mod tests {
         let game = game_with("/games/a.exe", None);
         assert_eq!(
             resolve_game_type(&game, Path::new(&game.path)),
-            GameType::WindowsExe
+            GameType::Wine
         );
     }
     fn other_extension_defaults_to_native() {
         let game = game_with("/games/a.x86_64", None);
         assert_eq!(
             resolve_game_type(&game, Path::new(&game.path)),
-            GameType::LinuxNative
+            GameType::Native
         );
     }
 
@@ -313,7 +313,7 @@ mod tests {
     #[test]
     fn native_command_targets_game_dir() {
         let exe = std::env::current_exe().expect("current exe");
-        let game = game_with(exe.to_str().expect("unicode"), Some(GameType::LinuxNative));
+        let game = game_with(exe.to_str().expect("unicode"), Some(GameType::Native));
         let cmd = build_command(&game, &AppSettings::default()).expect("build");
         let std_cmd = cmd.as_std();
         assert_eq!(std_cmd.get_program(), exe.as_os_str());
@@ -324,7 +324,7 @@ mod tests {
     #[test]
     fn wine_command_sets_prefix_env() {
         let exe = std::env::current_exe().expect("current exe");
-        let mut game = game_with(exe.to_str().expect("unicode"), Some(GameType::WindowsExe));
+        let mut game = game_with(exe.to_str().expect("unicode"), Some(GameType::Wine));
         game.wine_settings = Some(WineSettings {
             wine_version: Some("/bin/true".to_string()),
             wine_prefix: Some("/tmp/poketto-test-prefix".to_string()),

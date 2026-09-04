@@ -33,15 +33,17 @@ pub enum WineSource {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GameType {
     #[default]
-    WindowsExe,
-    LinuxNative,
+    #[serde(alias = "LinuxNative")]
+    Native,
+    #[serde(alias = "WindowsExe")]
+    Wine,
 }
 
 impl GameType {
     pub fn as_str(&self) -> &'static str {
         match self {
-            GameType::WindowsExe => "WindowsExe",
-            GameType::LinuxNative => "LinuxNative",
+            GameType::Native => "Native",
+            GameType::Wine => "Wine",
         }
     }
 }
@@ -51,8 +53,8 @@ impl FromStr for GameType {
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
-            "WindowsExe" => Ok(GameType::WindowsExe),
-            "LinuxNative" => Ok(GameType::LinuxNative),
+            "Native" | "LinuxNative" => Ok(GameType::Native),
+            "Wine" | "WindowsExe" => Ok(GameType::Wine),
             _ => Err(value.to_string()),
         }
     }
@@ -148,14 +150,14 @@ mod tests {
         assert_eq!(game.game_type, None);
         assert_eq!(game.wine_settings, None);
     }
-
     #[test]
     fn game_type_round_trips_through_str() {
-        assert_eq!(
-            "LinuxNative".parse::<GameType>(),
-            Ok(GameType::LinuxNative)
-        );
+        assert_eq!("Native".parse::<GameType>(), Ok(GameType::Native));
+        assert_eq!("LinuxNative".parse::<GameType>(), Ok(GameType::Native));
+        assert_eq!("Wine".parse::<GameType>(), Ok(GameType::Wine));
+        assert_eq!("WindowsExe".parse::<GameType>(), Ok(GameType::Wine));
         assert_eq!("Unknown".parse::<GameType>().is_err(), true);
-        assert_eq!(GameType::WindowsExe.as_str(), "WindowsExe");
+        assert_eq!(GameType::Wine.as_str(), "Wine");
+        assert_eq!(GameType::Native.as_str(), "Native");
     }
 }
