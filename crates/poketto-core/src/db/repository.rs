@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use super::error::{DbError, DbResult};
 use crate::models::{AppSettings, Game, Tag, WineSettings};
 
-const GAME_COLUMNS: &str = "id, title, path, vndb_id, cover_url, play_time_minutes, is_finished, last_played, is_hidden, show_spoilers, game_type, wine_settings, rating, work_dir";
+const GAME_COLUMNS: &str = "id, title, path, vndb_id, cover_url, play_time_minutes, is_finished, last_played, is_hidden, show_spoilers, game_type, wine_settings, rating, work_dir, user_status, user_vote";
 
 fn game_from_row(row: &Row) -> rusqlite::Result<Game> {
     let game_type: Option<String> = row.get(10)?;
@@ -29,6 +29,8 @@ fn game_from_row(row: &Row) -> rusqlite::Result<Game> {
         last_played: row.get(7)?,
         is_hidden: row.get(8)?,
         show_spoilers: row.get(9)?,
+        user_status: row.get(14)?,
+        user_vote: row.get(15)?,
         game_type: game_type.and_then(|value| value.parse().ok()),
         rating: row.get(12)?,
         wine_settings: wine_settings
@@ -107,8 +109,8 @@ pub fn insert_game(conn: &Connection, game: &Game) -> DbResult<()> {
     let play_time = i64::try_from(game.play_time_minutes)
         .map_err(|_| DbError::OutOfRange(game.play_time_minutes))?;
     conn.execute(
-        "INSERT INTO games (id, title, path, vndb_id, cover_url, play_time_minutes, is_finished, last_played, is_hidden, show_spoilers, game_type, wine_settings, rating, work_dir)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+        "INSERT INTO games (id, title, path, vndb_id, cover_url, play_time_minutes, is_finished, last_played, is_hidden, show_spoilers, game_type, wine_settings, rating, work_dir, user_status, user_vote)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
         params![
             game.id,
             game.title,
@@ -124,6 +126,8 @@ pub fn insert_game(conn: &Connection, game: &Game) -> DbResult<()> {
             wine_blob(&game.wine_settings)?,
             game.rating,
             game.work_dir,
+            game.user_status,
+            game.user_vote,
         ],
     )?;
     Ok(())
@@ -135,7 +139,7 @@ pub fn update_game(conn: &Connection, game: &Game) -> DbResult<()> {
     let changed = conn.execute(
         "UPDATE games SET title = ?2, path = ?3, vndb_id = ?4, cover_url = ?5, play_time_minutes = ?6,
          is_finished = ?7, last_played = ?8, is_hidden = ?9, show_spoilers = ?10, game_type = ?11,
-         wine_settings = ?12, rating = ?13, work_dir = ?14 WHERE id = ?1",
+         wine_settings = ?12, rating = ?13, work_dir = ?14, user_status = ?15, user_vote = ?16 WHERE id = ?1",
         params![
             game.id,
             game.title,
@@ -151,10 +155,29 @@ pub fn update_game(conn: &Connection, game: &Game) -> DbResult<()> {
             wine_blob(&game.wine_settings)?,
             game.rating,
             game.work_dir,
+            game.user_status,
+            game.user_vote,
         ],
     )?;
     if changed == 0 {
         return Err(DbError::GameNotFound(game.id.clone()));
+    }
+    Ok(())
+}
+
+pub fn update_game_status(conn: &Connection, id: &str, status: i32, vote: i32) -> DbResult<()> {
+    if !crate::models::is_user_status(status) {
+        return Err(DbError::OutOfRange(status as u64));
+    }
+    if !crate::models::is_user_vote(vote) {
+        return Err(DbError::OutOfRange(vote as u64));
+    }
+    let changed = conn.execute(
+        "UPDATE games SET user_status = ?2, user_vote = ?3 WHERE id = ?1",
+        params![id, status, vote],
+    )?;
+    if changed == 0 {
+        return Err(DbError::GameNotFound(id.to_string()));
     }
     Ok(())
 }
@@ -424,6 +447,8 @@ mod tests {
             last_played: Some("2026-09-03T00:00:00+00:00".to_string()),
             is_hidden: false,
             show_spoilers: true,
+            user_status: 0,
+            user_vote: 0,
             game_type: Some(GameType::WindowsExe),
             wine_settings: Some(WineSettings {
                 use_global_prefix: true,
@@ -531,6 +556,22 @@ mod tests {
         let missing = sample_game("ghost", "Ghost");
         assert!(matches!(
             update_game(&conn, &missing),
+            Err(DbError::GameNotFound(_))
+        ));
+    }
+
+    #[test]
+    fn status_update_round_trips_and_validates() {
+        let conn = setup();
+        insert_game(&conn, &sample_game("g1", "Collection")).expect("insert");
+        update_game_status(&conn, "g1", 1, 8).expect("status update");
+        let loaded = get_game(&conn, "g1").expect("get").expect("found");
+        assert_eq!(loaded.user_status, 1);
+        assert_eq!(loaded.user_vote, 8);
+        assert!(update_game_status(&conn, "g1", 9, 0).is_err());
+        assert!(update_game_status(&conn, "g1", 0, 11).is_err());
+        assert!(matches!(
+            update_game_status(&conn, "ghost", 1, 0),
             Err(DbError::GameNotFound(_))
         ));
     }

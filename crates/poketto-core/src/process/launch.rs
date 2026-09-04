@@ -231,6 +231,8 @@ mod tests {
             last_played: None,
             is_hidden: false,
             show_spoilers: false,
+            user_status: 0,
+            user_vote: 0,
             game_type,
             wine_settings: None,
             work_dir: None,

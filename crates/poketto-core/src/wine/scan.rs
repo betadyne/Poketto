@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::models::{WineSource, WineType, WineVersion};
 
@@ -277,4 +277,94 @@ pub fn get_default_wine() -> Option<WineVersion> {
     }
 
     get_all_wine_versions().into_iter().next()
+}
+
+fn is_prefix_dir(path: &Path) -> bool {
+    path.join("drive_c").exists() || path.join("user.reg").exists() || path.join("dosdevices").exists()
+}
+
+fn push_prefix_subdirs(out: &mut Vec<PathBuf>, dir: &Path, require_markers: bool) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    let mut found: Vec<PathBuf> = entries
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| path.is_dir() && (!require_markers || is_prefix_dir(path)))
+        .collect();
+    found.sort();
+    out.extend(found);
+}
+
+fn collect_prefixes(home: &Path) -> Vec<PathBuf> {
+    let mut prefixes = Vec::new();
+    for candidate in [home.join(".wine"), super::prefix::global_prefix_path()] {
+        if candidate.exists() {
+            prefixes.push(candidate);
+        }
+    }
+    push_prefix_subdirs(&mut prefixes, &home.join("Games").join("Poketto").join("Prefixes"), false);
+    push_prefix_subdirs(&mut prefixes, &home.join(".local").join("share").join("wineprefixes"), true);
+    for bottles in [
+        home.join(".local").join("share").join("bottles").join("bottles"),
+        home.join(".var")
+            .join("app")
+            .join("com.usebottles.bottles")
+            .join("data")
+            .join("bottles")
+            .join("bottles"),
+    ] {
+        push_prefix_subdirs(&mut prefixes, &bottles, true);
+    }
+    prefixes.sort();
+    prefixes.dedup();
+    prefixes.truncate(32);
+    prefixes
+}
+
+pub fn scan_common_prefixes() -> Vec<PathBuf> {
+    let Some(home) = dirs::home_dir() else {
+        return Vec::new();
+    };
+    collect_prefixes(&home)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sandbox(name: &str) -> PathBuf {
+        let base = std::env::temp_dir().join("poketto-scan-test").join(name);
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(&base).expect("sandbox");
+        base
+    }
+
+    #[test]
+    fn prefix_markers_detected() {
+        let base = sandbox("markers");
+        let marked = base.join("game-a");
+        std::fs::create_dir_all(marked.join("drive_c")).expect("drive_c");
+        assert!(is_prefix_dir(&marked));
+        assert!(!is_prefix_dir(&base.join("missing")));
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn collects_dotwine_and_managed_prefixes() {
+        let home = sandbox("home");
+        std::fs::create_dir_all(home.join(".wine").join("drive_c")).expect("dotwine");
+        let owned = home.join("Games").join("Poketto").join("Prefixes").join("owned");
+        std::fs::create_dir_all(&owned).expect("owned");
+        let plain = home.join(".local").join("share").join("wineprefixes").join("plain");
+        std::fs::create_dir_all(&plain).expect("plain");
+        let bottle = home.join(".local").join("share").join("bottles").join("bottles").join("Work");
+        std::fs::create_dir_all(bottle.join("drive_c")).expect("bottle");
+        let found = collect_prefixes(&home);
+        assert!(found.contains(&home.join(".wine")));
+        assert!(found.contains(&owned));
+        assert!(found.contains(&bottle));
+        assert!(!found.contains(&plain));
+        let _ = std::fs::remove_dir_all(&home);
+    }
 }

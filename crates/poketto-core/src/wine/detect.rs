@@ -101,6 +101,10 @@ pub fn query_wine_version(binary_path: &str) -> Option<String> {
     )
 }
 
+pub fn detect_wine_environments() -> Vec<WineVersion> {
+    super::scan::get_all_wine_versions()
+}
+
 pub fn validate_wine_binary(binary_path: &str) -> WineResult<String> {
     let path = Path::new(binary_path);
 

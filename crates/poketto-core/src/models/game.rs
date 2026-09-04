@@ -99,11 +99,31 @@ pub struct Game {
     #[serde(default)]
     pub show_spoilers: bool,
     #[serde(default)]
+    pub user_status: i32,
+    #[serde(default)]
+    pub user_vote: i32,
+    #[serde(default)]
     pub game_type: Option<GameType>,
     #[serde(default)]
     pub wine_settings: Option<WineSettings>,
     #[serde(default)]
     pub rating: Option<f64>,
+}
+
+pub const USER_STATUS_NONE: i32 = 0;
+pub const USER_STATUS_PLAYING: i32 = 1;
+pub const USER_STATUS_FINISHED: i32 = 2;
+pub const USER_STATUS_STALLED: i32 = 3;
+pub const USER_STATUS_DROPPED: i32 = 4;
+pub const USER_VOTE_UNRATED: i32 = 0;
+pub const USER_VOTE_MAX: i32 = 10;
+
+pub fn is_user_status(status: i32) -> bool {
+    (USER_STATUS_NONE..=USER_STATUS_DROPPED).contains(&status)
+}
+
+pub fn is_user_vote(vote: i32) -> bool {
+    (USER_VOTE_UNRATED..=USER_VOTE_MAX).contains(&vote)
 }
 
 #[cfg(test)]
