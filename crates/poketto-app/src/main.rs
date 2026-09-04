@@ -290,6 +290,16 @@ fn open_detail(
             }
         };
         if let Some(vndb_id) = game.vndb_id.clone() {
+            let payload = assemble_detail(&game, detail.as_ref(), &characters);
+            let loader = loader.clone();
+            let avatar_loader = avatar_loader.clone();
+            let spoiler_store = spoilers.clone();
+            let app = app.clone();
+            let _ = slint::invoke_from_event_loop(move || {
+                if let Some(app) = app.upgrade() {
+                    show_detail(&app, &loader, &avatar_loader, payload, true, &spoiler_store);
+                }
+            });
             let fetched = tokio::join!(client.detail(&vndb_id), client.characters(&vndb_id));
             if let (Ok(fresh_detail), Ok(fresh_characters)) = fetched {
                 let game_id = game.id.clone();
@@ -308,9 +318,10 @@ fn open_detail(
         }
         let payload = assemble_detail(&game, detail.as_ref(), &characters);
         let spoiler_store = spoilers.clone();
+        let navigate = game.vndb_id.is_none();
         let _ = slint::invoke_from_event_loop(move || {
             if let Some(app) = app.upgrade() {
-                show_detail(&app, &loader, &avatar_loader, payload, true, &spoiler_store);
+                show_detail(&app, &loader, &avatar_loader, payload, navigate, &spoiler_store);
             }
         });
     });

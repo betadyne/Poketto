@@ -26,3 +26,9 @@ parking_lot = "0.12.5"
 copypasta = "0.10.2"
 rfd = "0.15"
 uuid = { version = "1.26.0", features = ["v4"] }
+
+[profile.dev.package.image]
+opt-level = 3
+
+[profile.dev.package.slint]
+opt-level = 2
