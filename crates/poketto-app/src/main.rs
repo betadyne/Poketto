@@ -316,6 +316,16 @@ fn open_detail(
     });
 }
 
+fn character_rows(
+    characters: Vec<DetailCharacter>,
+) -> ModelRc<ModelRc<DetailCharacter>> {
+    let rows: Vec<ModelRc<DetailCharacter>> = adapters::chunk_characters(characters)
+        .into_iter()
+        .map(|row| ModelRc::from(Rc::new(VecModel::from(row))))
+        .collect();
+    ModelRc::from(Rc::new(VecModel::from(rows)))
+}
+
 fn show_detail(
     app: &AppWindow,
     loader: &ImageLoader,
@@ -330,6 +340,7 @@ fn show_detail(
     app.set_detail_playtime(payload.playtime.into());
     app.set_detail_synopsis(payload.synopsis.into());
     app.set_detail_finished(payload.finished);
+    app.set_detail_rating(payload.rating);
     app.set_detail_nsfw(payload.nsfw);
     app.set_detail_show_spoilers(payload.show_spoilers);
     app.set_detail_collection_status(payload.user_status);
@@ -351,7 +362,7 @@ fn show_detail(
         )
     };
     app.set_detail_tags(ModelRc::from(Rc::new(VecModel::from(tags))));
-    app.set_detail_characters(ModelRc::from(Rc::new(VecModel::from(characters))));
+    app.set_detail_characters(character_rows(characters));
     if let Some(url) = payload.cover_url {
         loader.request(&payload.id, &url);
     }
@@ -899,7 +910,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 )
             };
             app.set_detail_tags(ModelRc::from(Rc::new(VecModel::from(tags))));
-            app.set_detail_characters(ModelRc::from(Rc::new(VecModel::from(characters))));
+            app.set_detail_characters(character_rows(characters));
             for (avatar_id, url) in &avatars {
                 avatar_loader.request(avatar_id, url);
             }
@@ -986,6 +997,44 @@ fn main() -> Result<(), slint::PlatformError> {
         app.on_configure_clicked(move || {
             if let Some(app) = handle.upgrade() {
                 app.set_screen(SCREEN_SETTINGS);
+            }
+        });
+    }
+    {
+        let handle = app.as_weak();
+        let conn = conn.clone();
+        app.on_open_folder(move || {
+            let Some(app) = handle.upgrade() else {
+                return;
+            };
+            let id = app.get_detail_id().to_string();
+            let dir = (|| {
+                let conn = conn.borrow();
+                let game = poketto_core::db::get_game(&conn, &id)?
+                    .ok_or_else(|| poketto_core::db::DbError::GameNotFound(id.clone()))?;
+                Ok::<_, poketto_core::db::DbError>(game.work_dir.or_else(|| {
+                    std::path::Path::new(&game.path)
+                        .parent()
+                        .and_then(|parent| parent.to_str().map(str::to_string))
+                }))
+            })();
+            match dir {
+                Ok(Some(dir)) => {
+                    #[cfg(target_os = "linux")]
+                    let spawned = std::process::Command::new("xdg-open").arg(&dir).spawn();
+                    #[cfg(target_os = "windows")]
+                    let spawned = std::process::Command::new("explorer").arg(&dir).spawn();
+                    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+                    let spawned = Err(std::io::Error::new(
+                        std::io::ErrorKind::Unsupported,
+                        "open folder unsupported",
+                    ));
+                    if let Err(e) = spawned {
+                        app.set_detail_error(format!("Open folder failed: {e}").into());
+                    }
+                }
+                Ok(None) => app.set_detail_error("Open folder failed: unknown location.".into()),
+                Err(e) => app.set_detail_error(format!("Open folder failed: {e}").into()),
             }
         });
     }
@@ -1487,13 +1536,18 @@ fn open_editor_for_edit(app: &AppWindow, game: &poketto_core::models::Game) {
                 let image = slint_image(&image);
                 if let Some(app) = drain_handle.upgrade() {
                     let characters = app.get_detail_characters();
-                    for row in 0..characters.row_count() {
-                        let Some(mut entry) = characters.row_data(row) else {
+                    for row_index in 0..characters.row_count() {
+                        let Some(row) = characters.row_data(row_index) else {
                             continue;
                         };
-                        if entry.id.as_str() == avatar.owner_id {
-                            entry.avatar = image.clone();
-                            characters.set_row_data(row, entry);
+                        for col in 0..row.row_count() {
+                            let Some(mut entry) = row.row_data(col) else {
+                                continue;
+                            };
+                            if entry.id.as_str() == avatar.owner_id {
+                                entry.avatar = image.clone();
+                                row.set_row_data(col, entry);
+                            }
                         }
                     }
                 }

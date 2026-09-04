@@ -155,12 +155,23 @@ pub fn visible_characters(
         .collect()
 }
 
+pub fn chunk_characters(characters: Vec<DetailCharacter>) -> Vec<Vec<DetailCharacter>> {
+    if characters.is_empty() {
+        return Vec::new();
+    }
+    characters
+        .chunks(2)
+        .map(|row| row.to_vec())
+        .collect()
+}
+
 pub struct DetailPayload {
     pub id: String,
     pub title: String,
     pub meta: String,
     pub playtime: String,
     pub synopsis: String,
+    pub rating: f32,
     pub finished: bool,
     pub show_spoilers: bool,
     pub user_status: i32,
@@ -187,9 +198,6 @@ pub fn assemble_detail(
         }
         if let Some(status) = release_status_label(detail.devstatus) {
             meta_parts.push(status.to_string());
-        }
-        if let Some(rating) = detail.rating {
-            meta_parts.push(format!("{rating:.2}"));
         }
         if let Some(label) = vn_length_label(detail.length, detail.length_minutes) {
             meta_parts.push(label);
@@ -280,6 +288,7 @@ pub fn assemble_detail(
         playtime: format!("Played {playtime}"),
         synopsis,
         finished: game.is_finished,
+        rating: detail.as_ref().and_then(|info| info.rating).unwrap_or(0.0) as f32,
         show_spoilers: game.show_spoilers,
         user_status: game.user_status,
         user_vote: game.user_vote,
@@ -418,7 +427,8 @@ mod tests {
         let detail: poketto_core::models::VndbVnDetail =
             serde_json::from_str(json).expect("fixture");
         let payload = assemble_detail(&detail_game(), Some(&detail), &[]);
-        assert_eq!(payload.meta, "2003-02-28 · 8.55 · Long (~50h)");
+        assert_eq!(payload.meta, "2003-02-28 · Long (~50h)");
+        assert_eq!(payload.rating, 8.55);
         assert_eq!(payload.synopsis, "A story.");
         assert_eq!(payload.tags, vec![("Drama".to_string(), 0)]);
         assert_eq!(payload.cover_url.as_deref(), Some("https://img.jpg"));
@@ -628,6 +638,23 @@ mod tests {
         assert_eq!(hidden[1].description.as_str(), "");
         let shown = visible_characters(&characters, true);
         assert_eq!(shown[1].description.as_str(), "Friend bio.");
+    }
+
+    #[test]
+    fn characters_chunk_into_pairs() {
+        let make = |id: &str| DetailCharacter {
+            id: id.into(),
+            name: id.into(),
+            role: "".into(),
+            spoiler: 0,
+            description: "".into(),
+            avatar: slint::Image::default(),
+        };
+        assert!(chunk_characters(Vec::new()).is_empty());
+        let rows = chunk_characters(vec![make("a"), make("b"), make("c")]);
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0].len(), 2);
+        assert_eq!(rows[1].len(), 1);
     }
 
     #[test]

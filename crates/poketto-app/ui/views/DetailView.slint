@@ -2,20 +2,12 @@ import { Theme } from "../tokens.slint";
 import { ComboBox, Switch } from "std-widgets.slint";
 import { Button } from "../components/Button.slint";
 import { TagBadge } from "../components/TagBadge.slint";
+import { CharacterCard, DetailCharacter } from "../components/CharacterCard.slint";
 
 export struct DetailTag {
     name: string,
     spoiler: int,
     is-spoiler: bool,
-}
-
-export struct DetailCharacter {
-    id: string,
-    name: string,
-    role: string,
-    spoiler: int,
-    description: string,
-    avatar: image,
 }
 
 export component DetailView inherits Rectangle {
@@ -27,6 +19,7 @@ export component DetailView inherits Rectangle {
     in property <string> synopsis;
     in property <bool> finished;
     in property <bool> playing;
+    in property <float> rating;
     in property <string> launch-error;
     in property <bool> cover-nsfw;
     in property <bool> blur-nsfw;
@@ -38,11 +31,12 @@ export component DetailView inherits Rectangle {
     in-out property <bool> collection-error: false;
     in property <bool> refreshing: false;
     in property <[DetailTag]> tags;
-    in property <[DetailCharacter]> characters;
+    in property <[[DetailCharacter]]> characters;
 
     callback back;
     callback launch;
     callback configure;
+    callback open-folder;
     callback edit-clicked;
     callback refresh-metadata;
     callback spoilers-toggled(bool);
@@ -56,7 +50,10 @@ export component DetailView inherits Rectangle {
         viewport-height: content.preferred-height;
 
         content := VerticalLayout {
-            padding: Theme.pad-lg;
+            padding-left: 28px;
+            padding-right: 28px;
+            padding-top: 20px;
+            padding-bottom: 20px;
             spacing: Theme.space-md;
 
             HorizontalLayout {
@@ -66,16 +63,11 @@ export component DetailView inherits Rectangle {
                     text: "Back";
                     clicked => { root.back(); }
                 }
-            }
-
-            HorizontalLayout {
-                spacing: Theme.space-md;
-
                 Rectangle {
-                    width: 120px;
-                    height: 160px;
+                    width: 140px;
+                    height: 190px;
                     background: Theme.surface;
-                    border-radius: Theme.radius-md;
+                    border-radius: 8px;
                     clip: true;
 
                     if !root.show-cover : Text {
@@ -125,33 +117,62 @@ export component DetailView inherits Rectangle {
                     Text {
                         text: root.title;
                         color: Theme.text;
-                        font-size: Theme.font-lg;
-                        wrap: word-wrap;
+                        font-size: 22px;
+                        font-weight: 700;
+                        overflow: elide;
                     }
 
-                    Text {
-                        text: root.meta-line;
-                        color: Theme.text-muted;
-                        font-size: Theme.font-md;
-                    }
+                    HorizontalLayout {
+                        spacing: Theme.space-sm;
 
-                    Text {
-                        text: root.playtime-line;
-                        color: Theme.text-muted;
-                        font-size: Theme.font-md;
-                    }
+                        if root.rating > 0 : Rectangle {
+                            background: Theme.surface;
+                            border-width: 1px;
+                            border-color: Theme.border;
+                            border-radius: Theme.radius-sm;
+                            width: star-row.preferred-width;
+                            height: star-row.preferred-height;
 
-                    if root.finished : HorizontalLayout {
-                        TagBadge {
+                            star-row := HorizontalLayout {
+                                padding-left: Theme.pad-sm;
+                                padding-right: Theme.pad-sm;
+                                padding-top: 4px;
+                                padding-bottom: 4px;
+                                spacing: 4px;
+
+                                Image {
+                                    source: @image-url("../icons/star.svg");
+                                    width: 12px;
+                                    height: 12px;
+                                    colorize: Theme.warning;
+                                }
+
+                                Text {
+                                    text: Math.round(root.rating * 100) / 100;
+                                    color: Theme.text;
+                                    font-size: Theme.font-sm;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+
+                        if root.meta-line != "" : TagBadge {
+                            text: root.meta-line;
+                        }
+
+                        if root.playtime-line != "" : TagBadge {
+                            text: root.playtime-line;
+                        }
+
+                        if root.finished : TagBadge {
                             text: "Finished";
                             highlighted: true;
                         }
-                    }
 
-                    if root.playing : Text {
-                        text: "Now Playing";
-                        color: Theme.primary;
-                        font-size: Theme.font-md;
+                        if root.playing : TagBadge {
+                            text: "Playing";
+                            highlighted: true;
+                        }
                     }
 
                     if root.launch-error != "" : Text {
@@ -165,24 +186,43 @@ export component DetailView inherits Rectangle {
                         spacing: Theme.space-sm;
 
                         Button {
-                            text: root.playing ? "Playing..." : "Launch";
+                            text: root.playing ? "Playing..." : "Play";
                             primary: true;
                             disabled: root.playing;
+                            show-icon: true;
+                            icon: @image-url("../icons/player-play.svg");
+                            width: 160px;
+                            height: 42px;
                             clicked => { root.launch(); }
                         }
 
                         Button {
-                            text: "Config";
+                            text: "";
+                            show-icon: true;
+                            icon: @image-url("../icons/settings.svg");
+                            width: 42px;
+                            height: 42px;
                             clicked => { root.configure(); }
                         }
 
                         Button {
+                            text: "";
+                            show-icon: true;
+                            icon: @image-url("../icons/folder.svg");
+                            width: 42px;
+                            height: 42px;
+                            clicked => { root.open-folder(); }
+                        }
+
+                        Button {
                             text: "Edit";
+                            height: 42px;
                             clicked => { root.edit-clicked(); }
                         }
 
                         Button {
                             text: root.refreshing ? "Refreshing…" : "Refresh";
+                            height: 42px;
                             disabled: root.refreshing;
                             clicked => { root.refresh-metadata(); }
                         }
@@ -190,64 +230,77 @@ export component DetailView inherits Rectangle {
                 }
             }
 
-            Text {
-                text: "My Collection";
-                color: Theme.text-muted;
-                font-size: Theme.font-sm;
-            }
-
-            HorizontalLayout {
-                spacing: Theme.space-md;
+            Rectangle {
+                background: Theme.surface;
+                border-width: 1px;
+                border-color: Theme.border;
+                border-radius: Theme.radius-md;
 
                 VerticalLayout {
-                    spacing: 4px;
-                    horizontal-stretch: 1;
+                    padding: 16px;
+                    spacing: Theme.space-sm;
 
                     Text {
-                        text: "Status";
+                        text: "My Collection";
                         color: Theme.text-muted;
-                        font-size: Theme.font-sm;
+                        font-size: Theme.font-md;
+                        font-weight: 600;
                     }
 
-                    ComboBox {
-                        model: ["None", "Playing", "Finished", "Staged", "Dropped"];
-                        current-index <=> root.collection-status;
+                    HorizontalLayout {
+                        spacing: Theme.space-md;
+                        alignment: start;
+
+                        VerticalLayout {
+                            spacing: 4px;
+                            horizontal-stretch: 1;
+
+                            Text {
+                                text: "Status";
+                                color: Theme.text-muted;
+                                font-size: Theme.font-sm;
+                            }
+
+                            ComboBox {
+                                model: ["None", "Playing", "Finished", "Staged", "Dropped"];
+                                current-index <=> root.collection-status;
+                            }
+                        }
+
+                        VerticalLayout {
+                            spacing: 4px;
+                            horizontal-stretch: 1;
+
+                            Text {
+                                text: "My Vote";
+                                color: Theme.text-muted;
+                                font-size: Theme.font-sm;
+                            }
+
+                            ComboBox {
+                                model: ["Unrated", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
+                                current-index <=> root.collection-vote;
+                            }
+                        }
+
+                        VerticalLayout {
+                            alignment: end;
+
+                            Button {
+                                text: "Update Status";
+                                primary: true;
+                                clicked => { root.collection-save(root.collection-status, root.collection-vote); }
+                            }
+                        }
+                    }
+
+                    if root.collection-msg != "" : Text {
+                        text: root.collection-msg;
+                        color: root.collection-error ? Theme.danger : Theme.text-muted;
+                        font-size: Theme.font-md;
+                        wrap: word-wrap;
                     }
                 }
-
-                VerticalLayout {
-                    spacing: 4px;
-                    horizontal-stretch: 1;
-
-                    Text {
-                        text: "My Vote";
-                        color: Theme.text-muted;
-                        font-size: Theme.font-sm;
-                    }
-
-                    ComboBox {
-                        model: ["Unrated", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
-                        current-index <=> root.collection-vote;
-                    }
-                }
-
-                VerticalLayout {
-                    spacing: 4px;
-                    alignment: end;
-
-                    Button {
-                        text: "Update Status";
-                        primary: true;
-                        clicked => { root.collection-save(root.collection-status, root.collection-vote); }
-                    }
-                }
-            }
-
-            if root.collection-msg != "" : Text {
-                text: root.collection-msg;
-                color: root.collection-error ? Theme.danger : Theme.text-muted;
-                font-size: Theme.font-md;
-                wrap: word-wrap;
             }
 
             Text {
@@ -285,7 +338,7 @@ export component DetailView inherits Rectangle {
             }
 
             if root.tags.length > 0 : HorizontalLayout {
-                spacing: Theme.space-sm;
+                spacing: 6px;
 
                 for tag in root.tags : TagBadge {
                     text: tag.name;
@@ -293,51 +346,18 @@ export component DetailView inherits Rectangle {
                 }
             }
 
-            if root.characters.length > 0 : VerticalLayout {
+            if root.characters.length > 0 : Text {
+                text: "Characters";
+                color: Theme.text-muted;
+                font-size: Theme.font-sm;
+            }
+
+            for char-row in root.characters : HorizontalLayout {
                 spacing: Theme.space-sm;
 
-                for ch in root.characters : HorizontalLayout {
-                    spacing: Theme.space-sm;
-
-                    Rectangle {
-                        width: 40px;
-                        height: 40px;
-                        background: Theme.surface;
-                        border-radius: Theme.radius-sm;
-                        clip: true;
-
-                        Image {
-                            source: ch.avatar;
-                            width: 100%;
-                            height: 100%;
-                            image-fit: ImageFit.cover;
-                        }
-                    }
-
-                    VerticalLayout {
-                        spacing: 2px;
-                        vertical-stretch: 1;
-
-                        Text {
-                            text: ch.role == "" ? ch.name : ch.name + " · " + ch.role;
-                            color: Theme.text;
-                            font-size: Theme.font-md;
-                            vertical-alignment: center;
-                        }
-
-                        if ch.description != "" : Text {
-                            text: ch.description;
-                            color: Theme.text-muted;
-                            font-size: Theme.font-sm;
-                            wrap: word-wrap;
-                        }
-
-                        if ch.description == "" && ch.spoiler > 0 && !root.show-spoilers : Text {
-                            text: "Description hidden — enable spoilers";
-                            color: Theme.text-muted;
-                            font-size: Theme.font-sm;
-                        }
-                    }
+                for ch in char-row : CharacterCard {
+                    entry: ch;
+                    show-spoilers: root.show-spoilers;
                 }
             }
         }

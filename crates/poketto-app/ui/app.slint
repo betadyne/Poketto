@@ -2,7 +2,8 @@ import { Theme } from "tokens.slint";
 import { GameCardData } from "components/GameCard.slint";
 import { GameEditOverlay, GameFormData, VndbHit } from "components/GameEditOverlay.slint";
 import { LibraryView } from "views/LibraryView.slint";
-import { DetailView, DetailTag, DetailCharacter } from "views/DetailView.slint";
+import { DetailView, DetailTag } from "views/DetailView.slint";
+import { DetailCharacter } from "components/CharacterCard.slint";
 import { SettingsView, WineRow } from "views/SettingsView.slint";
 import { LogsView, LogLine } from "views/LogsView.slint";
 
@@ -24,6 +25,7 @@ export component AppWindow inherits Window {
     in-out property <string> detail-playtime;
     in-out property <string> detail-synopsis;
     in-out property <bool> detail-finished;
+    in-out property <float> detail-rating;
     in-out property <bool> detail-playing;
     in-out property <string> detail-error;
     in-out property <bool> detail-nsfw;
@@ -35,7 +37,7 @@ export component AppWindow inherits Window {
     in-out property <string> detail-collection-msg;
     in-out property <bool> detail-collection-error;
     in-out property <[DetailTag]> detail-tags;
-    in-out property <[DetailCharacter]> detail-characters;
+    in-out property <[[DetailCharacter]]> detail-characters;
     in-out property <[LogLine]> logs-lines;
     in-out property <string> logs-status;
 
@@ -83,6 +85,7 @@ export component AppWindow inherits Window {
     callback detail-back;
     callback launch-clicked(string);
     callback configure-clicked;
+    callback open-folder;
     callback edit-clicked;
     callback refresh-metadata;
     callback settings-back;
@@ -145,6 +148,7 @@ export component AppWindow inherits Window {
         synopsis <=> root.detail-synopsis;
         finished <=> root.detail-finished;
         playing <=> root.detail-playing;
+        rating <=> root.detail-rating;
         launch-error <=> root.detail-error;
         cover-nsfw <=> root.detail-nsfw;
         blur-nsfw <=> root.set-blur;
@@ -159,6 +163,7 @@ export component AppWindow inherits Window {
         back => { root.detail-back(); }
         launch => { root.launch-clicked(root.detail-id); }
         configure => { root.configure-clicked(); }
+        open-folder => { root.open-folder(); }
         edit-clicked => { root.edit-clicked(); }
         refreshing <=> root.detail-refreshing;
         refresh-metadata => { root.refresh-metadata(); }

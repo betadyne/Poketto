@@ -109,6 +109,7 @@ export component DetailPreview inherits Window {
         show-cover: false;
         meta-line: "2006 · 8.55 · 3000 min";
         playtime-line: "Played 2h 5m · Finished";
+        rating: 8.55;
         synopsis: "A story of humanity fighting against the alien BETA invaders.";
         finished: true;
         playing: true;
@@ -118,9 +119,13 @@ export component DetailPreview inherits Window {
             { name: "Secret Ending", spoiler: 2, is-spoiler: true },
         ];
         characters: [
-            { name: "Takeru Shirogane", role: "main", spoiler: 0 },
-            { name: "Meiya Mitsurugi", role: "main", spoiler: 0 },
-            { name: "Mystery Pilot", role: "supporting", spoiler: 1 },
+            [
+                { name: "Takeru Shirogane", role: "main", spoiler: 0 },
+                { name: "Meiya Mitsurugi", role: "main", spoiler: 0 },
+            ],
+            [
+                { name: "Mystery Pilot", role: "supporting", spoiler: 1 },
+            ],
         ];
         show-spoilers: false;
     }
