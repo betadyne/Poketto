@@ -91,6 +91,23 @@ migration work:
   the tracking issue with `gh issue comment`.
 - NEVER push a red build. If gates fail, fix first, then commit.
 
+## Task Completion Rule (Commit and Push per Task)
+
+- After each completed plan task (todo item), commit and push that task's
+  work immediately; NEVER accumulate unrelated tasks into one commit or
+  leave finished work unpushed at session end.
+- Safe order per task: run the gates covering the touched crates
+  (`cargo check`, `cargo clippy -- -D warnings`, `cargo test`, plus render
+  verification for UI tasks); commit only when green.
+- Commit only the task's files via selective `git add` (explicit paths,
+  never `-A`); NEVER sweep unrelated dirty files into the commit and NEVER
+  amend or force-push a shared branch.
+- Message format `<type>(phase-N): <short description>`, English only.
+- Push with `git push origin <branch>`; if the push is rejected (diverged
+  remote), stop and report instead of forcing.
+- If one coherent change spans several todo items, commit once at that
+  boundary and state which items it covers.
+
 
 ## Code Organization
 
