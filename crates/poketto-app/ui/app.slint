@@ -47,6 +47,7 @@ export component AppWindow inherits Window {
     in-out property <bool> set-btn-profile;
     in-out property <bool> set-btn-github;
     in-out property <bool> set-blur;
+    in-out property <string> set-vndb-token;
     in-out property <[WineRow]> wine-runners;
     in-out property <string> playing-id;
     in-out property <bool> show-hidden;
@@ -176,8 +177,10 @@ export component AppWindow inherits Window {
         btn-profile <=> root.set-btn-profile;
         btn-github <=> root.set-btn-github;
         blur-nsfw <=> root.set-blur;
+        vndb-token <=> root.set-vndb-token;
         runners <=> root.wine-runners;
         save => { root.settings-save(); }
+        back => { root.settings-back(); }
         browse-default-prefix => { root.browse-default-prefix(); }
         detect-wine => { root.detect-wine(); }
         select-wine(binary) => { root.select-wine(binary); }

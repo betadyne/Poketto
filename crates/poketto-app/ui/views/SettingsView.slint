@@ -10,6 +10,7 @@ export struct WineRow {
 component Field inherits Rectangle {
     in-out property <string> text;
     in property <string> label;
+    in property <bool> password: false;
 
     background: Theme.surface;
     border-width: 1px;
@@ -27,6 +28,7 @@ component Field inherits Rectangle {
             font-size: Theme.font-md;
             vertical-alignment: center;
             horizontal-stretch: 1;
+            input-type: root.password ? InputType.password : InputType.text;
         }
     }
 }
@@ -57,6 +59,7 @@ export component SettingsView inherits Rectangle {
     in-out property <bool> btn-profile;
     in-out property <bool> btn-github;
     in-out property <bool> blur-nsfw;
+    in-out property <string> vndb-token;
     in-out property <[WineRow]> runners;
 
     callback back;
@@ -205,6 +208,23 @@ export component SettingsView inherits Rectangle {
             SwitchRow {
                 label: "Blur NSFW covers";
                 checked <=> root.blur-nsfw;
+            }
+
+            Text {
+                text: "VNDB";
+                color: Theme.text-muted;
+                font-size: Theme.font-sm;
+            }
+
+            Text {
+                text: "Personal API token";
+                color: Theme.text-muted;
+                font-size: Theme.font-sm;
+            }
+
+            Field {
+                text <=> root.vndb-token;
+                password: true;
             }
 
             HorizontalLayout {

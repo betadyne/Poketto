@@ -539,6 +539,7 @@ fn load_settings_into(app: &AppWindow) {
     app.set_set_btn_profile(settings.discord_btn_vndb_profile);
     app.set_set_btn_github(settings.discord_btn_github);
     app.set_set_blur(settings.blur_nsfw);
+    app.set_set_vndb_token(settings.vndb_token.unwrap_or_default().into());
 }
 
 fn refresh_wine_candidates(app: &AppWindow) {
@@ -1044,9 +1045,9 @@ fn main() -> Result<(), slint::PlatformError> {
             stored.discord_rpc_enabled = app.get_set_discord_enabled();
             stored.discord_btn_vndb_game = app.get_set_btn_game();
             stored.discord_btn_vndb_profile = app.get_set_btn_profile();
-            stored.discord_btn_github = app.get_set_btn_github();
             let previous_blur = stored.blur_nsfw;
             stored.blur_nsfw = app.get_set_blur();
+            stored.vndb_token = text(app.get_set_vndb_token());
             if let Err(e) = poketto_core::db::save_settings(&conn.borrow(), &stored) {
                 tracing::warn!("settings save failed: {e}");
             } else {
