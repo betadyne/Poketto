@@ -47,25 +47,33 @@ export component DetailView inherits Rectangle {
     Flickable {
         width: 100%;
         height: 100%;
+        viewport-width: self.width;
         viewport-height: content.preferred-height;
 
         content := VerticalLayout {
+            width: 100%;
             padding-left: 28px;
             padding-right: 28px;
             padding-top: 20px;
-            padding-bottom: 20px;
-            spacing: Theme.space-md;
+            padding-bottom: 32px;
+            spacing: 20px;
 
             HorizontalLayout {
-                spacing: Theme.space-sm;
+                alignment: start;
 
                 Button {
                     text: "Back";
                     clicked => { root.back(); }
                 }
+            }
+
+            HorizontalLayout {
+                spacing: Theme.space-md;
+                alignment: start;
+
                 Rectangle {
                     width: 140px;
-                    height: 190px;
+                    height: 196px;
                     background: Theme.surface;
                     border-radius: 8px;
                     clip: true;
@@ -112,6 +120,7 @@ export component DetailView inherits Rectangle {
 
                 VerticalLayout {
                     spacing: Theme.space-sm;
+                    alignment: space-between;
                     vertical-stretch: 1;
 
                     Text {
@@ -119,7 +128,7 @@ export component DetailView inherits Rectangle {
                         color: Theme.text;
                         font-size: 22px;
                         font-weight: 700;
-                        overflow: elide;
+                        wrap: word-wrap;
                     }
 
                     HorizontalLayout {
@@ -183,7 +192,7 @@ export component DetailView inherits Rectangle {
                     }
 
                     HorizontalLayout {
-                        spacing: Theme.space-sm;
+                        spacing: 10px;
 
                         Button {
                             text: root.playing ? "Playing..." : "Play";
@@ -191,8 +200,8 @@ export component DetailView inherits Rectangle {
                             disabled: root.playing;
                             show-icon: true;
                             icon: @image-url("../icons/player-play.svg");
-                            width: 160px;
-                            height: 42px;
+                            width: 140px;
+                            height: 40px;
                             clicked => { root.launch(); }
                         }
 
@@ -200,8 +209,8 @@ export component DetailView inherits Rectangle {
                             text: "";
                             show-icon: true;
                             icon: @image-url("../icons/settings.svg");
-                            width: 42px;
-                            height: 42px;
+                            width: 40px;
+                            height: 40px;
                             clicked => { root.configure(); }
                         }
 
@@ -209,20 +218,20 @@ export component DetailView inherits Rectangle {
                             text: "";
                             show-icon: true;
                             icon: @image-url("../icons/folder.svg");
-                            width: 42px;
-                            height: 42px;
+                            width: 40px;
+                            height: 40px;
                             clicked => { root.open-folder(); }
                         }
 
                         Button {
                             text: "Edit";
-                            height: 42px;
+                            height: 40px;
                             clicked => { root.edit-clicked(); }
                         }
 
                         Button {
                             text: root.refreshing ? "Refreshing…" : "Refresh";
-                            height: 42px;
+                            height: 40px;
                             disabled: root.refreshing;
                             clicked => { root.refresh-metadata(); }
                         }
@@ -231,10 +240,10 @@ export component DetailView inherits Rectangle {
             }
 
             Rectangle {
-                background: Theme.surface;
+                background: #16181d;
                 border-width: 1px;
-                border-color: Theme.border;
-                border-radius: Theme.radius-md;
+                border-color: #262933;
+                border-radius: 8px;
 
                 VerticalLayout {
                     padding: 16px;
@@ -243,7 +252,7 @@ export component DetailView inherits Rectangle {
                     Text {
                         text: "My Collection";
                         color: Theme.text-muted;
-                        font-size: Theme.font-md;
+                        font-size: 13px;
                         font-weight: 600;
                     }
 
@@ -318,23 +327,24 @@ export component DetailView inherits Rectangle {
 
             HorizontalLayout {
                 Text {
-                    text: "Show Spoilers";
-                    color: Theme.text;
-                    font-size: Theme.font-md;
+                    text: "Tags";
+                    color: Theme.text-muted;
+                    font-size: Theme.font-sm;
                     vertical-alignment: center;
                     horizontal-stretch: 1;
+                }
+
+                Text {
+                    text: "Show Spoilers";
+                    color: Theme.text-muted;
+                    font-size: Theme.font-sm;
+                    vertical-alignment: center;
                 }
 
                 Switch {
                     checked <=> root.show-spoilers;
                     toggled => { root.spoilers-toggled(root.show-spoilers); }
                 }
-            }
-
-            if root.tags.length > 0 : Text {
-                text: "Tags";
-                color: Theme.text-muted;
-                font-size: Theme.font-sm;
             }
 
             if root.tags.length > 0 : HorizontalLayout {
