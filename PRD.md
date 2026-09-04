@@ -105,6 +105,7 @@ export global Theme {
    3. Lakukan thumbnailing via image crate ke ukuran display maksimum (contoh: lebar 300px, aspect ratio 3:4) dan simpan sebagai WebP/PNG cache.
    4. Dekode ke slint::SharedPixelBuffer<slint::Rgba8Pixel> lalu bungkus ke slint::Image::from_rgba8().
    5. Inject ke Slint UI model lewat slint::invoke_from_event_loop.
+ * **Performance Rule:** Main thread must remain strictly non-blocking (<16ms per event). Heavy image decoding and disk I/O must always occur off the Slint UI thread. All image assets for lists/cards must be pre-downscaled to thumbnail dimensions before instantiating slint::Image. Character avatars decode at avatar width (150px, ~2x of the 75px display size); covers decode at 300px.
 #### 5.2. Wine / Proton Prefix Scanner (poketto-core::wine)
  * Migrasi modular dari logika lama di src-tauri/src/wine/*.
  * Scan path otomatis:

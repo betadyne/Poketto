@@ -199,6 +199,11 @@ Slint tooling (when installed): `slint-viewer` for live `.slint` preview,
   `Weak<AppWindow>` handle.
 - Lists use `Rc<slint::VecModel<T>>` + Slint `ListView`; NEVER rebuild the
   full model per frame.
+- Performance Rule: main thread must remain strictly non-blocking (<16ms
+  per event). Heavy image decoding and disk I/O always run off the Slint
+  UI thread. All image assets for lists/cards must be pre-downscaled to
+  thumbnail dimensions before instantiating `slint::Image` (covers 300px,
+  character avatars 150px).
 
 ### Database Rules
 

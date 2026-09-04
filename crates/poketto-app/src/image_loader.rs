@@ -7,6 +7,7 @@ use std::sync::{
 use std::time::Duration;
 
 pub const THUMB_WIDTH: u32 = 300;
+pub const AVATAR_WIDTH: u32 = 150;
 const JPEG_QUALITY: u8 = 85;
 const MAX_CONCURRENT_DOWNLOADS: usize = 6;
 const MAX_MEMORY_ENTRIES: usize = 300;
@@ -113,6 +114,7 @@ struct Shared {
     rt: tokio::runtime::Handle,
     client: reqwest::Client,
     cache_dir: PathBuf,
+    thumb_width: u32,
     mem: Mutex<MemCache>,
     inflight: Mutex<HashSet<String>>,
     generation: AtomicU64,
@@ -129,6 +131,7 @@ impl ImageLoader {
     pub fn new(
         rt: &tokio::runtime::Handle,
         cache_dir: PathBuf,
+        thumb_width: u32,
     ) -> std::io::Result<Self> {
         std::fs::create_dir_all(&cache_dir)?;
         let client = reqwest::Client::builder()
@@ -142,6 +145,7 @@ impl ImageLoader {
                 rt: rt.clone(),
                 client,
                 cache_dir,
+                thumb_width,
                 mem: Mutex::new(MemCache::new(MAX_MEMORY_ENTRIES)),
                 inflight: Mutex::new(HashSet::new()),
                 generation: AtomicU64::new(0),
@@ -222,7 +226,7 @@ impl ImageLoader {
 async fn load_one(shared: &Shared, url: &str) -> Option<DecodedImage> {
     let path = thumbnail_path(&shared.cache_dir, url);
     if let Ok(bytes) = tokio::fs::read(&path).await {
-        if let Some(image) = decode_thumbnail(&bytes, THUMB_WIDTH) {
+        if let Some(image) = decode_thumbnail(&bytes, shared.thumb_width) {
             return Some(image);
         }
     }
@@ -238,7 +242,7 @@ async fn load_one(shared: &Shared, url: &str) -> Option<DecodedImage> {
         .bytes()
         .await
         .ok()?;
-    let image = decode_thumbnail(&bytes, THUMB_WIDTH)?;
+    let image = decode_thumbnail(&bytes, shared.thumb_width)?;
     if let Some(encoded) = encode_jpeg(&image) {
         let _ = tokio::fs::write(&path, &encoded).await;
     }
@@ -288,6 +292,14 @@ mod tests {
     }
 
     #[test]
+    fn avatar_width_downscales_portrait() {
+        let decoded = decode_thumbnail(&test_png(600, 800), AVATAR_WIDTH).expect("decode");
+        assert_eq!(decoded.width, 150);
+        assert_eq!(decoded.height, 200);
+        assert_eq!(decoded.pixels.len(), 150 * 200 * 4);
+    }
+
+    #[test]
     fn small_image_never_upscales() {
         let decoded = decode_thumbnail(&test_png(100, 100), THUMB_WIDTH).expect("decode");
         assert_eq!(decoded.width, 100);
@@ -334,7 +346,7 @@ mod tests {
             .enable_all()
             .build()
             .expect("runtime");
-        let loader = ImageLoader::new(rt.handle(), dir.to_path_buf()).expect("loader");
+        let loader = ImageLoader::new(rt.handle(), dir.to_path_buf(), THUMB_WIDTH).expect("loader");
         (rt, loader)
     }
 

@@ -13,7 +13,7 @@ use slint::{Model, ModelRc, VecModel, Weak};
 
 use adapters::{assemble_detail, log_lines, presence_buttons, DetailPayload, LibraryFilter, SpoilerStore};
 use copypasta::ClipboardProvider;
-use image_loader::{ImageLoader, LoadedCover};
+use image_loader::{ImageLoader, LoadedCover, AVATAR_WIDTH, THUMB_WIDTH};
 use log_buffer::{LogBuffer, LogBufferLayer};
 use poketto_core::discord::{PresenceHandle, PresenceUpdate};
 use poketto_core::process::{self, LocalTimestamps, RunTracker};
@@ -611,8 +611,8 @@ fn main() -> Result<(), slint::PlatformError> {
 
     let rt = tokio::runtime::Runtime::new().expect("start background runtime");
     let rt_handle = rt.handle().clone();
-    let loader = Arc::new(ImageLoader::new(rt.handle(), cover_dir()).expect("start image loader"));
-    let avatar_loader = Arc::new(ImageLoader::new(rt.handle(), characters_dir()).expect("start avatar loader"));
+    let loader = Arc::new(ImageLoader::new(rt.handle(), cover_dir(), THUMB_WIDTH).expect("start image loader"));
+    let avatar_loader = Arc::new(ImageLoader::new(rt.handle(), characters_dir(), AVATAR_WIDTH).expect("start avatar loader"));
     let client = Arc::new(VndbClient::new());
     let (presence, _presence_worker) =
         poketto_core::discord::spawn_presence_worker(poketto_core::discord::DISCORD_CLIENT_ID);
