@@ -9,6 +9,7 @@ mod discord;
 mod error;
 mod models;
 mod state;
+mod steam_watch;
 mod wine;
 
 use commands::*;

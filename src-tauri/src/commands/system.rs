@@ -12,6 +12,7 @@ use crate::models::{
     AppSettings, GameExitedPayload, GameMetadata, GameType, RunningGame, WineSettings, WineType,
 };
 use crate::state::AppState;
+use crate::steam_watch::{persist_session, spawn_steam_watcher};
 
 #[cfg(target_os = "linux")]
 use crate::wine;
@@ -150,24 +151,21 @@ pub fn launch_game(
 
     let app_handle_clone = app_handle.clone();
     let game_id = id.clone();
+    let launched_via_steam = child.is_none();
+    let watcher_handle = app_handle.clone();
 
     if let Some(mut child) = child {
         tauri::async_runtime::spawn(async move {
             let exit_result = task::spawn_blocking(move || child.wait()).await;
 
             let minutes = start_time.elapsed().as_secs() / 60;
-            let db = app_handle_clone.state::<AppDatabase>();
             let state = app_handle_clone.state::<AppState>();
 
             if let Err(e) = state.discord_rpc.clear_activity() {
                 log::warn!("Failed to clear Discord activity: {}", e);
             }
             let seconds = minutes.saturating_mul(60).min(i64::MAX as u64) as i64;
-            if let Err(e) = db.add_playtime(&game_id, seconds) {
-                log::error!("Failed to save game playtime: {e}");
-            }
-
-            record_daily_playtime(&game_id, minutes);
+            persist_session(&app_handle_clone, &game_id, seconds);
 
             {
                 let mut running = state.running_game.lock();
@@ -188,6 +186,9 @@ pub fn launch_game(
                 eprintln!("Game process error: {}", e);
             }
         });
+    }
+    if launched_via_steam {
+        spawn_steam_watcher(watcher_handle, id.clone(), game.path.clone());
     }
 
     Ok(())
