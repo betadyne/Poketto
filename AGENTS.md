@@ -203,6 +203,9 @@ an environment bug, never a code bug.
   plus `AppDatabase` (`Mutex<rusqlite::Connection>`) for game rows and
   cache entries. Commands take `State<AppState>`,
   `State<AppDatabase>`, or both.
+- `wine_versions` starts empty and fills from a background scan thread
+  at startup; early runner queries may return empty until the scan
+  lands (`refresh_wine_versions` rescans on demand).
 - HTTP always goes through the single managed `reqwest::Client`
   (`rustls` TLS, pooled, built once with User-Agent + timeouts); NEVER
   construct a per-call client.
@@ -252,7 +255,7 @@ approval; docs above describe the code as it is.
 
 - Evaluate a frontend migration from SolidJS to React (`react`,
   `react-dom`, `@tabler/icons-react`). Would require replacing every
-  `lucide-solid` import, all SolidJS primitives, and the Vite plugin.
+  `@tabler/icons-solidjs` import, all SolidJS primitives, and the Vite plugin.
 - Evaluate adding a `tsc` typecheck gate in front of `vite build`
   (`tsc -b && vite build`).
 

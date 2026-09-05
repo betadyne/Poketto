@@ -1,6 +1,7 @@
 use database::{create_http_client, load_settings, AppDatabase};
 use parking_lot::Mutex;
 use std::collections::HashMap;
+use tauri::Manager;
 
 mod commands;
 mod database;
@@ -26,17 +27,12 @@ pub fn run() {
 
     let http_client = create_http_client();
 
-    #[cfg(target_os = "linux")]
-    let wine_versions = wine::get_all_wine_versions();
-    #[cfg(not(target_os = "linux"))]
-    let wine_versions = Vec::new();
-
     let state = AppState {
         running_game: Mutex::new(None),
         settings: Mutex::new(load_settings()),
         vn_mem_cache: Mutex::new(HashMap::new()),
         char_mem_cache: Mutex::new(HashMap::new()),
-        wine_versions: Mutex::new(wine_versions),
+        wine_versions: Mutex::new(Vec::new()),
         http_client,
         discord_rpc: discord::DiscordRpc::new(),
     };
@@ -126,6 +122,16 @@ pub fn run() {
                     .level(log::LevelFilter::Info)
                     .build(),
             )?;
+            let app_handle = app.handle().clone();
+            std::thread::spawn(move || {
+                #[cfg(target_os = "linux")]
+                let versions = wine::get_all_wine_versions();
+                #[cfg(not(target_os = "linux"))]
+                let versions = Vec::new();
+                let count = versions.len();
+                *app_handle.state::<AppState>().wine_versions.lock() = versions;
+                log::info!("Wine runner scan finished: {count} versions");
+            });
             Ok(())
         })
         .run(tauri::generate_context!())

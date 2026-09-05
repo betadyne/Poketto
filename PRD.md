@@ -46,8 +46,8 @@ Windows that preserves the full shipped feature set:
 - **Framework:** `tauri` v2 (`tauri-build`, `generate_context!`)
 - **IPC typing:** `tauri-specta` + `specta` + `specta-typescript`
 - **Async:** `tokio` (`rt-multi-thread`, `sync`, `process`, `macros`)
-- **HTTP:** `reqwest` 0.12 with `default-features = false` plus
-  `rustls-tls` and `json` (no native TLS / OpenSSL dependency from our
+- **HTTP:** `reqwest` 0.13 with `default-features = false` plus `rustls`,
+  `json`, `http2` (rustls platform-verifier TLS, no OpenSSL from our
   direct client)
 - **Storage:** `rusqlite` `bundled` (`poketto.db`: `games`,
   `playtime_sessions`, `vndb_cache`) + JSON settings files
@@ -60,6 +60,8 @@ Windows that preserves the full shipped feature set:
 - **Package manager:** npm (`package-lock.json` committed)
 - **Rust:** stable via `rust-toolchain.toml` (`clippy`, `rustfmt`); MSRV
   1.77.2 per `src-tauri/Cargo.toml`
+- **Dev profile:** `[profile.dev] incremental = true`; no blanket
+  `opt-level` overrides (fast iteration over dev-binary speed)
 - **Bundling:** NSIS target, updater artifacts with GitHub release
   endpoint (`tauri.conf.json`)
 
@@ -170,10 +172,14 @@ entries, and re-running a debug build to regenerate bindings.
 - **VNDB detail:** mem cache -> disk cache -> `POST
   https://api.vndb.org/kana/vn` (+ characters endpoint); `force_refresh`
   bypasses caches and re-persists both layers.
-- **Wine detection (Linux):** Steam library roots (including secondary
-  folders from `libraryfolders.vdf`), Lutris/Bottles directories, and
-  `~/.wine`; runner binaries classified into `WineType`/`WineSource`.
-  Non-Linux builds return an empty runner list.
+- **Wine detection (Linux):** `AppState` starts with an empty runner list
+  so startup never blocks; a background thread scans Steam library roots
+  (including secondary folders from `libraryfolders.vdf`),
+  Lutris/Bottles directories, and `~/.wine`, then fills
+  `wine_versions` (binaries classified into `WineType`/`WineSource`).
+  Early runner queries may return empty until the scan lands;
+  `refresh_wine_versions` rescans on demand. Non-Linux builds keep an
+  empty runner list.
 - **Discord RPC:** connect on launch when enabled; activity carries title,
   developer, cover, start timestamp, and optional VNDB/game/profile
   buttons; cleared when tracking stops.
@@ -189,8 +195,8 @@ entries, and re-running a debug build to regenerate bindings.
   by default, with GPU rasterization flags.
 - Targets: Linux (Wayland/X11) and Windows; NSIS installer + updater
   artifacts; WixTools/NSIS bundler dirs gitignored.
-- TLS: `reqwest` uses `rustls-tls` (no OpenSSL dependency from the app
-  HTTP client).
+- TLS: `reqwest` 0.13 uses `rustls` (platform verifier, no OpenSSL
+  dependency from the app HTTP client).
 
 ### 8. Non-Functional Requirements
 
@@ -212,8 +218,8 @@ entries, and re-running a debug build to regenerate bindings.
 
 #### Proposed (NOT Current State, Requires Approval)
 
-- Evaluate a frontend migration from SolidJS to React
-  (`@tabler/icons-react` for icons).
+- Evaluate a frontend migration from SolidJS to React (icons already
+  Tabler; swap `@tabler/icons-solidjs` for `@tabler/icons-react`).
 - Evaluate adding a `tsc` typecheck gate to `npm run build`.
 
 ### 10. Quality Gates
