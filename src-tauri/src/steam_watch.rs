@@ -17,7 +17,8 @@ pub fn spawn_steam_watcher(app_handle: AppHandle, game_id: String, exe_path: Str
             log::warn!("Steam watcher aborted, cannot read binary name from: {exe_path}");
             return;
         };
-        if !wait_for_process(&binary).await {
+        let mut system = System::new();
+        if !wait_for_process(&mut system, &binary).await {
             log::warn!("Steam watcher timed out waiting for process: {binary}");
             if release_running(&app_handle, &game_id) {
                 clear_presence(&app_handle);
@@ -26,7 +27,7 @@ pub fn spawn_steam_watcher(app_handle: AppHandle, game_id: String, exe_path: Str
             return;
         }
         let started = Instant::now();
-        watch_until_exit(&binary).await;
+        watch_until_exit(&mut system, &binary).await;
         let seconds = started.elapsed().as_secs().min(i64::MAX as u64) as i64;
         persist_session(&app_handle, &game_id, seconds);
         if release_running(&app_handle, &game_id) {
@@ -76,10 +77,10 @@ fn emit_exited(app_handle: &AppHandle, game_id: &str, play_minutes: u64) {
     }
 }
 
-async fn wait_for_process(binary: &str) -> bool {
+async fn wait_for_process(system: &mut System, binary: &str) -> bool {
     let deadline = Instant::now() + WAIT_TIMEOUT;
     while Instant::now() < deadline {
-        if is_process_running(binary).await {
+        if refresh_and_match(system, binary).await {
             return true;
         }
         tokio::time::sleep(POLL_INTERVAL).await;
@@ -87,26 +88,27 @@ async fn wait_for_process(binary: &str) -> bool {
     false
 }
 
-async fn watch_until_exit(binary: &str) {
-    while is_process_running(binary).await {
+async fn watch_until_exit(system: &mut System, binary: &str) {
+    while refresh_and_match(system, binary).await {
         tokio::time::sleep(POLL_INTERVAL).await;
     }
 }
 
-async fn is_process_running(binary: &str) -> bool {
+async fn refresh_and_match(system: &mut System, binary: &str) -> bool {
+    let mut owned = std::mem::replace(system, System::new());
     let binary = binary.to_string();
-    tokio::task::spawn_blocking(move || process_running(&binary))
-        .await
-        .unwrap_or(false)
-}
-
-fn process_running(binary: &str) -> bool {
-    let mut system = System::new();
-    system.refresh_processes(ProcessesToUpdate::All, true);
-    system
-        .processes()
-        .values()
-        .any(|process| process_matches(&process.name().to_string_lossy(), binary))
+    let (back, running) = tokio::task::spawn_blocking(move || {
+        owned.refresh_processes(ProcessesToUpdate::All, true);
+        let running = owned
+            .processes()
+            .values()
+            .any(|process| process_matches(&process.name().to_string_lossy(), &binary));
+        (owned, running)
+    })
+    .await
+    .unwrap_or_else(|_| (System::new(), false));
+    *system = back;
+    running
 }
 
 fn binary_file_name(exe_path: &str) -> Option<String> {
@@ -125,7 +127,19 @@ fn truncated_comm(binary: &str) -> &str {
 }
 
 fn process_matches(process_name: &str, binary: &str) -> bool {
-    process_name == binary || process_name == truncated_comm(binary)
+    let process_name = process_name.to_lowercase();
+    let binary = binary.to_lowercase();
+    process_name == binary || linux_comm_matches(&process_name, &binary)
+}
+
+#[cfg(target_os = "linux")]
+fn linux_comm_matches(process_name: &str, binary: &str) -> bool {
+    process_name == truncated_comm(binary)
+}
+
+#[cfg(not(target_os = "linux"))]
+fn linux_comm_matches(_process_name: &str, _binary: &str) -> bool {
+    false
 }
 
 #[cfg(test)]
@@ -147,15 +161,30 @@ mod tests {
     }
 
     #[test]
-    fn test_process_matches_exact_and_truncated() {
-        assert!(process_matches("game.exe", "game.exe"));
+    fn test_process_matches_case_insensitive() {
+        assert!(process_matches("Game.EXE", "game.exe"));
+        assert!(process_matches("game.exe", "GAME.EXE"));
         assert!(!process_matches("other.exe", "game.exe"));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_process_matches_truncated_comm() {
         assert!(process_matches(
             "abcdefghijklmno",
-            "abcdefghijklmnopqrstuvwxyz.exe"
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ.EXE"
         ));
         assert!(!process_matches(
             "abcdefghijklmnX",
+            "abcdefghijklmnopqrstuvwxyz.exe"
+        ));
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    #[test]
+    fn test_process_requires_exact_name() {
+        assert!(!process_matches(
+            "abcdefghijklmno",
             "abcdefghijklmnopqrstuvwxyz.exe"
         ));
     }
@@ -172,6 +201,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_absent_process_reports_not_running() {
-        assert!(!is_process_running("poketto-definitely-not-running-9f8c").await);
+        let mut system = System::new();
+        assert!(!refresh_and_match(&mut system, "poketto-definitely-not-running-9f8c").await);
     }
 }
