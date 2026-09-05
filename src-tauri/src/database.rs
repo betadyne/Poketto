@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS games (
     last_played INTEGER,
     cover_path TEXT,
     vndb_id TEXT,
+    steam_app_id TEXT,
     created_at INTEGER NOT NULL,
     is_finished INTEGER NOT NULL DEFAULT 0,
     is_hidden INTEGER NOT NULL DEFAULT 0,
@@ -49,7 +50,7 @@ CREATE TABLE IF NOT EXISTS schema_meta (
 );
 ";
 
-const GAME_COLUMNS: &str = "id, title, exe_path, prefix_path, runner, playtime_seconds, last_played, cover_path, vndb_id, is_finished, is_hidden, show_spoilers, game_type, wine_settings_json";
+const GAME_COLUMNS: &str = "id, title, exe_path, prefix_path, runner, playtime_seconds, last_played, cover_path, vndb_id, steam_app_id, is_finished, is_hidden, show_spoilers, game_type, wine_settings_json";
 
 pub struct AppDatabase {
     pub conn: Mutex<Connection>,
@@ -101,6 +102,7 @@ impl AppDatabase {
     fn apply_schema(&self) -> AppResult<()> {
         let conn = self.lock()?;
         conn.execute_batch(SCHEMA_SQL)?;
+        ensure_games_steam_column(&conn)?;
         Ok(())
     }
 
@@ -169,9 +171,9 @@ impl AppDatabase {
         conn.execute(
             "UPDATE games SET title = :title, exe_path = :exe_path, prefix_path = :prefix_path, \
              runner = :runner, playtime_seconds = :playtime_seconds, last_played = :last_played, \
-             cover_path = :cover_path, vndb_id = :vndb_id, is_finished = :is_finished, \
-             is_hidden = :is_hidden, show_spoilers = :show_spoilers, game_type = :game_type, \
-             wine_settings_json = :wine_settings_json WHERE id = :id",
+             cover_path = :cover_path, vndb_id = :vndb_id, steam_app_id = :steam_app_id, \
+             is_finished = :is_finished, is_hidden = :is_hidden, show_spoilers = :show_spoilers, \
+             game_type = :game_type, wine_settings_json = :wine_settings_json WHERE id = :id",
             named_params! {
                 ":id": game.id,
                 ":title": game.title,
@@ -182,6 +184,7 @@ impl AppDatabase {
                 ":last_played": last_played_to_epoch(game.last_played.as_deref()),
                 ":cover_path": game.cover_url,
                 ":vndb_id": game.vndb_id,
+                ":steam_app_id": game.steam_app_id,
                 ":is_finished": game.is_finished,
                 ":is_hidden": game.is_hidden,
                 ":show_spoilers": game.show_spoilers,
@@ -253,6 +256,18 @@ impl AppDatabase {
     }
 }
 
+fn ensure_games_steam_column(conn: &Connection) -> AppResult<()> {
+    let names: Vec<String> = conn
+        .prepare("PRAGMA table_info(games)")?
+        .query_map([], |row| row.get(1))?
+        .filter_map(|name| name.ok())
+        .collect();
+    if !names.iter().any(|name| name == "steam_app_id") {
+        conn.execute_batch("ALTER TABLE games ADD COLUMN steam_app_id TEXT")?;
+    }
+    Ok(())
+}
+
 fn insert_game_row(
     conn: &Connection,
     game: &GameMetadata,
@@ -260,11 +275,11 @@ fn insert_game_row(
 ) -> rusqlite::Result<()> {
     conn.execute(
         "INSERT INTO games (id, title, exe_path, prefix_path, runner, playtime_seconds, \
-         last_played, cover_path, vndb_id, created_at, is_finished, is_hidden, show_spoilers, \
-         game_type, wine_settings_json) \
+         last_played, cover_path, vndb_id, steam_app_id, created_at, is_finished, is_hidden, \
+         show_spoilers, game_type, wine_settings_json) \
          VALUES (:id, :title, :exe_path, :prefix_path, :runner, :playtime_seconds, \
-         :last_played, :cover_path, :vndb_id, :created_at, :is_finished, :is_hidden, \
-         :show_spoilers, :game_type, :wine_settings_json)",
+         :last_played, :cover_path, :vndb_id, :steam_app_id, :created_at, :is_finished, \
+         :is_hidden, :show_spoilers, :game_type, :wine_settings_json)",
         named_params! {
             ":id": game.id,
             ":title": game.title,
@@ -275,6 +290,7 @@ fn insert_game_row(
             ":last_played": last_played_to_epoch(game.last_played.as_deref()),
             ":cover_path": game.cover_url,
             ":vndb_id": game.vndb_id,
+            ":steam_app_id": game.steam_app_id,
             ":created_at": created_at,
             ":is_finished": game.is_finished,
             ":is_hidden": game.is_hidden,
@@ -320,6 +336,7 @@ fn game_from_row(row: &Row) -> rusqlite::Result<GameMetadata> {
         title: row.get("title")?,
         path: row.get("exe_path")?,
         vndb_id: row.get("vndb_id")?,
+        steam_app_id: row.get("steam_app_id")?,
         cover_url: row.get("cover_path")?,
         play_time: seconds_to_playtime_minutes(playtime_seconds),
         is_finished: row.get::<_, i64>("is_finished")? != 0,
@@ -494,6 +511,7 @@ mod tests {
             title: format!("Game {id}"),
             path: format!("/games/{id}.exe"),
             vndb_id: Some("v42".to_string()),
+            steam_app_id: Some("412830".to_string()),
             cover_url: Some("https://example.com/cover.jpg".to_string()),
             play_time: 125,
             is_finished: true,
@@ -520,6 +538,7 @@ mod tests {
         assert_eq!(actual.path, expected.path);
         assert_eq!(actual.vndb_id, expected.vndb_id);
         assert_eq!(actual.cover_url, expected.cover_url);
+        assert_eq!(actual.steam_app_id, expected.steam_app_id);
         assert_eq!(actual.play_time, expected.play_time);
         assert_eq!(actual.is_finished, expected.is_finished);
         assert_eq!(actual.is_hidden, expected.is_hidden);
@@ -654,5 +673,67 @@ mod tests {
         db.clear_vndb_cache().unwrap();
         assert_eq!(db.get_vndb_cache("vn:v1").unwrap(), None);
         assert_eq!(db.get_vndb_cache("chars:v1").unwrap(), None);
+    }
+
+    #[test]
+    fn test_steam_column_migrates_existing_database() {
+        let path = std::env::temp_dir().join(format!(
+            "poketto-migration-test-{}-{}.db",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ));
+        {
+            let conn = Connection::open(&path).expect("legacy database");
+            conn.execute_batch(
+                "CREATE TABLE games (
+                    id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    exe_path TEXT NOT NULL,
+                    prefix_path TEXT,
+                    runner TEXT,
+                    playtime_seconds INTEGER NOT NULL DEFAULT 0,
+                    last_played INTEGER,
+                    cover_path TEXT,
+                    vndb_id TEXT,
+                    created_at INTEGER NOT NULL,
+                    is_finished INTEGER NOT NULL DEFAULT 0,
+                    is_hidden INTEGER NOT NULL DEFAULT 0,
+                    show_spoilers INTEGER NOT NULL DEFAULT 0,
+                    game_type TEXT,
+                    wine_settings_json TEXT
+                );
+                INSERT INTO games (id, title, exe_path, created_at)
+                VALUES ('mig-1', 'Legacy', '/games/legacy.exe', 0);",
+            )
+            .expect("legacy seed");
+        }
+
+        let db = AppDatabase::open_at(&path).expect("migrated database");
+        let game = db
+            .get_game_by_id("mig-1")
+            .expect("read migrated row")
+            .expect("game exists");
+        assert_eq!(game.steam_app_id, None);
+
+        let mut updated = game.clone();
+        updated.steam_app_id = Some("412830".to_string());
+        db.update_game(&updated).expect("update migrated row");
+        let reloaded = db
+            .get_game_by_id("mig-1")
+            .expect("reread migrated row")
+            .expect("game exists");
+        assert_eq!(reloaded.steam_app_id, Some("412830".to_string()));
+
+        let db = AppDatabase::open_at(&path).expect("reopened database");
+        let reopened = db
+            .get_game_by_id("mig-1")
+            .expect("reread reopened row")
+            .expect("game exists");
+        assert_eq!(reopened.steam_app_id, Some("412830".to_string()));
+
+        std::fs::remove_file(&path).ok();
     }
 }

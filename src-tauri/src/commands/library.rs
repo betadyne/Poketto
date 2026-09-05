@@ -33,6 +33,7 @@ pub fn add_local_game(path: String, db: State<AppDatabase>) -> AppResult<GameMet
         title,
         path,
         vndb_id: None,
+        steam_app_id: None,
         cover_url: None,
         play_time: 0,
         is_finished: false,

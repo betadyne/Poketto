@@ -42,6 +42,7 @@ export interface GameSettingsData {
   id?: string;
   title: string;
   vndbId: string | null;
+  steamAppId: string | null;
   coverUrl: string | null;
   executablePath: string;
   gameType: GameType;
@@ -52,6 +53,9 @@ export function GameSettingsOverlay(props: GameSettingsOverlayProps) {
   const [title, setTitle] = createSignal(props.existingGame?.title ?? "");
   const [vndbId, setVndbId] = createSignal<string | null>(
     props.existingGame?.vndb_id ?? null,
+  );
+  const [steamAppId, setSteamAppId] = createSignal(
+    props.existingGame?.steam_app_id ?? "",
   );
   const [vndbSearchQuery, setVndbSearchQuery] = createSignal("");
   const [vndbResults, setVndbResults] = createSignal<VndbSearchResult[]>([]);
@@ -318,6 +322,7 @@ export function GameSettingsOverlay(props: GameSettingsOverlayProps) {
         id: props.existingGame?.id,
         title: title(),
         vndbId: vndbId(),
+        steamAppId: steamAppId().trim() || null,
         coverUrl: coverUrl() || null,
         executablePath: executablePath(),
         gameType,
@@ -663,6 +668,24 @@ export function GameSettingsOverlay(props: GameSettingsOverlayProps) {
               {platformVersion() === "linux"
                 ? "Supports: .AppImage, .sh, binary files"
                 : "Supports: .exe files"}
+            </p>
+          </div>
+          <div class="space-y-2">
+            <label class="text-sm font-medium text-[var(--color-text-primary)]">
+              Steam App ID
+            </label>
+            <div class="flex gap-2">
+              <input
+                type="text"
+                inputMode="numeric"
+                value={steamAppId()}
+                onInput={(e) => setSteamAppId(e.currentTarget.value)}
+                placeholder="412830"
+                class="flex-1 px-3 py-2 bg-[var(--color-bg-secondary)] rounded-lg text-[var(--color-text-primary)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+              />
+            </div>
+            <p class="text-xs text-[var(--color-text-tertiary)]">
+              Optional. When set, the game launches via the Steam client instead of the executable.
             </p>
           </div>
         </div>

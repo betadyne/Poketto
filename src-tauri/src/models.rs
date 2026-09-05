@@ -69,6 +69,8 @@ pub struct GameMetadata {
     pub title: String,
     pub path: String,
     pub vndb_id: Option<String>,
+    #[serde(default)]
+    pub steam_app_id: Option<String>,
     pub cover_url: Option<String>,
     pub play_time: u64,
     pub is_finished: bool,

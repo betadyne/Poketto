@@ -32,24 +32,39 @@ pub fn launch_game(
         .get_game_by_id(&id)?
         .ok_or_else(|| AppError::NotFound("Game not found".into()))?;
 
-    let path = PathBuf::from(&game.path);
-
-    if !path.exists() {
-        return Err(AppError::ProcessLaunch(format!(
-            "Game executable not found: {}",
-            path.display()
-        )));
-    }
-    if !path.is_file() {
-        return Err(AppError::ProcessLaunch(format!(
-            "Path is not a file: {}",
-            path.display()
-        )));
-    }
+    #[cfg(target_os = "linux")]
+    let steam_app_id = game
+        .steam_app_id
+        .clone()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    #[cfg(not(target_os = "linux"))]
+    let steam_app_id: Option<String> = None;
 
     let settings = state.settings.lock().clone();
 
-    let mut child = spawn_game_process(&game, &path, &settings)?;
+    let child: Option<std::process::Child> = if let Some(app_id) = steam_app_id {
+        write_steam_appid_file(&game.path, &app_id);
+        spawn_steam_game(&app_id)?;
+        None
+    } else {
+        let path = PathBuf::from(&game.path);
+
+        if !path.exists() {
+            return Err(AppError::ProcessLaunch(format!(
+                "Game executable not found: {}",
+                path.display()
+            )));
+        }
+        if !path.is_file() {
+            return Err(AppError::ProcessLaunch(format!(
+                "Path is not a file: {}",
+                path.display()
+            )));
+        }
+
+        Some(spawn_game_process(&game, &path, &settings)?)
+    };
 
     let game_title = game.title.clone();
     let cover_url = game.cover_url.clone();
@@ -136,46 +151,80 @@ pub fn launch_game(
     let app_handle_clone = app_handle.clone();
     let game_id = id.clone();
 
-    tauri::async_runtime::spawn(async move {
-        let exit_result = task::spawn_blocking(move || child.wait()).await;
+    if let Some(mut child) = child {
+        tauri::async_runtime::spawn(async move {
+            let exit_result = task::spawn_blocking(move || child.wait()).await;
 
-        let minutes = start_time.elapsed().as_secs() / 60;
-        let db = app_handle_clone.state::<AppDatabase>();
-        let state = app_handle_clone.state::<AppState>();
+            let minutes = start_time.elapsed().as_secs() / 60;
+            let db = app_handle_clone.state::<AppDatabase>();
+            let state = app_handle_clone.state::<AppState>();
 
-        if let Err(e) = state.discord_rpc.clear_activity() {
-            log::warn!("Failed to clear Discord activity: {}", e);
-        }
-        let seconds = minutes.saturating_mul(60).min(i64::MAX as u64) as i64;
-        if let Err(e) = db.add_playtime(&game_id, seconds) {
-            log::error!("Failed to save game playtime: {e}");
-        }
+            if let Err(e) = state.discord_rpc.clear_activity() {
+                log::warn!("Failed to clear Discord activity: {}", e);
+            }
+            let seconds = minutes.saturating_mul(60).min(i64::MAX as u64) as i64;
+            if let Err(e) = db.add_playtime(&game_id, seconds) {
+                log::error!("Failed to save game playtime: {e}");
+            }
 
-        record_daily_playtime(&game_id, minutes);
+            record_daily_playtime(&game_id, minutes);
 
-        {
-            let mut running = state.running_game.lock();
-            *running = None;
-        }
+            {
+                let mut running = state.running_game.lock();
+                *running = None;
+            }
 
-        if let Err(e) = app_handle.emit(
-            "game-exited",
-            GameExitedPayload {
-                game_id: game_id.clone(),
-                play_minutes: minutes,
-            },
-        ) {
-            log::error!("Failed to emit game-exited event: {}", e);
-        }
+            if let Err(e) = app_handle.emit(
+                "game-exited",
+                GameExitedPayload {
+                    game_id: game_id.clone(),
+                    play_minutes: minutes,
+                },
+            ) {
+                log::error!("Failed to emit game-exited event: {}", e);
+            }
 
-        if let Ok(Err(e)) = exit_result {
-            eprintln!("Game process error: {}", e);
-        }
-    });
+            if let Ok(Err(e)) = exit_result {
+                eprintln!("Game process error: {}", e);
+            }
+        });
+    }
 
     Ok(())
 }
 
+fn write_steam_appid_file(exe_path: &str, app_id: &str) {
+    let Some(dir) = Path::new(exe_path).parent() else {
+        return;
+    };
+    if dir.as_os_str().is_empty() {
+        return;
+    }
+    let target = dir.join("steam_appid.txt");
+    if let Err(e) = std::fs::write(&target, app_id) {
+        log::warn!("Failed to write {}: {e}", target.display());
+    }
+}
+
+fn spawn_steam_game(app_id: &str) -> AppResult<()> {
+    let url = format!("steam://rungameid/{app_id}");
+    match Command::new("steam").arg(&url).spawn() {
+        Ok(_) => {
+            log::info!("Launched via Steam protocol: {url}");
+            Ok(())
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Command::new("xdg-open")
+            .arg(&url)
+            .spawn()
+            .map(|_| ())
+            .map_err(|e| {
+                AppError::ProcessLaunch(format!("Failed to launch Steam game {app_id}: {e}"))
+            }),
+        Err(e) => Err(AppError::ProcessLaunch(format!(
+            "Failed to launch Steam game {app_id}: {e}"
+        ))),
+    }
+}
 // ============================================================================
 // Platform-specific game spawning
 // ============================================================================
@@ -563,6 +612,7 @@ mod tests {
                 id: "test-game".to_string(),
                 title: "Test Game".to_string(),
                 vndb_id: Some("v12345".to_string()),
+                steam_app_id: None,
                 cover_url: None,
                 path: "/path/to/game.exe".to_string(),
                 play_time: 0,
