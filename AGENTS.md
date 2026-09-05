@@ -119,12 +119,34 @@ Run Rust commands through the rustup toolchain (`rust-toolchain.toml`,
 clippy (e.g. Fedora rustc 1.98 + clippy 1.95) fails with E0514; that is
 an environment bug, never a code bug.
 
+### OMP Tooling, Docs & Verification Gates
+
+- This repo is worked through the `oh-my-pi` (omp) harness. Use its
+  terminal for every fact a tool can answer (`cargo search`, `cargo
+  info`, file state); NEVER guess versions, APIs, or workspace state.
+- Before editing dependencies, check the highest stable release with
+  `cargo search <crate>` / `cargo info <crate>`; pin what you checked
+  and sync with `cargo update -p <crate>`.
+- Before implementing against a crate, read its official changelog and
+  API reference through the harness doc fetcher (`read` on `docs.rs` /
+  crate repo docs); apply the documented current idioms (`params!` /
+  `named_params!`, `conn.transaction()?`, `OptionalExtension`, one
+  shared `reqwest::Client`).
+- Every backend task ends with these gates, all green, in order:
+  `cargo check --manifest-path src-tauri/Cargo.toml`,
+  `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets`
+  with ZERO warnings,
+  `cargo fmt --check` clean on touched files,
+  `cargo test --manifest-path src-tauri/Cargo.toml`.
+
 ### Dependency Rules
 
 - Frontend versions are pinned in `package.json` / `package-lock.json`;
   backend versions are pinned in `src-tauri/Cargo.toml` /
   `src-tauri/Cargo.lock`. NEVER use `"latest"`; unpinned versions break
   reproducible builds.
+- Check crates.io for the newest stable release before touching a
+  version requirement; pin the checked version, then sync the lockfile.
 - Backend `Cargo.toml` MUST NOT gain path dependencies outside
   `src-tauri/`.
 - The `discord-rich-presence` dependency is pinned to a git rev; do not
@@ -159,6 +181,12 @@ an environment bug, never a code bug.
   startup; `load_settings()` falls back to defaults.
 - First run imports legacy `games.json` into SQLite exactly once
   (`schema_meta` flag); the JSON file is then inert.
+- NEVER use `redb`: persistence is `rusqlite` (`bundled`, WAL) only.
+- Wide statements use `named_params!`; multi-statement writes run inside
+  `conn.transaction()?` (rollback on early return/drop).
+- Database errors propagate as `AppError` via `?`
+  (`From<rusqlite::Error>` exists); NEVER scatter
+  `.map_err(|e| e.to_string())`.
 
 ### IPC Rules (Tauri Commands)
 
@@ -173,6 +201,9 @@ an environment bug, never a code bug.
   plus `AppDatabase` (`Mutex<rusqlite::Connection>`) for game rows and
   cache entries. Commands take `State<AppState>`,
   `State<AppDatabase>`, or both.
+- HTTP always goes through the single managed `reqwest::Client`
+  (`rustls` TLS, pooled, built once with User-Agent + timeouts); NEVER
+  construct a per-call client.
 
 ### Frontend Rules
 
@@ -238,6 +269,17 @@ approval; docs above describe the code as it is.
 ```
 
 Types: `feat`, `fix`, `docs`, `refactor`, `chore`, `test`
+
+### Commit & Push Per Task
+
+- Commit AND push every finished task; a task is finished only when its
+  verification gates are green. NEVER end a task with uncommitted work
+  still in the tree.
+- One task = one commit on the current branch (`git add` only that
+  task's files; leave unrelated worktree changes alone).
+- NEVER commit or push failing work (red check, test, clippy, or fmt).
+- Push to the branch's upstream (`git push`) right after committing so
+  the remote always mirrors completed work.
 
 ### Pull Request Guidelines (English only)
 
