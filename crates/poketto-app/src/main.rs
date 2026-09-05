@@ -666,6 +666,14 @@ fn main() -> Result<(), slint::PlatformError> {
     }
     {
         let handle = app.as_weak();
+        app.on_nav_library(move || {
+            if let Some(app) = handle.upgrade() {
+                app.set_screen(SCREEN_LIBRARY);
+            }
+        });
+    }
+    {
+        let handle = app.as_weak();
         let rt_handle = rt_handle.clone();
         let client = client.clone();
         let loader = loader.clone();

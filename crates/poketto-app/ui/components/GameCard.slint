@@ -25,19 +25,18 @@ export component GameCard inherits Rectangle {
 
     property <bool> blocked: root.game.is-nsfw && root.blur-nsfw && !root.game.revealed;
 
-    min-width: 170px;
-    max-width: 220px;
-    min-height: 250px;
-    max-height: 320px;
-    width: 100%;
+    width: 160px;
 
     VerticalLayout {
         spacing: Theme.space-sm;
 
         Rectangle {
-            height: self.width * 4 / 3;
+            width: 160px;
+            height: 213px;
             background: Theme.surface;
-            border-radius: Theme.radius-md;
+            border-width: 1px;
+            border-color: touch.has-hover ? Theme.primary : Theme.border;
+            border-radius: Theme.radius-lg;
             clip: true;
 
             if !root.game.show-cover && !root.blocked : Text {
@@ -93,7 +92,7 @@ export component GameCard inherits Rectangle {
                 y: 8px;
                 width: badge-layout.preferred-width;
                 height: badge-layout.preferred-height;
-                background: Theme.bg-dark;
+                background: Theme.primary;
                 border-radius: Theme.radius-sm;
 
                 badge-layout := HorizontalLayout {
@@ -111,13 +110,13 @@ export component GameCard inherits Rectangle {
                             width: 12px;
                             height: 12px;
                             y: (parent.height - 12px) / 2;
-                            colorize: Theme.primary;
+                            colorize: Theme.text-on-primary;
                         }
                     }
 
                     Text {
                         text: Math.round(root.game.rating * 10) / 10;
-                        color: Theme.text;
+                        color: Theme.text-on-primary;
                         font-size: Theme.font-sm;
                         vertical-alignment: center;
                         vertical-stretch: 1;
@@ -148,35 +147,26 @@ export component GameCard inherits Rectangle {
                 }
             }
 
-            if touch.has-hover : Rectangle {
+            if touch.has-hover && !root.blocked : Rectangle {
+                x: parent.width - 44px;
                 y: parent.height - 44px;
-                width: 100%;
-                height: 44px;
-                background: Theme.bg-dark;
-                opacity: 0.85;
+                width: 36px;
+                height: 36px;
+                background: Theme.primary;
+                border-radius: 18px;
 
-                HorizontalLayout {
-                    alignment: center;
+                Image {
+                    source: @image-url("../icons/player-play.svg");
+                    width: 18px;
+                    height: 18px;
+                    x: (parent.width - 18px) / 2;
+                    y: (parent.height - 18px) / 2;
+                    colorize: Theme.text-on-primary;
+                }
 
-                    Rectangle {
-                        width: 18px;
-                        vertical-stretch: 1;
-                        Image {
-                            source: @image-url("../icons/player-play.svg");
-                            width: 18px;
-                            height: 18px;
-                            y: (parent.height - 18px) / 2;
-                            colorize: Theme.text-on-primary;
-                        }
-                    }
-
-                    Text {
-                        text: "Play";
-                        color: Theme.text-on-primary;
-                        font-size: Theme.font-md;
-                        vertical-alignment: center;
-                        vertical-stretch: 1;
-                    }
+                TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.play-game(root.game.id); }
                 }
             }
         }
@@ -184,10 +174,9 @@ export component GameCard inherits Rectangle {
         Text {
             text: root.game.title;
             color: Theme.text;
-            font-size: Theme.font-md;
-            wrap: word-wrap;
+            font-size: 13px;
+            font-weight: 600;
             overflow: elide;
-            height: 38px;
         }
     }
 

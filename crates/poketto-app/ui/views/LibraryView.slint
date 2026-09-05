@@ -11,7 +11,8 @@ export component LibraryView inherits Rectangle {
     in-out property <int> active-filter;
     in property <bool> blur-nsfw;
     in property <bool> show-hidden: false;
-    in property <int> columns: Math.max(1, Math.floor((list.width / 1px - 16) / 204));
+    in property <int> columns: Math.max(1, Math.floor((root.width / 1px - 56) / 192));
+    property <bool> list-mode: false;
 
     callback game-clicked(string);
     callback search-accepted(string);
@@ -19,7 +20,6 @@ export component LibraryView inherits Rectangle {
     callback toggle-show-hidden(bool);
     callback filter-changed(int);
     callback sort-changed(string, bool);
-    callback open-settings;
     callback add-clicked;
     callback play-game(string);
     callback edit-game(string);
@@ -29,132 +29,245 @@ export component LibraryView inherits Rectangle {
     changed query => { root.search-query-changed(root.query); }
     property <int> row-count: Math.ceil(games.length / root.columns);
 
-    HorizontalLayout {
-        Rectangle {
-            width: 200px;
-            background: Theme.surface;
+    VerticalLayout {
+        padding: Theme.pad-lg;
+        padding-right: Theme.pad-lg + 16px;
+        spacing: Theme.space-md;
 
-            VerticalLayout {
-                padding: Theme.pad-md;
-                spacing: Theme.space-sm;
-                alignment: start;
+        HorizontalLayout {
+            spacing: Theme.space-md;
 
-                Text {
-                    text: "Library";
-                    color: Theme.text;
-                    font-size: Theme.font-lg;
+            Text {
+                text: "Overview";
+                color: Theme.text;
+                font-size: Theme.font-xl;
+                font-weight: 700;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+            }
+
+            SearchBar {
+                width: 380px;
+                text <=> root.query;
+                placeholder: "Search game titles...";
+                accepted(query) => { root.search-accepted(query); }
+            }
+
+            Button {
+                text: "+ Add Game";
+                primary: true;
+                clicked => { root.add-clicked(); }
+            }
+        }
+
+        HorizontalLayout {
+            spacing: Theme.space-sm;
+
+            Text {
+                text: "All Games (" + root.games.length + ")";
+                color: Theme.text-muted;
+                font-size: Theme.font-md;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+            }
+
+            ComboBox {
+                model: ["Sort by Name", "Title Z-A", "Most Played", "Recently Played"];
+                current-index <=> root.sort-index;
+                selected(value) => {
+                    if (value == "Sort by Name") { root.sort-changed("title", true); }
+                    else if (value == "Title Z-A") { root.sort-changed("title", false); }
+                    else if (value == "Most Played") { root.sort-changed("play_time", false); }
+                    else { root.sort-changed("last_played", false); }
                 }
+            }
+
+            Rectangle {
+                border-width: 1px;
+                border-color: Theme.border;
+                border-radius: Theme.radius-sm;
+                width: toggle-layout.preferred-width;
+                height: 36px;
+
+                toggle-layout := HorizontalLayout {
+                    spacing: 0;
+
+                    Rectangle {
+                        width: 64px;
+                        background: !root.list-mode ? Theme.primary : transparent;
+                        border-radius: Theme.radius-sm;
+
+                        Text {
+                            text: "Grid";
+                            color: !root.list-mode ? Theme.text-on-primary : Theme.text-muted;
+                            font-size: Theme.font-md;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+
+                        TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { root.list-mode = false; }
+                        }
+                    }
+
+                    Rectangle {
+                        width: 64px;
+                        background: root.list-mode ? Theme.primary : transparent;
+                        border-radius: Theme.radius-sm;
+
+                        Text {
+                            text: "List";
+                            color: root.list-mode ? Theme.text-on-primary : Theme.text-muted;
+                            font-size: Theme.font-md;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+
+                        TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { root.list-mode = true; }
+                        }
+                    }
+                }
+            }
+        }
+
+        HorizontalLayout {
+            spacing: Theme.space-sm;
+
             Button {
                 text: "All";
-                fill: true;
                 primary: root.active-filter == 0;
                 clicked => { root.filter-changed(0); }
             }
 
             Button {
                 text: "Unfinished";
-                fill: true;
                 primary: root.active-filter == 1;
                 clicked => { root.filter-changed(1); }
             }
 
             Button {
                 text: "Finished";
-                fill: true;
                 primary: root.active-filter == 2;
                 clicked => { root.filter-changed(2); }
             }
 
             Button {
                 text: "Hidden";
-                fill: true;
                 primary: root.active-filter == 3;
                 clicked => { root.filter-changed(3); }
             }
+
             Button {
                 text: root.show-hidden ? "Hide Hidden" : "Show Hidden";
-                fill: true;
                 primary: root.show-hidden;
                 clicked => { root.toggle-show-hidden(!root.show-hidden); }
             }
-            Rectangle {
-                vertical-stretch: 1;
-            }
-
-            Button {
-                text: "Settings";
-                fill: true;
-                clicked => { root.open-settings(); }
-            }
-        }
         }
 
-        VerticalLayout {
-            padding: Theme.pad-lg;
-            padding-right: Theme.pad-lg + 16px;
-            spacing: Theme.space-md;
+        if root.games.length == 0 : Text {
+            text: "No games in the library yet.";
+            color: Theme.text-muted;
+            font-size: Theme.font-md;
+        }
 
-            HorizontalLayout {
-                spacing: Theme.space-sm;
+        if !root.list-mode : list := ListView {
+            vertical-stretch: 1;
 
-                SearchBar {
-                    text <=> root.query;
-                    accepted(query) => { root.search-accepted(query); }
-                    horizontal-stretch: 1;
-                }
+            for r in root.row-count : Rectangle {
+                height: 268px;
 
-                ComboBox {
-                    model: ["Title A-Z", "Title Z-A", "Most Played", "Recently Played"];
-                    current-index <=> root.sort-index;
-                    selected(value) => {
-                        if (value == "Title A-Z") { root.sort-changed("title", true); }
-                        else if (value == "Title Z-A") { root.sort-changed("title", false); }
-                        else if (value == "Most Played") { root.sort-changed("play_time", false); }
-                        else { root.sort-changed("last_played", false); }
-                    }
-                }
+                HorizontalLayout {
+                    height: 260px;
+                    spacing: 32px;
+                    alignment: center;
 
-                Button {
-                    text: "Add";
-                    primary: true;
-                    clicked => { root.add-clicked(); }
-                }
-            }
+                    for c in root.columns : Rectangle {
+                        width: 176px;
 
-            if root.games.length == 0 : Text {
-                text: "No games in the library yet.";
-                color: Theme.text-muted;
-                font-size: Theme.font-md;
-            }
+                        property <int> index: r * root.columns + c;
 
-            list := ListView {
-                vertical-stretch: 1;
-
-                for r in root.row-count : Rectangle {
-                    height: 312px;
-
-                    HorizontalLayout {
-                        height: 300px;
-                        spacing: Theme.space-md;
-                        alignment: center;
-
-                        for c in root.columns : Rectangle {
-                            width: 190px;
-
-                            property <int> index: r * root.columns + c;
-
-                            if index < root.games.length : GameCard {
-                                game: root.games[index];
-                                blur-nsfw: root.blur-nsfw;
-                                clicked(id) => { root.game-clicked(id); }
-                                play-game(id) => { root.play-game(id); }
-                                edit-game(id) => { root.edit-game(id); }
-                                toggle-hide(id) => { root.toggle-hide(id); }
-                                remove-game(id) => { root.remove-game(id); }
-                                reveal-cover(id) => { root.reveal-cover(id); }
-                            }
+                        if index < root.games.length : GameCard {
+                            game: root.games[index];
+                            blur-nsfw: root.blur-nsfw;
+                            clicked(id) => { root.game-clicked(id); }
+                            play-game(id) => { root.play-game(id); }
+                            edit-game(id) => { root.edit-game(id); }
+                            toggle-hide(id) => { root.toggle-hide(id); }
+                            remove-game(id) => { root.remove-game(id); }
+                            reveal-cover(id) => { root.reveal-cover(id); }
                         }
                     }
+                }
+            }
+        }
+
+        if root.list-mode : ListView {
+            vertical-stretch: 1;
+
+            for game in root.games : Rectangle {
+                height: 72px;
+
+                Rectangle {
+                    y: 4px;
+                    width: 100%;
+                    height: 64px;
+                    background: Theme.sidebar;
+                    border-width: 1px;
+                    border-color: Theme.border;
+                    border-radius: Theme.radius-sm;
+
+                HorizontalLayout {
+                    padding-left: Theme.pad-sm;
+                    padding-right: Theme.pad-sm;
+                    spacing: Theme.space-sm;
+
+                    Rectangle {
+                        width: 36px;
+                        height: 48px;
+                        y: (parent.height - 48px) / 2;
+                        background: Theme.surface;
+                        border-radius: 6px;
+                        clip: true;
+
+                        if game.show-cover : Image {
+                            source: game.cover;
+                            width: 100%;
+                            height: 100%;
+                            image-fit: ImageFit.cover;
+                        }
+                    }
+
+                    Text {
+                        text: game.title;
+                        color: Theme.text;
+                        font-size: Theme.font-md;
+                        font-weight: 600;
+                        vertical-alignment: center;
+                        horizontal-stretch: 1;
+                        overflow: elide;
+                    }
+
+                    if game.rating > 0 : Text {
+                        text: Math.round(game.rating * 10) / 10;
+                        color: Theme.text-muted;
+                        font-size: Theme.font-md;
+                        vertical-alignment: center;
+                    }
+
+                    Button {
+                        text: "Play";
+                        primary: true;
+                        clicked => { root.play-game(game.id); }
+                    }
+                }
+
+                TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.game-clicked(game.id); }
+                }
                 }
             }
         }
