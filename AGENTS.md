@@ -7,9 +7,13 @@ Scope: This file governs the entire repository.
 **Poketto** is a cross-platform Visual Novel Game Launcher built on
 **Tauri v2 + SolidJS + Rust**:
 
-- **Frontend**: SolidJS + TypeScript + Tailwind CSS v4 (`src/`, Vite)
-- **Backend**: Rust in `src-tauri/` (Tokio async runtime, `redb` VNDB
-  cache, JSON stores)
+- **Frontend**: SolidJS + TypeScript + Tailwind CSS v4 (`src/`, Vite);
+  icons from `lucide-solid`. This is NOT React: there are no `react`,
+  `react-dom`, or `@tabler/icons-react` dependencies; UI primitives are
+  SolidJS (`createSignal`, `createMemo`, `For`, `Show`, `@solidjs/router`)
+- **Backend**: Rust in `src-tauri/` (Tokio async runtime, SQLite library
+  store via `rusqlite` `bundled`, JSON settings). There is no `redb` or
+  `bincode` dependency.
 - **APIs**: VNDB API integration (search, details, characters, user list),
   Discord Rich Presence
 - **Targets**: Linux (Wayland/X11) and Windows (NSIS installer +
@@ -34,14 +38,14 @@ rewrite lives in a separate repository.
 3. `src-tauri/src/lib.rs` (backend entry: state init, command registry,
    plugin wiring)
 4. `src-tauri/src/models.rs` + `src-tauri/src/database.rs` (domain types,
-   JSON stores, `redb` cache layers)
+   `AppDatabase` SQLite layer, JSON settings stores)
 5. `src/App.tsx` (frontend root: router, providers, overlays)
 
 ## Installed Agent Skills
 
 - `rust` (`.agents/skills/rust`) - Idiomatic Rust guidance for backend
-  work in `src-tauri/`. There are no Slint or SQLite-specific skills in
-  this repo: the backend cache is `redb`, not SQLite.
+  work in `src-tauri/`, including the `rusqlite` storage layer. There
+  are no Slint-specific skills in this repo.
 
 ## Intent & Principles
 
@@ -70,7 +74,12 @@ rewrite lives in a separate repository.
 ```text
 poketto/
 ├── src/                        # SolidJS frontend (routes, components, context)
+│   ├── api/                    # Typed invoke() wrappers per domain
+│   ├── types.ts                # Re-exports from bindings + local payloads
+│   └── bindings.ts             # Generated IPC contract (do not edit)
 ├── src-tauri/                  # Rust backend (commands, models, db, wine)
+│   ├── commands/               # IPC handlers per domain
+│   └── database.rs             # AppDatabase (rusqlite) + JSON settings stores
 ├── public/                     # Static assets (icon.png, fonts)
 ├── index.html                  # Vite entry
 ├── vite.config.ts              # Solid + Tailwind plugin, Tauri dev server
@@ -84,7 +93,11 @@ poketto/
   `models.rs`
 - Frontend follows existing colocations: `views/` per route,
   `components/` shared UI, `context/` providers, `hooks/` reusable logic,
-  `utils/` pure helpers with `*.test.ts` coverage
+  `api/` typed `invoke()` wrappers per domain (`games`, `vndb`,
+  `settings`, `wine`), `utils/` pure helpers with `*.test.ts` coverage
+- `src/types.ts` re-exports IPC shapes from `./bindings` (plus local
+  payloads such as `GameExitedPayload`); NEVER redeclare backend shapes
+  elsewhere
 
 ## Workflow & Quality
 
@@ -95,7 +108,7 @@ npm install
 npm run dev            # Vite frontend only
 npm run tauri dev      # Full desktop app
 npm test               # vitest run
-npm run build          # Frontend bundle (also used by Tauri bundling)
+npm run build          # vite build ONLY (no tsc gate today; see roadmap)
 cd src-tauri && cargo check
 cd src-tauri && cargo clippy -- -D warnings
 cd src-tauri && cargo test
@@ -130,14 +143,22 @@ an environment bug, never a code bug.
 
 ### Database & Persistence Rules
 
-- Stores: `games.json`, `settings.json`, `daily_playtime.json` (JSON) +
-  `vndb_cache.redb` (`vn_cache`, `char_cache` tables, bincode payloads).
+- Stores: `poketto.db` (SQLite via `rusqlite` `bundled`: `games`,
+  `playtime_sessions`, `vndb_cache`, `schema_meta` tables; WAL mode,
+  `foreign_keys = ON`) plus `settings.json` and `daily_playtime.json`
+  (JSON).
 - All JSON writes go through `atomic_write` (temp file + rename); NEVER
   write store files directly.
-- Read caches in order: in-memory `HashMap` -> `redb` disk cache ->
+- Game reads/writes go through `AppDatabase` CRUD (`get_all_games`,
+  `get_game_by_id`, `insert_game`, `update_game`, `delete_game`,
+  `add_playtime`); VNDB disk cache via `get_vndb_cache` /
+  `set_vndb_cache` (JSON payloads under `vn:` / `chars:` key prefixes).
+- Read caches in order: in-memory `HashMap` -> SQLite disk cache ->
   network; persist fresh network results to both cache layers.
-- `load_games()` failure MUST fall back to an empty library, never crash
+- Database open failure MUST fall back to in-memory storage, never crash
   startup; `load_settings()` falls back to defaults.
+- First run imports legacy `games.json` into SQLite exactly once
+  (`schema_meta` flag); the JSON file is then inert.
 
 ### IPC Rules (Tauri Commands)
 
@@ -147,8 +168,11 @@ an environment bug, never a code bug.
   `.typ::<...>()`.
 - Debug builds regenerate `../src/bindings.ts`; commit the regenerated
   file together with the backend change. NEVER edit it by hand.
-- Shared mutation goes through managed `AppState`
-  (`parking_lot::Mutex` fields); clone out of the lock before awaiting.
+- Shared mutation goes through managed state: `AppState`
+  (`parking_lot::Mutex` fields; clone out of the lock before awaiting)
+  plus `AppDatabase` (`Mutex<rusqlite::Connection>`) for game rows and
+  cache entries. Commands take `State<AppState>`,
+  `State<AppDatabase>`, or both.
 
 ### Frontend Rules
 
@@ -159,13 +183,17 @@ an environment bug, never a code bug.
   hooks (`useLibraryFilters`, `useUpdater`).
 - Pure logic (formatting, validation, blur gating, BBCode) lives in
   `src/utils/` with vitest coverage; every new util ships with a test.
-- Styling is Tailwind utilities in JSX; icons come from `lucide-solid`.
+- Styling is Tailwind utilities in JSX plus theme tokens in
+  `src/index.css` (`--color-*`); icons come ONLY from `lucide-solid`.
+  NEVER introduce `@tabler/icons-react` without an approved migration
 
 ### Test Structure
 
 ```text
 src/utils/*.test.ts        # blur, formatters, validators
+src/api/wine.test.ts       # Wine invoke-wrapper unit tests
 src-tauri/src/models.rs    # domain unit tests (mod tests)
+src-tauri/src/database.rs  # AppDatabase CRUD/cache/playtime tests (in-memory)
 ```
 
 ### Code Quality Rules
@@ -180,6 +208,18 @@ src-tauri/src/models.rs    # domain unit tests (mod tests)
 - **P0**: Critical - blocks release or core functionality
 - **P1**: High - important feature or significant bug
 - **P2**: Medium - nice to have, can wait
+
+### Proposed Roadmap (NOT Current State)
+
+The following directions have been floated but are NOT approved and NOT
+reflected in the code. Do not start any of them without explicit user
+approval; docs above describe the code as it is.
+
+- Evaluate a frontend migration from SolidJS to React (`react`,
+  `react-dom`, `@tabler/icons-react`). Would require replacing every
+  `lucide-solid` import, all SolidJS primitives, and the Vite plugin.
+- Evaluate adding a `tsc` typecheck gate in front of `vite build`
+  (`tsc -b && vite build`).
 
 ## Git Workflow
 

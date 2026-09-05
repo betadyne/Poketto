@@ -15,10 +15,6 @@ pub enum AppError {
 
     #[error("Database error: {0}")]
     Database(String),
-
-    #[error("Serialization error: {0}")]
-    Bincode(String),
-
     #[error("{0}")]
     NotFound(String),
 
@@ -53,39 +49,9 @@ impl From<reqwest::Error> for AppError {
     }
 }
 
-impl From<redb::Error> for AppError {
-    fn from(e: redb::Error) -> Self {
+impl From<rusqlite::Error> for AppError {
+    fn from(e: rusqlite::Error) -> Self {
         AppError::Database(e.to_string())
-    }
-}
-
-impl From<redb::TransactionError> for AppError {
-    fn from(e: redb::TransactionError) -> Self {
-        AppError::Database(e.to_string())
-    }
-}
-
-impl From<redb::TableError> for AppError {
-    fn from(e: redb::TableError) -> Self {
-        AppError::Database(e.to_string())
-    }
-}
-
-impl From<redb::StorageError> for AppError {
-    fn from(e: redb::StorageError) -> Self {
-        AppError::Database(e.to_string())
-    }
-}
-
-impl From<redb::CommitError> for AppError {
-    fn from(e: redb::CommitError) -> Self {
-        AppError::Database(e.to_string())
-    }
-}
-
-impl From<bincode::Error> for AppError {
-    fn from(e: bincode::Error) -> Self {
-        AppError::Bincode(e.to_string())
     }
 }
 
@@ -198,9 +164,15 @@ mod tests {
         }
 
         #[test]
-        fn test_bincode_error_display() {
-            let err = AppError::Bincode("serialize failed".to_string());
-            assert_eq!(err.to_string(), "Serialization error: serialize failed");
+        fn test_rusqlite_error_display() {
+            let err = rusqlite::Error::InvalidColumnName("missing".to_string());
+            let app_err: AppError = err.into();
+            match app_err {
+                AppError::Database(msg) => {
+                    assert!(msg.contains("missing"));
+                }
+                _ => panic!("Expected Database error"),
+            }
         }
 
         #[test]
@@ -252,7 +224,6 @@ mod tests {
                 AppError::Json("msg".to_string()),
                 AppError::Http("msg".to_string()),
                 AppError::Database("msg".to_string()),
-                AppError::Bincode("msg".to_string()),
                 AppError::NotFound("msg".to_string()),
                 AppError::VndbApi("msg".to_string()),
                 AppError::AuthRequired("msg".to_string()),

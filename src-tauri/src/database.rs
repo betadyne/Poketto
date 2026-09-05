@@ -1,17 +1,387 @@
-use redb::{Database, TableDefinition};
-use serde::{de::DeserializeOwned, Serialize};
-use std::collections::HashMap;
+use rusqlite::{params, Connection, OptionalExtension, Row};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Mutex, MutexGuard};
 use std::time::Duration;
 
 use crate::error::{AppError, AppResult};
 use crate::models::{AppSettings, DailyPlaytimeData, GameMetadata};
 
-pub const VN_CACHE: TableDefinition<&str, &[u8]> = TableDefinition::new("vn_cache");
-pub const CHAR_CACHE: TableDefinition<&str, &[u8]> = TableDefinition::new("char_cache");
+pub const VN_CACHE_PREFIX: &str = "vn:";
+pub const CHAR_CACHE_PREFIX: &str = "chars:";
+
+const GAMES_JSON_IMPORTED: &str = "games_json_imported";
+
+const SCHEMA_SQL: &str = "
+CREATE TABLE IF NOT EXISTS games (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    exe_path TEXT NOT NULL,
+    prefix_path TEXT,
+    runner TEXT,
+    playtime_seconds INTEGER NOT NULL DEFAULT 0,
+    last_played INTEGER,
+    cover_path TEXT,
+    vndb_id TEXT,
+    created_at INTEGER NOT NULL,
+    is_finished INTEGER NOT NULL DEFAULT 0,
+    is_hidden INTEGER NOT NULL DEFAULT 0,
+    show_spoilers INTEGER NOT NULL DEFAULT 0,
+    game_type TEXT,
+    wine_settings_json TEXT
+);
+CREATE TABLE IF NOT EXISTS playtime_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_id TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+    start_time INTEGER NOT NULL,
+    end_time INTEGER NOT NULL,
+    duration_seconds INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS vndb_cache (
+    id TEXT PRIMARY KEY,
+    data_json TEXT NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS schema_meta (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+";
+
+const GAME_COLUMNS: &str = "id, title, exe_path, prefix_path, runner, playtime_seconds, last_played, cover_path, vndb_id, is_finished, is_hidden, show_spoilers, game_type, wine_settings_json";
+
+pub struct AppDatabase {
+    pub conn: Mutex<Connection>,
+}
+
+impl AppDatabase {
+    pub fn open() -> AppResult<Self> {
+        Self::open_at(&get_db_path())
+    }
+
+    pub fn open_at(path: &Path) -> AppResult<Self> {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let conn = Connection::open(path).map_err(|e| AppError::Database(e.to_string()))?;
+        let db = Self {
+            conn: Mutex::new(conn),
+        };
+        db.apply_pragmas().map_err(AppError::Database)?;
+        db.apply_schema().map_err(AppError::Database)?;
+        db.import_games_json_once().map_err(AppError::Database)?;
+        Ok(db)
+    }
+
+    pub fn open_in_memory() -> AppResult<Self> {
+        let conn = Connection::open_in_memory().map_err(|e| AppError::Database(e.to_string()))?;
+        let db = Self {
+            conn: Mutex::new(conn),
+        };
+        db.apply_pragmas().map_err(AppError::Database)?;
+        db.apply_schema().map_err(AppError::Database)?;
+        Ok(db)
+    }
+
+    fn lock(&self) -> Result<MutexGuard<'_, Connection>, String> {
+        self.conn
+            .lock()
+            .map_err(|e| format!("database lock poisoned: {e}"))
+    }
+
+    fn apply_pragmas(&self) -> Result<(), String> {
+        let conn = self.lock()?;
+        conn.execute_batch(
+            "PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA synchronous = NORMAL;",
+        )
+        .map_err(|e| e.to_string())
+    }
+
+    fn apply_schema(&self) -> Result<(), String> {
+        let conn = self.lock()?;
+        conn.execute_batch(SCHEMA_SQL).map_err(|e| e.to_string())
+    }
+
+    fn import_games_json_once(&self) -> Result<(), String> {
+        let imported: bool = {
+            let conn = self.lock()?;
+            conn.query_row(
+                "SELECT value FROM schema_meta WHERE key = ?1",
+                params![GAMES_JSON_IMPORTED],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()
+            .map_err(|e| e.to_string())?
+            .is_some()
+        };
+        if imported {
+            return Ok(());
+        }
+
+        let existing: i64 = {
+            let conn = self.lock()?;
+            conn.query_row("SELECT COUNT(*) FROM games", [], |row| row.get(0))
+                .map_err(|e| e.to_string())?
+        };
+        if existing == 0 {
+            let games = read_legacy_games_json();
+            if !games.is_empty() {
+                let conn = self.lock()?;
+                let created_at = now_epoch();
+                for game in &games {
+                    insert_game_row(&conn, game, created_at).map_err(|e| e.to_string())?;
+                }
+                log::info!("Imported {} games from games.json", games.len());
+            }
+        }
+
+        let conn = self.lock()?;
+        conn.execute(
+            "INSERT OR REPLACE INTO schema_meta (key, value) VALUES (?1, '1')",
+            params![GAMES_JSON_IMPORTED],
+        )
+        .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    pub fn get_all_games(&self) -> Result<Vec<GameMetadata>, String> {
+        let conn = self.lock()?;
+        let mut stmt = conn
+            .prepare(&format!("SELECT {GAME_COLUMNS} FROM games ORDER BY rowid"))
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([], game_from_row)
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
+        Ok(rows)
+    }
+
+    pub fn get_game_by_id(&self, id: &str) -> Result<Option<GameMetadata>, String> {
+        let conn = self.lock()?;
+        conn.query_row(
+            &format!("SELECT {GAME_COLUMNS} FROM games WHERE id = ?1"),
+            params![id],
+            game_from_row,
+        )
+        .optional()
+        .map_err(|e| e.to_string())
+    }
+
+    pub fn insert_game(&self, game: &GameMetadata) -> Result<(), String> {
+        let conn = self.lock()?;
+        insert_game_row(&conn, game, now_epoch()).map_err(|e| e.to_string())
+    }
+
+    pub fn update_game(&self, game: &GameMetadata) -> Result<(), String> {
+        let conn = self.lock()?;
+        conn.execute(
+            "UPDATE games SET title = ?1, exe_path = ?2, prefix_path = ?3, runner = ?4, \
+             playtime_seconds = ?5, last_played = ?6, cover_path = ?7, vndb_id = ?8, \
+             is_finished = ?9, is_hidden = ?10, show_spoilers = ?11, game_type = ?12, \
+             wine_settings_json = ?13 WHERE id = ?14",
+            params![
+                game.title,
+                game.path,
+                game.wine_settings
+                    .as_ref()
+                    .and_then(|w| w.wine_prefix.clone()),
+                game.wine_settings
+                    .as_ref()
+                    .and_then(|w| w.wine_version.clone()),
+                playtime_minutes_to_seconds(game.play_time),
+                last_played_to_epoch(game.last_played.as_deref()),
+                game.cover_url,
+                game.vndb_id,
+                game.is_finished as i64,
+                game.is_hidden as i64,
+                game.show_spoilers as i64,
+                game.game_type
+                    .as_ref()
+                    .and_then(|t| serde_json::to_string(t).ok()),
+                game.wine_settings
+                    .as_ref()
+                    .and_then(|w| serde_json::to_string(w).ok()),
+                game.id,
+            ],
+        )
+        .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    pub fn delete_game(&self, id: &str) -> Result<(), String> {
+        let conn = self.lock()?;
+        conn.execute("DELETE FROM games WHERE id = ?1", params![id])
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    pub fn add_playtime(&self, game_id: &str, seconds: i64) -> Result<(), String> {
+        if seconds <= 0 {
+            return Ok(());
+        }
+        let conn = self.lock()?;
+        let now = now_epoch();
+        let affected = conn
+            .execute(
+                "UPDATE games SET playtime_seconds = playtime_seconds + ?1, last_played = ?2 WHERE id = ?3",
+                params![seconds, now, game_id],
+            )
+            .map_err(|e| e.to_string())?;
+        if affected == 0 {
+            return Ok(());
+        }
+        conn.execute(
+            "INSERT INTO playtime_sessions (game_id, start_time, end_time, duration_seconds) VALUES (?1, ?2, ?3, ?4)",
+            params![game_id, now - seconds, now, seconds],
+        )
+        .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    pub fn get_vndb_cache(&self, id: &str) -> Result<Option<String>, String> {
+        let conn = self.lock()?;
+        conn.query_row(
+            "SELECT data_json FROM vndb_cache WHERE id = ?1",
+            params![id],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|e| e.to_string())
+    }
+
+    pub fn set_vndb_cache(&self, id: &str, json: &str) -> Result<(), String> {
+        let conn = self.lock()?;
+        conn.execute(
+            "INSERT OR REPLACE INTO vndb_cache (id, data_json, updated_at) VALUES (?1, ?2, ?3)",
+            params![id, json, now_epoch()],
+        )
+        .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    pub fn delete_vndb_cache(&self, id: &str) -> Result<(), String> {
+        let conn = self.lock()?;
+        conn.execute("DELETE FROM vndb_cache WHERE id = ?1", params![id])
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    pub fn clear_vndb_cache(&self) -> Result<(), String> {
+        let conn = self.lock()?;
+        conn.execute("DELETE FROM vndb_cache", [])
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+}
+
+fn insert_game_row(
+    conn: &Connection,
+    game: &GameMetadata,
+    created_at: i64,
+) -> rusqlite::Result<()> {
+    conn.execute(
+        "INSERT INTO games (id, title, exe_path, prefix_path, runner, playtime_seconds, last_played, cover_path, vndb_id, created_at, is_finished, is_hidden, show_spoilers, game_type, wine_settings_json) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+        params![
+            game.id,
+            game.title,
+            game.path,
+            game.wine_settings
+                .as_ref()
+                .and_then(|w| w.wine_prefix.clone()),
+            game.wine_settings
+                .as_ref()
+                .and_then(|w| w.wine_version.clone()),
+            playtime_minutes_to_seconds(game.play_time),
+            last_played_to_epoch(game.last_played.as_deref()),
+            game.cover_url,
+            game.vndb_id,
+            created_at,
+            game.is_finished as i64,
+            game.is_hidden as i64,
+            game.show_spoilers as i64,
+            game.game_type
+                .as_ref()
+                .and_then(|t| serde_json::to_string(t).ok()),
+            game.wine_settings
+                .as_ref()
+                .and_then(|w| serde_json::to_string(w).ok()),
+        ],
+    )?;
+    Ok(())
+}
+
+fn game_from_row(row: &Row) -> rusqlite::Result<GameMetadata> {
+    let playtime_seconds: i64 = row.get("playtime_seconds")?;
+    let last_played_epoch: Option<i64> = row.get("last_played")?;
+    let game_type_json: Option<String> = row.get("game_type")?;
+    let wine_settings_json: Option<String> = row.get("wine_settings_json")?;
+    Ok(GameMetadata {
+        id: row.get("id")?,
+        title: row.get("title")?,
+        path: row.get("exe_path")?,
+        vndb_id: row.get("vndb_id")?,
+        cover_url: row.get("cover_path")?,
+        play_time: seconds_to_playtime_minutes(playtime_seconds),
+        is_finished: row.get::<_, i64>("is_finished")? != 0,
+        last_played: last_played_epoch.map(epoch_to_rfc3339),
+        is_hidden: row.get::<_, i64>("is_hidden")? != 0,
+        show_spoilers: row.get::<_, i64>("show_spoilers")? != 0,
+        game_type: game_type_json.and_then(|s| serde_json::from_str(&s).ok()),
+        wine_settings: wine_settings_json.and_then(|s| serde_json::from_str(&s).ok()),
+    })
+}
+
+fn playtime_minutes_to_seconds(minutes: u64) -> i64 {
+    minutes.saturating_mul(60).min(i64::MAX as u64) as i64
+}
+
+fn seconds_to_playtime_minutes(seconds: i64) -> u64 {
+    seconds.max(0) as u64 / 60
+}
+
+fn last_played_to_epoch(value: Option<&str>) -> Option<i64> {
+    value
+        .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+        .map(|dt| dt.timestamp())
+}
+
+fn epoch_to_rfc3339(epoch: i64) -> String {
+    chrono::DateTime::from_timestamp(epoch, 0)
+        .map(|dt| dt.with_timezone(&chrono::Local).to_rfc3339())
+        .unwrap_or_default()
+}
+
+fn now_epoch() -> i64 {
+    chrono::Utc::now().timestamp()
+}
+
+fn read_legacy_games_json() -> Vec<GameMetadata> {
+    let path = get_data_path();
+    if !path.exists() {
+        return Vec::new();
+    }
+    match fs::read_to_string(&path) {
+        Ok(content) => match serde_json::from_str::<Vec<GameMetadata>>(&content) {
+            Ok(games) => games,
+            Err(e) => {
+                log::error!("Failed to parse games.json for import: {e}");
+                let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
+                let backup_path = get_data_dir().join(format!("games.json.corrupted.{timestamp}"));
+                if let Err(backup_err) = fs::copy(&path, &backup_path) {
+                    log::error!("Failed to backup corrupted games.json: {backup_err}");
+                }
+                Vec::new()
+            }
+        },
+        Err(e) => {
+            log::error!("Failed to read games.json for import: {e}");
+            Vec::new()
+        }
+    }
+}
 
 pub fn get_data_dir() -> PathBuf {
     let data_dir = dirs::data_local_dir()
@@ -25,16 +395,16 @@ pub fn get_data_path() -> PathBuf {
     get_data_dir().join("games.json")
 }
 
+pub fn get_db_path() -> PathBuf {
+    get_data_dir().join("poketto.db")
+}
+
 pub fn get_settings_path() -> PathBuf {
     get_data_dir().join("settings.json")
 }
 
 pub fn get_daily_playtime_path() -> PathBuf {
     get_data_dir().join("daily_playtime.json")
-}
-
-pub fn get_cache_db_path() -> PathBuf {
-    get_data_dir().join("vndb_cache.redb")
 }
 
 fn atomic_write(path: &Path, content: &str) -> AppResult<()> {
@@ -48,56 +418,6 @@ fn atomic_write(path: &Path, content: &str) -> AppResult<()> {
     file.sync_all()?;
     fs::rename(&tmp_path, path)?;
     Ok(())
-}
-
-pub fn save_games(games: &[GameMetadata]) -> AppResult<()> {
-    let path = get_data_path();
-    log::info!("save_games: Saving {} games to {:?}", games.len(), path);
-
-    if games.is_empty() && path.exists() {
-        if let Ok(content) = fs::read_to_string(&path) {
-            if let Ok(existing) = serde_json::from_str::<Vec<GameMetadata>>(&content) {
-                if !existing.is_empty() {
-                    log::warn!(
-                        "save_games: Refusing to overwrite {} existing games with empty list",
-                        existing.len()
-                    );
-                    return Ok(());
-                }
-            }
-        }
-    }
-
-    let json = serde_json::to_string_pretty(games)?;
-    atomic_write(&path, &json)
-}
-
-pub fn load_games() -> AppResult<Vec<GameMetadata>> {
-    let path = get_data_path();
-    log::info!("load_games: Loading from {:?}", path);
-
-    if !path.exists() {
-        log::info!("load_games: File does not exist, returning empty list");
-        return Ok(Vec::new());
-    }
-
-    let content = fs::read_to_string(&path)?;
-
-    match serde_json::from_str::<Vec<GameMetadata>>(&content) {
-        Ok(games) => {
-            log::info!("load_games: Successfully loaded {} games", games.len());
-            Ok(games)
-        }
-        Err(e) => {
-            log::error!("load_games: Failed to parse JSON: {}", e);
-            let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
-            let backup_path = get_data_dir().join(format!("games.json.corrupted.{}", timestamp));
-            if let Err(backup_err) = fs::copy(&path, &backup_path) {
-                log::error!("Failed to backup corrupted games.json: {}", backup_err);
-            }
-            Err(AppError::Json(e.to_string()))
-        }
-    }
 }
 
 pub fn save_settings(settings: &AppSettings) -> AppResult<()> {
@@ -144,60 +464,12 @@ pub fn record_daily_playtime(game_id: &str, minutes: u64) {
     let date_str = chrono::Local::now().format("%Y-%m-%d").to_string();
     let mut data = load_daily_playtime();
 
-    let game_data = data
-        .games
-        .entry(game_id.to_string())
-        .or_insert_with(HashMap::new);
+    let game_data = data.games.entry(game_id.to_string()).or_default();
     let current = game_data.entry(date_str).or_insert(0);
     *current += minutes;
 
     if let Err(e) = save_daily_playtime(&data) {
-        log::error!("Failed to save daily playtime: {}", e);
-    }
-}
-
-pub fn get_current_timestamp() -> String {
-    chrono::Local::now().to_rfc3339()
-}
-
-pub fn disk_cache_get<T: DeserializeOwned>(
-    db: Option<&Arc<Database>>,
-    table: TableDefinition<&str, &[u8]>,
-    key: &str,
-) -> Option<T> {
-    let db = db?;
-    let read_txn = db.begin_read().ok()?;
-    let table = read_txn.open_table(table).ok()?;
-    let value = table.get(key).ok()??;
-    bincode::deserialize(value.value()).ok()
-}
-
-pub fn disk_cache_set<T: Serialize>(
-    db: Option<&Arc<Database>>,
-    table: TableDefinition<&str, &[u8]>,
-    key: &str,
-    value: &T,
-) {
-    if let Some(db) = db {
-        if let Ok(write_txn) = db.begin_write() {
-            if let Ok(mut t) = write_txn.open_table(table) {
-                if let Ok(data) = bincode::serialize(value) {
-                    let _ = t.insert(key, data.as_slice());
-                }
-            }
-            let _ = write_txn.commit();
-        }
-    }
-}
-
-pub fn create_cache_db() -> Option<Database> {
-    let db_path = get_cache_db_path();
-    match Database::create(&db_path) {
-        Ok(db) => Some(db),
-        Err(e) => {
-            eprintln!("Failed to create cache database at {:?}: {}", db_path, e);
-            None
-        }
+        log::error!("Failed to save daily playtime: {e}");
     }
 }
 
@@ -209,48 +481,181 @@ pub fn create_http_client() -> reqwest::Client {
         .user_agent(format!("Poketto/{}", env!("CARGO_PKG_VERSION")))
         .build()
         .unwrap_or_else(|e| {
-            log::warn!("Failed to build HTTP client with custom config: {}", e);
+            log::warn!("Failed to build HTTP client with custom config: {e}");
             reqwest::Client::new()
         })
 }
 
-pub async fn disk_cache_get_async<T: DeserializeOwned + Send + 'static>(
-    db: Option<Arc<Database>>,
-    table: TableDefinition<'static, &'static str, &'static [u8]>,
-    key: String,
-) -> Option<T> {
-    let db = db?;
-    
-    tokio::task::spawn_blocking(move || {
-        let read_txn = db.begin_read().ok()?;
-        let t = read_txn.open_table(table).ok()?;
-        let value = t.get(key.as_str()).ok()??;
-        bincode::deserialize(value.value()).ok()
-    })
-    .await
-    .ok()
-    .flatten()
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::{GameType, WineSettings, WineType};
 
-pub fn disk_cache_set_async<T: Serialize + Send + 'static>(
-    db: Option<Arc<Database>>,
-    table: TableDefinition<'static, &'static str, &'static [u8]>,
-    key: String,
-    value: T,
-) {
-    let Some(db) = db else { return };
-    
-    tokio::task::spawn(async move {
-        tokio::task::spawn_blocking(move || {
-            if let Ok(write_txn) = db.begin_write() {
-                if let Ok(mut t) = write_txn.open_table(table) {
-                    if let Ok(data) = bincode::serialize(&value) {
-                        let _ = t.insert(key.as_str(), data.as_slice());
-                    }
-                }
-                let _ = write_txn.commit();
-            }
-        })
-        .await
-    });
+    fn sample_game(id: &str) -> GameMetadata {
+        GameMetadata {
+            id: id.to_string(),
+            title: format!("Game {id}"),
+            path: format!("/games/{id}.exe"),
+            vndb_id: Some("v42".to_string()),
+            cover_url: Some("https://example.com/cover.jpg".to_string()),
+            play_time: 125,
+            is_finished: true,
+            last_played: Some("2026-09-01T12:00:00+07:00".to_string()),
+            is_hidden: true,
+            show_spoilers: false,
+            game_type: Some(GameType::WindowsExe),
+            wine_settings: Some(WineSettings {
+                use_global_prefix: false,
+                wine_prefix: Some("/prefix".to_string()),
+                wine_version: Some("wine-9.0".to_string()),
+                wine_type: Some(WineType::Wine),
+                use_steam_runtime: true,
+                env_vars: [("WINEDEBUG".to_string(), "-all".to_string())]
+                    .into_iter()
+                    .collect(),
+            }),
+        }
+    }
+
+    fn assert_game_matches(expected: &GameMetadata, actual: &GameMetadata) {
+        assert_eq!(actual.id, expected.id);
+        assert_eq!(actual.title, expected.title);
+        assert_eq!(actual.path, expected.path);
+        assert_eq!(actual.vndb_id, expected.vndb_id);
+        assert_eq!(actual.cover_url, expected.cover_url);
+        assert_eq!(actual.play_time, expected.play_time);
+        assert_eq!(actual.is_finished, expected.is_finished);
+        assert_eq!(actual.is_hidden, expected.is_hidden);
+        assert_eq!(actual.show_spoilers, expected.show_spoilers);
+        assert_eq!(actual.game_type, expected.game_type);
+        assert_eq!(
+            actual
+                .last_played
+                .as_deref()
+                .map(|s| last_played_to_epoch(Some(s))),
+            expected
+                .last_played
+                .as_deref()
+                .map(|s| last_played_to_epoch(Some(s)))
+        );
+        let actual_wine = actual.wine_settings.as_ref().map(|w| {
+            (
+                w.use_global_prefix,
+                w.wine_prefix.clone(),
+                w.wine_version.clone(),
+                w.wine_type.clone(),
+                w.use_steam_runtime,
+                w.env_vars.clone(),
+            )
+        });
+        let expected_wine = expected.wine_settings.as_ref().map(|w| {
+            (
+                w.use_global_prefix,
+                w.wine_prefix.clone(),
+                w.wine_version.clone(),
+                w.wine_type.clone(),
+                w.use_steam_runtime,
+                w.env_vars.clone(),
+            )
+        });
+        assert_eq!(actual_wine, expected_wine);
+    }
+
+    #[test]
+    fn test_game_crud_round_trip() {
+        let db = AppDatabase::open_in_memory().expect("in-memory database");
+        let game = sample_game("game-1");
+
+        assert!(db.get_game_by_id("game-1").unwrap().is_none());
+
+        db.insert_game(&game).unwrap();
+        let loaded = db.get_game_by_id("game-1").unwrap().expect("game exists");
+        assert_game_matches(&game, &loaded);
+
+        let all = db.get_all_games().unwrap();
+        assert_eq!(all.len(), 1);
+        assert_game_matches(&game, &all[0]);
+
+        let mut updated = game.clone();
+        updated.title = "Renamed".to_string();
+        updated.is_hidden = false;
+        db.update_game(&updated).unwrap();
+        let reloaded = db.get_game_by_id("game-1").unwrap().expect("game exists");
+        assert_game_matches(&updated, &reloaded);
+
+        db.delete_game("game-1").unwrap();
+        assert!(db.get_game_by_id("game-1").unwrap().is_none());
+        assert!(db.get_all_games().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_playtime_minutes_survive_storage() {
+        let db = AppDatabase::open_in_memory().expect("in-memory database");
+        let game = sample_game("game-2");
+        db.insert_game(&game).unwrap();
+
+        db.add_playtime("game-2", 3600).unwrap();
+        let loaded = db.get_game_by_id("game-2").unwrap().expect("game exists");
+        assert_eq!(loaded.play_time, 125 + 60);
+        assert!(loaded.last_played.is_some());
+
+        let conn = db.lock().unwrap();
+        let seconds: i64 = conn
+            .query_row(
+                "SELECT playtime_seconds FROM games WHERE id = 'game-2'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(seconds, 125 * 60 + 3600);
+        let sessions: i64 = conn
+            .query_row("SELECT COUNT(*) FROM playtime_sessions", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(sessions, 1);
+    }
+
+    #[test]
+    fn test_delete_cascades_playtime_sessions() {
+        let db = AppDatabase::open_in_memory().expect("in-memory database");
+        db.insert_game(&sample_game("game-3")).unwrap();
+        db.add_playtime("game-3", 600).unwrap();
+        db.delete_game("game-3").unwrap();
+
+        let conn = db.lock().unwrap();
+        let sessions: i64 = conn
+            .query_row("SELECT COUNT(*) FROM playtime_sessions", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(sessions, 0);
+    }
+
+    #[test]
+    fn test_vndb_cache_round_trip() {
+        let db = AppDatabase::open_in_memory().expect("in-memory database");
+        assert_eq!(db.get_vndb_cache("vn:v1").unwrap(), None);
+
+        db.set_vndb_cache("vn:v1", "{\"id\":\"v1\"}").unwrap();
+        assert_eq!(
+            db.get_vndb_cache("vn:v1").unwrap(),
+            Some("{\"id\":\"v1\"}".to_string())
+        );
+
+        db.set_vndb_cache("vn:v1", "{\"id\":\"v1b\"}").unwrap();
+        assert_eq!(
+            db.get_vndb_cache("vn:v1").unwrap(),
+            Some("{\"id\":\"v1b\"}".to_string())
+        );
+
+        db.delete_vndb_cache("vn:v1").unwrap();
+        assert_eq!(db.get_vndb_cache("vn:v1").unwrap(), None);
+
+        db.set_vndb_cache("vn:v1", "a").unwrap();
+        db.set_vndb_cache("chars:v1", "b").unwrap();
+        db.clear_vndb_cache().unwrap();
+        assert_eq!(db.get_vndb_cache("vn:v1").unwrap(), None);
+        assert_eq!(db.get_vndb_cache("chars:v1").unwrap(), None);
+    }
 }

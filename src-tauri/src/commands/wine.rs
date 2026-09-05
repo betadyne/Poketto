@@ -1,6 +1,6 @@
 use tauri::State;
 
-use crate::database::{save_games, save_settings};
+use crate::database::{save_settings, AppDatabase};
 use crate::error::{AppError, AppResult};
 use crate::models::{WineSettings, WineVersion};
 use crate::state::AppState;
@@ -107,18 +107,16 @@ pub fn get_default_prefix_path(game_id: String) -> String {
 pub fn save_game_wine_settings(
     game_id: String,
     wine_settings: WineSettings,
-    state: State<AppState>,
+    db: State<AppDatabase>,
 ) -> AppResult<()> {
-    let mut games = state.games.lock();
-
-    let game = games
-        .iter_mut()
-        .find(|g| g.id == game_id)
+    let mut game = db
+        .get_game_by_id(&game_id)
+        .map_err(AppError::Database)?
         .ok_or_else(|| AppError::NotFound("Game not found".into()))?;
 
     game.wine_settings = Some(wine_settings);
 
-    save_games(&games)?;
+    db.update_game(&game).map_err(AppError::Database)?;
 
     Ok(())
 }

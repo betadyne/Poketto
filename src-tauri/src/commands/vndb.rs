@@ -1,9 +1,6 @@
-use redb::ReadableTable;
 use tauri::State;
 
-use crate::database::{
-    disk_cache_get_async, disk_cache_set_async, save_settings, CHAR_CACHE, VN_CACHE,
-};
+use crate::database::{save_settings, AppDatabase, CHAR_CACHE_PREFIX, VN_CACHE_PREFIX};
 use crate::error::{AppError, AppResult};
 use crate::models::{
     VndbAuthInfo, VndbCharacter, VndbResponse, VndbSearchResult, VndbUserListItem, VndbVnDetail,
@@ -42,6 +39,45 @@ async fn vndb_authenticated_patch(
     Ok(())
 }
 
+fn vn_cache_key(vndb_id: &str) -> String {
+    format!("{VN_CACHE_PREFIX}{vndb_id}")
+}
+
+fn char_cache_key(vndb_id: &str) -> String {
+    format!("{CHAR_CACHE_PREFIX}{vndb_id}")
+}
+
+fn read_json_cache<T: serde::de::DeserializeOwned + Clone>(
+    db: &AppDatabase,
+    key: &str,
+) -> Option<T> {
+    match db.get_vndb_cache(key) {
+        Ok(Some(json)) => match serde_json::from_str(&json) {
+            Ok(value) => Some(value),
+            Err(e) => {
+                log::warn!("Discarding corrupt VNDB cache entry {key}: {e}");
+                None
+            }
+        },
+        Ok(None) => None,
+        Err(e) => {
+            log::warn!("VNDB disk cache read failed: {e}");
+            None
+        }
+    }
+}
+
+fn write_json_cache<T: serde::Serialize>(db: &AppDatabase, key: &str, value: &T) {
+    match serde_json::to_string(value) {
+        Ok(json) => {
+            if let Err(e) = db.set_vndb_cache(key, &json) {
+                log::warn!("VNDB disk cache write failed: {e}");
+            }
+        }
+        Err(e) => log::warn!("VNDB cache serialization failed: {e}"),
+    }
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn search_vndb(
@@ -72,6 +108,7 @@ pub async fn fetch_vndb_detail(
     vndb_id: String,
     force_refresh: Option<bool>,
     state: State<'_, AppState>,
+    db: State<'_, AppDatabase>,
 ) -> AppResult<VndbVnDetail> {
     let refresh = force_refresh.unwrap_or(false);
 
@@ -82,14 +119,7 @@ pub async fn fetch_vndb_detail(
     }
 
     if !refresh {
-        let cached = disk_cache_get_async::<VndbVnDetail>(
-            state.db.clone(),
-            VN_CACHE,
-            vndb_id.clone(),
-        )
-        .await;
-
-        if let Some(cached) = cached {
+        if let Some(cached) = read_json_cache::<VndbVnDetail>(&db, &vn_cache_key(&vndb_id)) {
             state
                 .vn_mem_cache
                 .lock()
@@ -124,12 +154,7 @@ pub async fn fetch_vndb_detail(
         .lock()
         .insert(vndb_id.clone(), detail.clone());
 
-    disk_cache_set_async(
-        state.db.clone(),
-        VN_CACHE,
-        vndb_id.clone(),
-        detail.clone(),
-    );
+    write_json_cache(&db, &vn_cache_key(&vndb_id), &detail);
 
     Ok(detail)
 }
@@ -140,6 +165,7 @@ pub async fn fetch_vndb_characters(
     vndb_id: String,
     force_refresh: Option<bool>,
     state: State<'_, AppState>,
+    db: State<'_, AppDatabase>,
 ) -> AppResult<Vec<VndbCharacter>> {
     let refresh = force_refresh.unwrap_or(false);
 
@@ -150,14 +176,8 @@ pub async fn fetch_vndb_characters(
     }
 
     if !refresh {
-        let cached = disk_cache_get_async::<Vec<VndbCharacter>>(
-            state.db.clone(),
-            CHAR_CACHE,
-            vndb_id.clone(),
-        )
-        .await;
-
-        if let Some(cached) = cached {
+        if let Some(cached) = read_json_cache::<Vec<VndbCharacter>>(&db, &char_cache_key(&vndb_id))
+        {
             state
                 .char_mem_cache
                 .lock()
@@ -188,75 +208,36 @@ pub async fn fetch_vndb_characters(
         .lock()
         .insert(vndb_id.clone(), chars.clone());
 
-    disk_cache_set_async(
-        state.db.clone(),
-        CHAR_CACHE,
-        vndb_id.clone(),
-        chars.clone(),
-    );
+    write_json_cache(&db, &char_cache_key(&vndb_id), &chars);
 
     Ok(chars)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn clear_vndb_cache(vndb_id: String, state: State<AppState>) -> AppResult<()> {
+pub fn clear_vndb_cache(
+    vndb_id: String,
+    state: State<AppState>,
+    db: State<AppDatabase>,
+) -> AppResult<()> {
     state.vn_mem_cache.lock().remove(&vndb_id);
     state.char_mem_cache.lock().remove(&vndb_id);
 
-    if let Some(ref db) = state.db {
-        if let Ok(write_txn) = db.begin_write() {
-            if let Ok(mut t) = write_txn.open_table(VN_CACHE) {
-                let _ = t.remove(vndb_id.as_str());
-            }
-            if let Ok(mut t) = write_txn.open_table(CHAR_CACHE) {
-                let _ = t.remove(vndb_id.as_str());
-            }
-            let _ = write_txn.commit();
-        }
-    }
+    db.delete_vndb_cache(&vn_cache_key(&vndb_id))
+        .map_err(AppError::Database)?;
+    db.delete_vndb_cache(&char_cache_key(&vndb_id))
+        .map_err(AppError::Database)?;
     Ok(())
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn clear_all_cache(state: State<AppState>) -> AppResult<()> {
+pub fn clear_all_cache(state: State<AppState>, db: State<AppDatabase>) -> AppResult<()> {
     state.vn_mem_cache.lock().clear();
     state.char_mem_cache.lock().clear();
 
-    if let Some(ref db) = state.db {
-        let write_txn = db.begin_write()?;
-        {
-            if let Ok(mut table) = write_txn.open_table(VN_CACHE) {
-                let keys: Vec<String> = table
-                    .iter()
-                    .map_err(|e: redb::StorageError| AppError::Database(e.to_string()))?
-                    .filter_map(|entry: Result<(redb::AccessGuard<'_, &str>, redb::AccessGuard<'_, &[u8]>), redb::StorageError>| {
-                        entry.ok().map(|(k, _)| k.value().to_string())
-                    })
-                    .collect();
-                for key in keys {
-                    let _ = table.remove(key.as_str());
-                }
-            }
-        }
-        {
-            if let Ok(mut table) = write_txn.open_table(CHAR_CACHE) {
-                let keys: Vec<String> = table
-                    .iter()
-                    .map_err(|e: redb::StorageError| AppError::Database(e.to_string()))?
-                    .filter_map(|entry: Result<(redb::AccessGuard<'_, &str>, redb::AccessGuard<'_, &[u8]>), redb::StorageError>| {
-                        entry.ok().map(|(k, _)| k.value().to_string())
-                    })
-                    .collect();
-                for key in keys {
-                    let _ = table.remove(key.as_str());
-                }
-            }
-        }
-        write_txn.commit()?;
-        log::info!("VNDB cache cleared successfully");
-    }
+    db.clear_vndb_cache().map_err(AppError::Database)?;
+    log::info!("VNDB cache cleared successfully");
     Ok(())
 }
 

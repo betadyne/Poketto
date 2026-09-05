@@ -4,11 +4,13 @@ use std::time::Instant;
 use tauri::{Emitter, Manager, State};
 use tokio::task;
 
-use crate::database::{disk_cache_get, get_current_timestamp, record_daily_playtime, save_games, VN_CACHE};
+use crate::database::{record_daily_playtime, AppDatabase, VN_CACHE_PREFIX};
 use crate::discord;
-use crate::models::VndbVnDetail;
 use crate::error::{AppError, AppResult};
-use crate::models::{AppSettings, GameExitedPayload, GameMetadata, GameType, RunningGame, WineSettings, WineType};
+use crate::models::VndbVnDetail;
+use crate::models::{
+    AppSettings, GameExitedPayload, GameMetadata, GameType, RunningGame, WineSettings, WineType,
+};
 use crate::state::AppState;
 
 #[cfg(target_os = "linux")]
@@ -24,15 +26,12 @@ pub fn launch_game(
     id: String,
     app_handle: tauri::AppHandle,
     state: State<AppState>,
+    db: State<AppDatabase>,
 ) -> AppResult<()> {
-    let game = {
-        let games = state.games.lock();
-        games
-            .iter()
-            .find(|g| g.id == id)
-            .cloned()
-            .ok_or_else(|| AppError::NotFound("Game not found".into()))?
-    };
+    let game = db
+        .get_game_by_id(&id)
+        .map_err(AppError::Database)?
+        .ok_or_else(|| AppError::NotFound("Game not found".into()))?;
 
     let path = PathBuf::from(&game.path);
 
@@ -73,28 +72,34 @@ pub fn launch_game(
         let developer = game.vndb_id.as_ref().and_then(|vndb_id| {
             let mut mem_cache = state.vn_mem_cache.lock();
             if let Some(vn) = mem_cache.get(vndb_id) {
-                return vn.developers.as_ref().and_then(|devs| {
-                    devs.first().map(|d| d.name.clone())
-                });
+                return vn
+                    .developers
+                    .as_ref()
+                    .and_then(|devs| devs.first().map(|d| d.name.clone()));
             }
 
-            if let Some(cached) = disk_cache_get::<VndbVnDetail>(
-                state.db.as_ref(),
-                VN_CACHE,
-                vndb_id,
-            ) {
-                let developer_name = cached.developers.as_ref().and_then(|devs| {
-                    devs.first().map(|d| d.name.clone())
-                });
-                mem_cache.insert(vndb_id.clone(), cached);
-                return developer_name;
+            if let Ok(Some(json)) = db.get_vndb_cache(&format!("{VN_CACHE_PREFIX}{vndb_id}")) {
+                if let Ok(cached) = serde_json::from_str::<VndbVnDetail>(&json) {
+                    let developer_name = cached
+                        .developers
+                        .as_ref()
+                        .and_then(|devs| devs.first().map(|d| d.name.clone()));
+                    mem_cache.insert(vndb_id.clone(), cached);
+                    return developer_name;
+                }
             }
 
             None
         });
 
-        let vndb_game_url = game.vndb_id.as_ref().map(|id| format!("https://vndb.org/{}", id));
-        let vndb_profile_url = settings.vndb_user_id.as_ref().map(|id| format!("https://vndb.org/{}", id));
+        let vndb_game_url = game
+            .vndb_id
+            .as_ref()
+            .map(|id| format!("https://vndb.org/{}", id));
+        let vndb_profile_url = settings
+            .vndb_user_id
+            .as_ref()
+            .map(|id| format!("https://vndb.org/{}", id));
         const GITHUB_URL: &str = "https://github.com/betadyne/Poketto";
 
         let mut buttons: Vec<(&str, String)> = Vec::new();
@@ -118,7 +123,10 @@ pub fn launch_game(
             .map(|(label, url)| (*label, url.as_str()))
             .collect();
 
-        log::info!("Discord RPC buttons: {:?}", button_refs.iter().map(|(l, _)| *l).collect::<Vec<_>>());
+        log::info!(
+            "Discord RPC buttons: {:?}",
+            button_refs.iter().map(|(l, _)| *l).collect::<Vec<_>>()
+        );
 
         let _ = state.discord_rpc.set_activity(
             &game_title,
@@ -136,21 +144,15 @@ pub fn launch_game(
         let exit_result = task::spawn_blocking(move || child.wait()).await;
 
         let minutes = start_time.elapsed().as_secs() / 60;
+        let db = app_handle_clone.state::<AppDatabase>();
         let state = app_handle_clone.state::<AppState>();
 
         if let Err(e) = state.discord_rpc.clear_activity() {
             log::warn!("Failed to clear Discord activity: {}", e);
         }
-
-        {
-            let mut games = state.games.lock();
-            if let Some(g) = games.iter_mut().find(|g| g.id == game_id) {
-                g.play_time += minutes;
-                g.last_played = Some(get_current_timestamp());
-                if let Err(e) = save_games(&games) {
-                    log::error!("Failed to save game playtime: {}", e);
-                }
-            }
+        let seconds = minutes.saturating_mul(60).min(i64::MAX as u64) as i64;
+        if let Err(e) = db.add_playtime(&game_id, seconds) {
+            log::error!("Failed to save game playtime: {e}");
         }
 
         record_daily_playtime(&game_id, minutes);
@@ -269,25 +271,25 @@ fn spawn_wine_linux(
         .or_else(|| wine::get_default_wine().map(|w| w.binary_path))
         .ok_or_else(|| {
             AppError::ProcessLaunch(
-                "No Wine installation found. Please install Wine or configure Wine settings.".into(),
+                "No Wine installation found. Please install Wine or configure Wine settings."
+                    .into(),
             )
         })?;
 
     let prefix_path = if wine_settings.use_global_prefix {
-        app_settings
-            .default_wine_prefix
-            .clone()
-            .unwrap_or_else(|| wine::get_global_prefix_path().to_str().unwrap_or("").to_string())
+        app_settings.default_wine_prefix.clone().unwrap_or_else(|| {
+            wine::get_global_prefix_path()
+                .to_str()
+                .unwrap_or("")
+                .to_string()
+        })
     } else {
-        wine_settings
-            .wine_prefix
-            .clone()
-            .unwrap_or_else(|| {
-                wine::get_default_prefix_path(&game.id)
-                    .to_str()
-                    .unwrap_or("")
-                    .to_string()
-            })
+        wine_settings.wine_prefix.clone().unwrap_or_else(|| {
+            wine::get_default_prefix_path(&game.id)
+                .to_str()
+                .unwrap_or("")
+                .to_string()
+        })
     };
 
     let prefix_dir = Path::new(&prefix_path);
@@ -305,11 +307,27 @@ fn spawn_wine_linux(
     );
 
     let child = match wine_type {
-        WineType::Wine | WineType::WineGE | WineType::WineStaging | WineType::WineTKG | WineType::Lutris | WineType::Bottles | WineType::Custom => {
-            build_wine_command(&wine_binary, &prefix_path, path, use_steam_runtime, &wine_settings)?
-        }
+        WineType::Wine
+        | WineType::WineGE
+        | WineType::WineStaging
+        | WineType::WineTKG
+        | WineType::Lutris
+        | WineType::Bottles
+        | WineType::Custom => build_wine_command(
+            &wine_binary,
+            &prefix_path,
+            path,
+            use_steam_runtime,
+            &wine_settings,
+        )?,
         WineType::Proton | WineType::ProtonGE | WineType::ProtonCachyOS | WineType::ProtonTKG => {
-            build_proton_command(&wine_binary, &prefix_path, path, use_steam_runtime, &wine_settings)?
+            build_proton_command(
+                &wine_binary,
+                &prefix_path,
+                path,
+                use_steam_runtime,
+                &wine_settings,
+            )?
         }
     };
 
@@ -412,11 +430,7 @@ fn map_spawn_error(e: std::io::Error, path: &Path) -> AppError {
             "Permission denied: cannot execute {}",
             path.display()
         )),
-        _ => AppError::ProcessLaunch(format!(
-            "Failed to launch game: {} ({})",
-            e,
-            path.display()
-        )),
+        _ => AppError::ProcessLaunch(format!("Failed to launch game: {} ({})", e, path.display())),
     }
 }
 
@@ -426,20 +440,16 @@ fn map_spawn_error(e: std::io::Error, path: &Path) -> AppError {
 
 #[tauri::command]
 #[specta::specta]
-pub fn stop_tracking(state: State<AppState>) -> AppResult<u64> {
+pub fn stop_tracking(state: State<AppState>, db: State<AppDatabase>) -> AppResult<u64> {
     let mut running = state.running_game.lock();
     if let Some(game) = running.take() {
         let elapsed = game.start_time.elapsed();
         let minutes = elapsed.as_secs() / 60;
         let game_id = game.id.clone();
 
-        let mut games = state.games.lock();
-        if let Some(g) = games.iter_mut().find(|g| g.id == game_id) {
-            g.play_time += minutes;
-            g.last_played = Some(get_current_timestamp());
-            save_games(&games)?;
-        }
-        drop(games);
+        let seconds = minutes.saturating_mul(60).min(i64::MAX as u64) as i64;
+        db.add_playtime(&game_id, seconds)
+            .map_err(AppError::Database)?;
 
         record_daily_playtime(&game_id, minutes);
 

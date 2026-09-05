@@ -1,6 +1,6 @@
+use database::{create_http_client, load_settings, AppDatabase};
 use parking_lot::Mutex;
 use std::collections::HashMap;
-use std::sync::Arc;
 
 mod commands;
 mod database;
@@ -11,22 +11,16 @@ mod state;
 mod wine;
 
 use commands::*;
-use database::{create_cache_db, create_http_client, load_games, load_settings};
 use models::*;
 use state::AppState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let db = create_cache_db().map(Arc::new);
-
-    let games = match load_games() {
-        Ok(g) => {
-            log::info!("Loaded {} games from storage", g.len());
-            g
-        }
+    let app_db = match AppDatabase::open() {
+        Ok(db) => db,
         Err(e) => {
-            log::error!("Error loading games, starting with empty library: {}", e);
-            Vec::new()
+            log::error!("Failed to open database, falling back to in-memory storage: {e}");
+            AppDatabase::open_in_memory().expect("in-memory database must open")
         }
     };
 
@@ -38,14 +32,12 @@ pub fn run() {
     let wine_versions = Vec::new();
 
     let state = AppState {
-        games: Mutex::new(games),
         running_game: Mutex::new(None),
         settings: Mutex::new(load_settings()),
         vn_mem_cache: Mutex::new(HashMap::new()),
         char_mem_cache: Mutex::new(HashMap::new()),
         wine_versions: Mutex::new(wine_versions),
         http_client,
-        db,
         discord_rpc: discord::DiscordRpc::new(),
     };
 
@@ -126,6 +118,7 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .invoke_handler(builder.invoke_handler())
         .manage(state)
+        .manage(app_db)
         .setup(move |app| {
             builder.mount_events(app);
             app.handle().plugin(
