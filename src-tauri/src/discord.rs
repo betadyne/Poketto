@@ -62,10 +62,8 @@ impl DiscordRpc {
         buttons: Vec<(&str, &str)>,
         start_timestamp: u64,
     ) -> Result<(), String> {
-        if !self.connected.load(Ordering::Acquire) {
-            if self.connect().is_err() {
-                return Ok(());
-            }
+        if !self.connected.load(Ordering::Acquire) && self.connect().is_err() {
+            return Ok(());
         }
 
         let mut client_guard = self.client.lock();

@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection, OptionalExtension, Row};
+use rusqlite::{named_params, params, Connection, OptionalExtension, Row};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -64,214 +64,191 @@ impl AppDatabase {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
-        let conn = Connection::open(path).map_err(|e| AppError::Database(e.to_string()))?;
+        let conn = Connection::open(path)?;
         let db = Self {
             conn: Mutex::new(conn),
         };
-        db.apply_pragmas().map_err(AppError::Database)?;
-        db.apply_schema().map_err(AppError::Database)?;
-        db.import_games_json_once().map_err(AppError::Database)?;
+        db.apply_pragmas()?;
+        db.apply_schema()?;
+        db.import_games_json_once()?;
         Ok(db)
     }
 
     pub fn open_in_memory() -> AppResult<Self> {
-        let conn = Connection::open_in_memory().map_err(|e| AppError::Database(e.to_string()))?;
+        let conn = Connection::open_in_memory()?;
         let db = Self {
             conn: Mutex::new(conn),
         };
-        db.apply_pragmas().map_err(AppError::Database)?;
-        db.apply_schema().map_err(AppError::Database)?;
+        db.apply_pragmas()?;
+        db.apply_schema()?;
         Ok(db)
     }
 
-    fn lock(&self) -> Result<MutexGuard<'_, Connection>, String> {
+    fn lock(&self) -> AppResult<MutexGuard<'_, Connection>> {
         self.conn
             .lock()
-            .map_err(|e| format!("database lock poisoned: {e}"))
+            .map_err(|e| AppError::Database(format!("database lock poisoned: {e}")))
     }
 
-    fn apply_pragmas(&self) -> Result<(), String> {
+    fn apply_pragmas(&self) -> AppResult<()> {
         let conn = self.lock()?;
         conn.execute_batch(
             "PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA synchronous = NORMAL;",
-        )
-        .map_err(|e| e.to_string())
+        )?;
+        Ok(())
     }
 
-    fn apply_schema(&self) -> Result<(), String> {
+    fn apply_schema(&self) -> AppResult<()> {
         let conn = self.lock()?;
-        conn.execute_batch(SCHEMA_SQL).map_err(|e| e.to_string())
+        conn.execute_batch(SCHEMA_SQL)?;
+        Ok(())
     }
 
-    fn import_games_json_once(&self) -> Result<(), String> {
-        let imported: bool = {
-            let conn = self.lock()?;
-            conn.query_row(
+    fn import_games_json_once(&self) -> AppResult<()> {
+        let mut conn = self.lock()?;
+        let imported: bool = conn
+            .query_row(
                 "SELECT value FROM schema_meta WHERE key = ?1",
                 params![GAMES_JSON_IMPORTED],
                 |row| row.get::<_, String>(0),
             )
-            .optional()
-            .map_err(|e| e.to_string())?
-            .is_some()
-        };
+            .optional()?
+            .is_some();
         if imported {
             return Ok(());
         }
 
-        let existing: i64 = {
-            let conn = self.lock()?;
-            conn.query_row("SELECT COUNT(*) FROM games", [], |row| row.get(0))
-                .map_err(|e| e.to_string())?
-        };
+        let existing: i64 = conn.query_row("SELECT COUNT(*) FROM games", [], |row| row.get(0))?;
+        let tx = conn.transaction()?;
         if existing == 0 {
             let games = read_legacy_games_json();
+            let created_at = now_epoch();
+            for game in &games {
+                insert_game_row(&tx, game, created_at)?;
+            }
             if !games.is_empty() {
-                let conn = self.lock()?;
-                let created_at = now_epoch();
-                for game in &games {
-                    insert_game_row(&conn, game, created_at).map_err(|e| e.to_string())?;
-                }
                 log::info!("Imported {} games from games.json", games.len());
             }
         }
-
-        let conn = self.lock()?;
-        conn.execute(
+        tx.execute(
             "INSERT OR REPLACE INTO schema_meta (key, value) VALUES (?1, '1')",
             params![GAMES_JSON_IMPORTED],
-        )
-        .map_err(|e| e.to_string())?;
+        )?;
+        tx.commit()?;
         Ok(())
     }
 
-    pub fn get_all_games(&self) -> Result<Vec<GameMetadata>, String> {
+    pub fn get_all_games(&self) -> AppResult<Vec<GameMetadata>> {
         let conn = self.lock()?;
-        let mut stmt = conn
-            .prepare(&format!("SELECT {GAME_COLUMNS} FROM games ORDER BY rowid"))
-            .map_err(|e| e.to_string())?;
+        let mut stmt = conn.prepare(&format!("SELECT {GAME_COLUMNS} FROM games ORDER BY rowid"))?;
         let rows = stmt
-            .query_map([], game_from_row)
-            .map_err(|e| e.to_string())?
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| e.to_string())?;
+            .query_map([], game_from_row)?
+            .collect::<Result<Vec<_>, _>>()?;
         Ok(rows)
     }
 
-    pub fn get_game_by_id(&self, id: &str) -> Result<Option<GameMetadata>, String> {
+    pub fn get_game_by_id(&self, id: &str) -> AppResult<Option<GameMetadata>> {
         let conn = self.lock()?;
-        conn.query_row(
-            &format!("SELECT {GAME_COLUMNS} FROM games WHERE id = ?1"),
-            params![id],
-            game_from_row,
-        )
-        .optional()
-        .map_err(|e| e.to_string())
+        Ok(conn
+            .query_row(
+                &format!("SELECT {GAME_COLUMNS} FROM games WHERE id = ?1"),
+                params![id],
+                game_from_row,
+            )
+            .optional()?)
     }
 
-    pub fn insert_game(&self, game: &GameMetadata) -> Result<(), String> {
+    pub fn insert_game(&self, game: &GameMetadata) -> AppResult<()> {
         let conn = self.lock()?;
-        insert_game_row(&conn, game, now_epoch()).map_err(|e| e.to_string())
+        insert_game_row(&conn, game, now_epoch())?;
+        Ok(())
     }
 
-    pub fn update_game(&self, game: &GameMetadata) -> Result<(), String> {
+    pub fn update_game(&self, game: &GameMetadata) -> AppResult<()> {
         let conn = self.lock()?;
         conn.execute(
-            "UPDATE games SET title = ?1, exe_path = ?2, prefix_path = ?3, runner = ?4, \
-             playtime_seconds = ?5, last_played = ?6, cover_path = ?7, vndb_id = ?8, \
-             is_finished = ?9, is_hidden = ?10, show_spoilers = ?11, game_type = ?12, \
-             wine_settings_json = ?13 WHERE id = ?14",
-            params![
-                game.title,
-                game.path,
-                game.wine_settings
-                    .as_ref()
-                    .and_then(|w| w.wine_prefix.clone()),
-                game.wine_settings
-                    .as_ref()
-                    .and_then(|w| w.wine_version.clone()),
-                playtime_minutes_to_seconds(game.play_time),
-                last_played_to_epoch(game.last_played.as_deref()),
-                game.cover_url,
-                game.vndb_id,
-                game.is_finished as i64,
-                game.is_hidden as i64,
-                game.show_spoilers as i64,
-                game.game_type
-                    .as_ref()
-                    .and_then(|t| serde_json::to_string(t).ok()),
-                game.wine_settings
-                    .as_ref()
-                    .and_then(|w| serde_json::to_string(w).ok()),
-                game.id,
-            ],
-        )
-        .map_err(|e| e.to_string())?;
+            "UPDATE games SET title = :title, exe_path = :exe_path, prefix_path = :prefix_path, \
+             runner = :runner, playtime_seconds = :playtime_seconds, last_played = :last_played, \
+             cover_path = :cover_path, vndb_id = :vndb_id, is_finished = :is_finished, \
+             is_hidden = :is_hidden, show_spoilers = :show_spoilers, game_type = :game_type, \
+             wine_settings_json = :wine_settings_json WHERE id = :id",
+            named_params! {
+                ":id": game.id,
+                ":title": game.title,
+                ":exe_path": game.path,
+                ":prefix_path": wine_prefix(game),
+                ":runner": wine_runner(game),
+                ":playtime_seconds": playtime_minutes_to_seconds(game.play_time),
+                ":last_played": last_played_to_epoch(game.last_played.as_deref()),
+                ":cover_path": game.cover_url,
+                ":vndb_id": game.vndb_id,
+                ":is_finished": game.is_finished,
+                ":is_hidden": game.is_hidden,
+                ":show_spoilers": game.show_spoilers,
+                ":game_type": game_type_json(game),
+                ":wine_settings_json": wine_settings_json(game),
+            },
+        )?;
         Ok(())
     }
 
-    pub fn delete_game(&self, id: &str) -> Result<(), String> {
+    pub fn delete_game(&self, id: &str) -> AppResult<()> {
         let conn = self.lock()?;
-        conn.execute("DELETE FROM games WHERE id = ?1", params![id])
-            .map_err(|e| e.to_string())?;
+        conn.execute("DELETE FROM games WHERE id = ?1", params![id])?;
         Ok(())
     }
 
-    pub fn add_playtime(&self, game_id: &str, seconds: i64) -> Result<(), String> {
+    pub fn add_playtime(&self, game_id: &str, seconds: i64) -> AppResult<()> {
         if seconds <= 0 {
             return Ok(());
         }
-        let conn = self.lock()?;
+        let mut conn = self.lock()?;
         let now = now_epoch();
-        let affected = conn
-            .execute(
-                "UPDATE games SET playtime_seconds = playtime_seconds + ?1, last_played = ?2 WHERE id = ?3",
-                params![seconds, now, game_id],
-            )
-            .map_err(|e| e.to_string())?;
+        let tx = conn.transaction()?;
+        let affected = tx.execute(
+            "UPDATE games SET playtime_seconds = playtime_seconds + ?1, last_played = ?2 WHERE id = ?3",
+            params![seconds, now, game_id],
+        )?;
         if affected == 0 {
             return Ok(());
         }
-        conn.execute(
+        tx.execute(
             "INSERT INTO playtime_sessions (game_id, start_time, end_time, duration_seconds) VALUES (?1, ?2, ?3, ?4)",
             params![game_id, now - seconds, now, seconds],
-        )
-        .map_err(|e| e.to_string())?;
+        )?;
+        tx.commit()?;
         Ok(())
     }
 
-    pub fn get_vndb_cache(&self, id: &str) -> Result<Option<String>, String> {
+    pub fn get_vndb_cache(&self, id: &str) -> AppResult<Option<String>> {
         let conn = self.lock()?;
-        conn.query_row(
-            "SELECT data_json FROM vndb_cache WHERE id = ?1",
-            params![id],
-            |row| row.get(0),
-        )
-        .optional()
-        .map_err(|e| e.to_string())
+        Ok(conn
+            .query_row(
+                "SELECT data_json FROM vndb_cache WHERE id = ?1",
+                params![id],
+                |row| row.get(0),
+            )
+            .optional()?)
     }
 
-    pub fn set_vndb_cache(&self, id: &str, json: &str) -> Result<(), String> {
+    pub fn set_vndb_cache(&self, id: &str, json: &str) -> AppResult<()> {
         let conn = self.lock()?;
         conn.execute(
             "INSERT OR REPLACE INTO vndb_cache (id, data_json, updated_at) VALUES (?1, ?2, ?3)",
             params![id, json, now_epoch()],
-        )
-        .map_err(|e| e.to_string())?;
+        )?;
         Ok(())
     }
 
-    pub fn delete_vndb_cache(&self, id: &str) -> Result<(), String> {
+    pub fn delete_vndb_cache(&self, id: &str) -> AppResult<()> {
         let conn = self.lock()?;
-        conn.execute("DELETE FROM vndb_cache WHERE id = ?1", params![id])
-            .map_err(|e| e.to_string())?;
+        conn.execute("DELETE FROM vndb_cache WHERE id = ?1", params![id])?;
         Ok(())
     }
 
-    pub fn clear_vndb_cache(&self) -> Result<(), String> {
+    pub fn clear_vndb_cache(&self) -> AppResult<()> {
         let conn = self.lock()?;
-        conn.execute("DELETE FROM vndb_cache", [])
-            .map_err(|e| e.to_string())?;
+        conn.execute("DELETE FROM vndb_cache", [])?;
         Ok(())
     }
 }
@@ -282,35 +259,55 @@ fn insert_game_row(
     created_at: i64,
 ) -> rusqlite::Result<()> {
     conn.execute(
-        "INSERT INTO games (id, title, exe_path, prefix_path, runner, playtime_seconds, last_played, cover_path, vndb_id, created_at, is_finished, is_hidden, show_spoilers, game_type, wine_settings_json) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
-        params![
-            game.id,
-            game.title,
-            game.path,
-            game.wine_settings
-                .as_ref()
-                .and_then(|w| w.wine_prefix.clone()),
-            game.wine_settings
-                .as_ref()
-                .and_then(|w| w.wine_version.clone()),
-            playtime_minutes_to_seconds(game.play_time),
-            last_played_to_epoch(game.last_played.as_deref()),
-            game.cover_url,
-            game.vndb_id,
-            created_at,
-            game.is_finished as i64,
-            game.is_hidden as i64,
-            game.show_spoilers as i64,
-            game.game_type
-                .as_ref()
-                .and_then(|t| serde_json::to_string(t).ok()),
-            game.wine_settings
-                .as_ref()
-                .and_then(|w| serde_json::to_string(w).ok()),
-        ],
+        "INSERT INTO games (id, title, exe_path, prefix_path, runner, playtime_seconds, \
+         last_played, cover_path, vndb_id, created_at, is_finished, is_hidden, show_spoilers, \
+         game_type, wine_settings_json) \
+         VALUES (:id, :title, :exe_path, :prefix_path, :runner, :playtime_seconds, \
+         :last_played, :cover_path, :vndb_id, :created_at, :is_finished, :is_hidden, \
+         :show_spoilers, :game_type, :wine_settings_json)",
+        named_params! {
+            ":id": game.id,
+            ":title": game.title,
+            ":exe_path": game.path,
+            ":prefix_path": wine_prefix(game),
+            ":runner": wine_runner(game),
+            ":playtime_seconds": playtime_minutes_to_seconds(game.play_time),
+            ":last_played": last_played_to_epoch(game.last_played.as_deref()),
+            ":cover_path": game.cover_url,
+            ":vndb_id": game.vndb_id,
+            ":created_at": created_at,
+            ":is_finished": game.is_finished,
+            ":is_hidden": game.is_hidden,
+            ":show_spoilers": game.show_spoilers,
+            ":game_type": game_type_json(game),
+            ":wine_settings_json": wine_settings_json(game),
+        },
     )?;
     Ok(())
+}
+
+fn wine_prefix(game: &GameMetadata) -> Option<String> {
+    game.wine_settings
+        .as_ref()
+        .and_then(|w| w.wine_prefix.clone())
+}
+
+fn wine_runner(game: &GameMetadata) -> Option<String> {
+    game.wine_settings
+        .as_ref()
+        .and_then(|w| w.wine_version.clone())
+}
+
+fn game_type_json(game: &GameMetadata) -> Option<String> {
+    game.game_type
+        .as_ref()
+        .and_then(|t| serde_json::to_string(t).ok())
+}
+
+fn wine_settings_json(game: &GameMetadata) -> Option<String> {
+    game.wine_settings
+        .as_ref()
+        .and_then(|w| serde_json::to_string(w).ok())
 }
 
 fn game_from_row(row: &Row) -> rusqlite::Result<GameMetadata> {

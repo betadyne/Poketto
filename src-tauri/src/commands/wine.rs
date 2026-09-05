@@ -110,13 +110,12 @@ pub fn save_game_wine_settings(
     db: State<AppDatabase>,
 ) -> AppResult<()> {
     let mut game = db
-        .get_game_by_id(&game_id)
-        .map_err(AppError::Database)?
+        .get_game_by_id(&game_id)?
         .ok_or_else(|| AppError::NotFound("Game not found".into()))?;
 
     game.wine_settings = Some(wine_settings);
 
-    db.update_game(&game).map_err(AppError::Database)?;
+    db.update_game(&game)?;
 
     Ok(())
 }
@@ -158,7 +157,7 @@ pub fn is_steam_runtime_available() -> bool {
 pub fn validate_wine_binary(binary_path: String) -> AppResult<String> {
     #[cfg(target_os = "linux")]
     {
-        wine::validate_wine_binary(&binary_path).map_err(|e| AppError::ProcessLaunch(e))
+        wine::validate_wine_binary(&binary_path).map_err(AppError::ProcessLaunch)
     }
     #[cfg(not(target_os = "linux"))]
     {

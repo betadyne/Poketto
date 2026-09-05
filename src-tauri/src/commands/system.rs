@@ -29,8 +29,7 @@ pub fn launch_game(
     db: State<AppDatabase>,
 ) -> AppResult<()> {
     let game = db
-        .get_game_by_id(&id)
-        .map_err(AppError::Database)?
+        .get_game_by_id(&id)?
         .ok_or_else(|| AppError::NotFound("Game not found".into()))?;
 
     let path = PathBuf::from(&game.path);
@@ -62,9 +61,6 @@ pub fn launch_game(
         *running = Some(RunningGame {
             id: id.clone(),
             start_time,
-            title: game_title.clone(),
-            cover_url: cover_url.clone(),
-            discord_start_timestamp: discord_start,
         });
     }
 
@@ -293,7 +289,7 @@ fn spawn_wine_linux(
     };
 
     let prefix_dir = Path::new(&prefix_path);
-    wine::ensure_prefix_exists(prefix_dir).map_err(|e| AppError::ProcessLaunch(e))?;
+    wine::ensure_prefix_exists(prefix_dir).map_err(AppError::ProcessLaunch)?;
 
     let wine_type = wine_settings.wine_type.clone().unwrap_or(WineType::Wine);
     let use_steam_runtime = wine_settings.use_steam_runtime || app_settings.use_steam_runtime;
@@ -448,8 +444,7 @@ pub fn stop_tracking(state: State<AppState>, db: State<AppDatabase>) -> AppResul
         let game_id = game.id.clone();
 
         let seconds = minutes.saturating_mul(60).min(i64::MAX as u64) as i64;
-        db.add_playtime(&game_id, seconds)
-            .map_err(AppError::Database)?;
+        db.add_playtime(&game_id, seconds)?;
 
         record_daily_playtime(&game_id, minutes);
 

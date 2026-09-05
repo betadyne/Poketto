@@ -223,10 +223,8 @@ pub fn clear_vndb_cache(
     state.vn_mem_cache.lock().remove(&vndb_id);
     state.char_mem_cache.lock().remove(&vndb_id);
 
-    db.delete_vndb_cache(&vn_cache_key(&vndb_id))
-        .map_err(AppError::Database)?;
-    db.delete_vndb_cache(&char_cache_key(&vndb_id))
-        .map_err(AppError::Database)?;
+    db.delete_vndb_cache(&vn_cache_key(&vndb_id))?;
+    db.delete_vndb_cache(&char_cache_key(&vndb_id))?;
     Ok(())
 }
 
@@ -236,7 +234,7 @@ pub fn clear_all_cache(state: State<AppState>, db: State<AppDatabase>) -> AppRes
     state.vn_mem_cache.lock().clear();
     state.char_mem_cache.lock().clear();
 
-    db.clear_vndb_cache().map_err(AppError::Database)?;
+    db.clear_vndb_cache()?;
     log::info!("VNDB cache cleared successfully");
     Ok(())
 }

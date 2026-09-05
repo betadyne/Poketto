@@ -3,7 +3,7 @@ use tauri::State;
 use uuid::Uuid;
 
 use crate::database::AppDatabase;
-use crate::error::{AppError, AppResult};
+use crate::error::AppResult;
 use crate::models::GameMetadata;
 
 #[tauri::command]
@@ -43,7 +43,7 @@ pub fn add_local_game(path: String, db: State<AppDatabase>) -> AppResult<GameMet
         wine_settings: None,
     };
 
-    db.insert_game(&game).map_err(AppError::Database)?;
+    db.insert_game(&game)?;
 
     Ok(game)
 }
@@ -51,23 +51,23 @@ pub fn add_local_game(path: String, db: State<AppDatabase>) -> AppResult<GameMet
 #[tauri::command]
 #[specta::specta]
 pub fn remove_game(id: String, db: State<AppDatabase>) -> AppResult<()> {
-    db.delete_game(&id).map_err(AppError::Database)?;
+    db.delete_game(&id)?;
     Ok(())
 }
 
 #[tauri::command]
 #[specta::specta]
 pub fn update_game(game: GameMetadata, db: State<AppDatabase>) -> AppResult<()> {
-    db.update_game(&game).map_err(AppError::Database)?;
+    db.update_game(&game)?;
     Ok(())
 }
 
 #[tauri::command]
 #[specta::specta]
 pub fn set_game_hidden(id: String, hidden: bool, db: State<AppDatabase>) -> AppResult<()> {
-    if let Some(mut game) = db.get_game_by_id(&id).map_err(AppError::Database)? {
+    if let Some(mut game) = db.get_game_by_id(&id)? {
         game.is_hidden = hidden;
-        db.update_game(&game).map_err(AppError::Database)?;
+        db.update_game(&game)?;
     }
     Ok(())
 }

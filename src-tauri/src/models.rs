@@ -6,8 +6,9 @@ use std::time::Instant;
 // Wine/Proton Types for Linux Support
 // ============================================================================
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, specta::Type)]
 pub enum WineType {
+    #[default]
     Wine,
     WineGE,
     WineStaging,
@@ -33,22 +34,11 @@ pub enum WineSource {
     Custom,
 }
 
-impl Default for WineType {
-    fn default() -> Self {
-        WineType::Wine
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, specta::Type)]
 pub enum GameType {
+    #[default]
     WindowsExe,
     LinuxNative,
-}
-
-impl Default for GameType {
-    fn default() -> Self {
-        GameType::WindowsExe
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
@@ -250,9 +240,6 @@ pub struct GameExitedPayload {
 pub struct RunningGame {
     pub id: String,
     pub start_time: Instant,
-    pub title: String,
-    pub cover_url: Option<String>,
-    pub discord_start_timestamp: u64,
 }
 
 #[cfg(test)]

@@ -102,7 +102,7 @@ mod tests {
 
         #[test]
         fn test_preserves_error_message() {
-            let io_err = IoError::new(ErrorKind::Other, "custom error message");
+            let io_err = IoError::other("custom error message");
             let app_err: AppError = io_err.into();
 
             assert!(app_err.to_string().contains("custom error message"));
