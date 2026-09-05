@@ -11,7 +11,7 @@ export component LibraryView inherits Rectangle {
     in-out property <int> active-filter;
     in property <bool> blur-nsfw;
     in property <bool> show-hidden: false;
-    in property <int> columns: Math.max(1, Math.floor((root.width / 1px - 80) / 215));
+    in property <int> columns: Math.max(1, Math.floor((root.width / 1px - 64) / 215));
     property <bool> list-mode: false;
 
     callback game-clicked(string);
@@ -76,7 +76,7 @@ export component LibraryView inherits Rectangle {
 
         VerticalLayout {
             padding-left: 32px;
-            padding-right: 32px + 16px;
+            padding-right: 32px;
             padding-top: 14px;
             padding-bottom: 32px;
             spacing: 0;
@@ -152,30 +152,29 @@ export component LibraryView inherits Rectangle {
                             spacing: 2px;
 
                             for label[i] in ["Sort by Name", "Title Z-A", "Most Played", "Recently Played"] : Rectangle {
-                                height: 32px;
+                                height: 34px;
                                 background: touch-opt.has-hover ? Theme.surface : transparent;
                                 border-radius: 6px;
 
                                 HorizontalLayout {
                                     padding-left: 12px;
                                     padding-right: 12px;
-                                    alignment: center;
+                                    alignment: space-between;
 
                                     Text {
                                         text: label;
                                         color: Theme.text;
                                         font-size: 13px;
+                                        horizontal-alignment: left;
                                         vertical-alignment: center;
-                                        horizontal-stretch: 1;
                                     }
 
-                                    Text {
+                                    if i == root.sort-index : Text {
                                         text: "✓";
                                         color: #10b981;
                                         font-size: 13px;
                                         font-weight: 700;
                                         vertical-alignment: center;
-                                        visible: i == root.sort-index;
                                     }
                                 }
 
@@ -253,30 +252,29 @@ export component LibraryView inherits Rectangle {
                             spacing: 2px;
 
                             for label[i] in ["All", "Unfinished", "Finished", "Hidden"] : Rectangle {
-                                height: 32px;
+                                height: 34px;
                                 background: touch-fopt.has-hover ? Theme.surface : transparent;
                                 border-radius: 6px;
 
                                 HorizontalLayout {
                                     padding-left: 12px;
                                     padding-right: 12px;
-                                    alignment: center;
+                                    alignment: space-between;
 
                                     Text {
                                         text: label;
                                         color: Theme.text;
                                         font-size: 13px;
+                                        horizontal-alignment: left;
                                         vertical-alignment: center;
-                                        horizontal-stretch: 1;
                                     }
 
-                                    Text {
+                                    if i == root.active-filter : Text {
                                         text: "✓";
                                         color: #10b981;
                                         font-size: 13px;
                                         font-weight: 700;
                                         vertical-alignment: center;
-                                        visible: i == root.active-filter;
                                     }
                                 }
 
@@ -290,30 +288,29 @@ export component LibraryView inherits Rectangle {
                             }
 
                             Rectangle {
-                                height: 32px;
+                                height: 34px;
                                 background: touch-hidden.has-hover ? Theme.surface : transparent;
                                 border-radius: 6px;
 
                                 HorizontalLayout {
                                     padding-left: 12px;
                                     padding-right: 12px;
-                                    alignment: center;
+                                    alignment: space-between;
 
                                     Text {
                                         text: root.show-hidden ? "Hide Hidden" : "Show Hidden";
                                         color: Theme.text;
                                         font-size: 13px;
+                                        horizontal-alignment: left;
                                         vertical-alignment: center;
-                                        horizontal-stretch: 1;
                                     }
 
-                                    Text {
+                                    if root.show-hidden : Text {
                                         text: "✓";
                                         color: #10b981;
                                         font-size: 13px;
                                         font-weight: 700;
                                         vertical-alignment: center;
-                                        visible: root.show-hidden;
                                     }
                                 }
 
