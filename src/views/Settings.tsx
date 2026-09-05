@@ -8,6 +8,7 @@ import {
   IconRefresh,
 } from "@tabler/icons-solidjs";
 import { useNavigate } from "@solidjs/router";
+import { open } from "@tauri-apps/plugin-shell";
 
 import { useSettings } from "../context";
 import { useUpdater } from "../hooks/useUpdater";
@@ -186,7 +187,13 @@ export function Settings() {
                           </button>
                         </div>
                         <p class="text-xs text-[var(--color-text-tertiary)]">
-                          Get token from vndb.org/u/tokens
+                          Get token from{" "}
+                          <button
+                            onClick={() => open("https://vndb.org/u/tokens")}
+                            class="text-[var(--color-accent)] hover:underline"
+                          >
+                            vndb.org/u/tokens
+                          </button>
                         </p>
                       </div>
                     }
