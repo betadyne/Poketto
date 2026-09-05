@@ -84,11 +84,6 @@ export function GameInfoTab(props: GameInfoTabProps) {
           <h1 class="text-[64px] leading-tight font-extrabold text-[var(--color-text-primary)] tracking-tight">
             {props.game.title}
           </h1>
-          <Show when={props.vnDetail.title.trim() !== props.game.title.trim()}>
-            <p class="text-xl text-[var(--color-text-secondary)] font-light mt-2">
-              {props.vnDetail.title}
-            </p>
-          </Show>
         </div>
 
         <Show when={props.vnDetail.developers?.length}>
