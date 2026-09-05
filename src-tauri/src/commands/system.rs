@@ -4,10 +4,9 @@ use std::time::Instant;
 use tauri::{Emitter, Manager, State};
 use tokio::task;
 
-use crate::database::{record_daily_playtime, AppDatabase, VN_CACHE_PREFIX};
+use crate::database::{record_daily_playtime, AppDatabase};
 use crate::discord;
 use crate::error::{AppError, AppResult};
-use crate::models::VndbVnDetail;
 use crate::models::{
     AppSettings, GameExitedPayload, GameMetadata, GameType, RunningGame, WineSettings, WineType,
 };
@@ -81,28 +80,12 @@ pub fn launch_game(
     }
 
     if settings.discord_rpc_enabled {
-        let developer = game.vndb_id.as_ref().and_then(|vndb_id| {
-            let mut mem_cache = state.vn_mem_cache.lock();
-            if let Some(vn) = mem_cache.get(vndb_id) {
-                return vn
-                    .developers
-                    .as_ref()
-                    .and_then(|devs| devs.first().map(|d| d.name.clone()));
-            }
-
-            if let Ok(Some(json)) = db.get_vndb_cache(&format!("{VN_CACHE_PREFIX}{vndb_id}")) {
-                if let Ok(cached) = serde_json::from_str::<VndbVnDetail>(&json) {
-                    let developer_name = cached
-                        .developers
-                        .as_ref()
-                        .and_then(|devs| devs.first().map(|d| d.name.clone()));
-                    mem_cache.insert(vndb_id.clone(), cached);
-                    return developer_name;
-                }
-            }
-
-            None
-        });
+        let custom_state = game
+            .discord_status
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .unwrap_or("Idle");
 
         let vndb_game_url = game
             .vndb_id
@@ -143,7 +126,7 @@ pub fn launch_game(
         let _ = state.discord_rpc.set_activity(
             &game_title,
             cover_url.as_deref(),
-            developer.as_deref(),
+            custom_state,
             button_refs,
             discord_start,
         );
@@ -647,6 +630,7 @@ mod tests {
                 title: "Test Game".to_string(),
                 vndb_id: Some("v12345".to_string()),
                 steam_app_id: None,
+                discord_status: None,
                 cover_url: None,
                 path: "/path/to/game.exe".to_string(),
                 play_time: 0,

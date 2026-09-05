@@ -58,7 +58,7 @@ impl DiscordRpc {
         &self,
         game_title: &str,
         cover_url: Option<&str>,
-        developer: Option<&str>,
+        custom_state: &str,
         buttons: Vec<(&str, &str)>,
         start_timestamp: u64,
     ) -> Result<(), String> {
@@ -72,10 +72,9 @@ impl DiscordRpc {
             None => return Ok(()),
         };
 
-        let state_text = developer.unwrap_or("Playing Visual Novel");
         let mut activity_builder = activity::Activity::new()
             .details(game_title)
-            .state(state_text)
+            .state(custom_state)
             .activity_type(ActivityType::Playing)
             .status_display_type(StatusDisplayType::Details);
 

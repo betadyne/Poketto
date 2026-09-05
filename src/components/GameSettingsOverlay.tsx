@@ -44,6 +44,7 @@ export interface GameSettingsData {
   title: string;
   vndbId: string | null;
   steamAppId: string | null;
+  discordStatus: string | null;
   coverUrl: string | null;
   executablePath: string;
   gameType: GameType;
@@ -57,6 +58,9 @@ export function GameSettingsOverlay(props: GameSettingsOverlayProps) {
   );
   const [steamAppId, setSteamAppId] = createSignal(
     props.existingGame?.steam_app_id ?? "",
+  );
+  const [discordStatus, setDiscordStatus] = createSignal(
+    props.existingGame?.discord_status ?? "",
   );
   const [vndbSearchQuery, setVndbSearchQuery] = createSignal("");
   const [vndbResults, setVndbResults] = createSignal<VndbSearchResult[]>([]);
@@ -324,6 +328,7 @@ export function GameSettingsOverlay(props: GameSettingsOverlayProps) {
         title: title(),
         vndbId: vndbId(),
         steamAppId: steamAppId().trim() || null,
+        discordStatus: discordStatus().trim() || null,
         coverUrl: coverUrl() || null,
         executablePath: executablePath(),
         gameType,
@@ -695,6 +700,23 @@ export function GameSettingsOverlay(props: GameSettingsOverlayProps) {
                 SteamDB
               </button>
               .
+            </p>
+          </div>
+          <div class="space-y-2">
+            <label class="text-sm font-medium text-[var(--color-text-primary)]">
+              Discord RPC Status
+            </label>
+            <div class="flex gap-2">
+              <input
+                type="text"
+                value={discordStatus()}
+                onInput={(e) => setDiscordStatus(e.currentTarget.value)}
+                placeholder="Idle"
+                class="flex-1 px-3 py-2 bg-[var(--color-bg-secondary)] rounded-lg text-[var(--color-text-primary)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+              />
+            </div>
+            <p class="text-xs text-[var(--color-text-tertiary)]">
+              Optional. Shown in Discord while playing; empty shows Idle.
             </p>
           </div>
         </div>

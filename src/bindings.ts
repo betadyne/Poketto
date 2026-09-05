@@ -77,6 +77,7 @@ export type GameMetadata = {
 	path: string,
 	vndb_id: string | null,
 	steam_app_id?: string | null,
+	discord_status?: string | null,
 	cover_url: string | null,
 	play_time: number,
 	is_finished: boolean,

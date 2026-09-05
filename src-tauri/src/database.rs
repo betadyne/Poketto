@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS games (
     cover_path TEXT,
     vndb_id TEXT,
     steam_app_id TEXT,
+    discord_status TEXT,
     created_at INTEGER NOT NULL,
     is_finished INTEGER NOT NULL DEFAULT 0,
     is_hidden INTEGER NOT NULL DEFAULT 0,
@@ -50,7 +51,7 @@ CREATE TABLE IF NOT EXISTS schema_meta (
 );
 ";
 
-const GAME_COLUMNS: &str = "id, title, exe_path, prefix_path, runner, playtime_seconds, last_played, cover_path, vndb_id, steam_app_id, is_finished, is_hidden, show_spoilers, game_type, wine_settings_json";
+const GAME_COLUMNS: &str = "id, title, exe_path, prefix_path, runner, playtime_seconds, last_played, cover_path, vndb_id, steam_app_id, discord_status, is_finished, is_hidden, show_spoilers, game_type, wine_settings_json";
 
 pub struct AppDatabase {
     pub conn: Mutex<Connection>,
@@ -102,7 +103,8 @@ impl AppDatabase {
     fn apply_schema(&self) -> AppResult<()> {
         let conn = self.lock()?;
         conn.execute_batch(SCHEMA_SQL)?;
-        ensure_games_steam_column(&conn)?;
+        ensure_games_column(&conn, "steam_app_id", "TEXT")?;
+        ensure_games_column(&conn, "discord_status", "TEXT")?;
         Ok(())
     }
 
@@ -172,7 +174,8 @@ impl AppDatabase {
             "UPDATE games SET title = :title, exe_path = :exe_path, prefix_path = :prefix_path, \
              runner = :runner, playtime_seconds = :playtime_seconds, last_played = :last_played, \
              cover_path = :cover_path, vndb_id = :vndb_id, steam_app_id = :steam_app_id, \
-             is_finished = :is_finished, is_hidden = :is_hidden, show_spoilers = :show_spoilers, \
+             discord_status = :discord_status, is_finished = :is_finished, \
+             is_hidden = :is_hidden, show_spoilers = :show_spoilers, \
              game_type = :game_type, wine_settings_json = :wine_settings_json WHERE id = :id",
             named_params! {
                 ":id": game.id,
@@ -185,6 +188,7 @@ impl AppDatabase {
                 ":cover_path": game.cover_url,
                 ":vndb_id": game.vndb_id,
                 ":steam_app_id": game.steam_app_id,
+                ":discord_status": game.discord_status,
                 ":is_finished": game.is_finished,
                 ":is_hidden": game.is_hidden,
                 ":show_spoilers": game.show_spoilers,
@@ -256,14 +260,14 @@ impl AppDatabase {
     }
 }
 
-fn ensure_games_steam_column(conn: &Connection) -> AppResult<()> {
+fn ensure_games_column(conn: &Connection, name: &str, ddl: &str) -> AppResult<()> {
     let names: Vec<String> = conn
         .prepare("PRAGMA table_info(games)")?
         .query_map([], |row| row.get(1))?
         .filter_map(|name| name.ok())
         .collect();
-    if !names.iter().any(|name| name == "steam_app_id") {
-        conn.execute_batch("ALTER TABLE games ADD COLUMN steam_app_id TEXT")?;
+    if !names.iter().any(|existing| existing == name) {
+        conn.execute_batch(&format!("ALTER TABLE games ADD COLUMN {name} {ddl}"))?;
     }
     Ok(())
 }
@@ -275,11 +279,11 @@ fn insert_game_row(
 ) -> rusqlite::Result<()> {
     conn.execute(
         "INSERT INTO games (id, title, exe_path, prefix_path, runner, playtime_seconds, \
-         last_played, cover_path, vndb_id, steam_app_id, created_at, is_finished, is_hidden, \
-         show_spoilers, game_type, wine_settings_json) \
+         last_played, cover_path, vndb_id, steam_app_id, discord_status, created_at, \
+         is_finished, is_hidden, show_spoilers, game_type, wine_settings_json) \
          VALUES (:id, :title, :exe_path, :prefix_path, :runner, :playtime_seconds, \
-         :last_played, :cover_path, :vndb_id, :steam_app_id, :created_at, :is_finished, \
-         :is_hidden, :show_spoilers, :game_type, :wine_settings_json)",
+         :last_played, :cover_path, :vndb_id, :steam_app_id, :discord_status, :created_at, \
+         :is_finished, :is_hidden, :show_spoilers, :game_type, :wine_settings_json)",
         named_params! {
             ":id": game.id,
             ":title": game.title,
@@ -291,6 +295,7 @@ fn insert_game_row(
             ":cover_path": game.cover_url,
             ":vndb_id": game.vndb_id,
             ":steam_app_id": game.steam_app_id,
+            ":discord_status": game.discord_status,
             ":created_at": created_at,
             ":is_finished": game.is_finished,
             ":is_hidden": game.is_hidden,
@@ -337,6 +342,7 @@ fn game_from_row(row: &Row) -> rusqlite::Result<GameMetadata> {
         path: row.get("exe_path")?,
         vndb_id: row.get("vndb_id")?,
         steam_app_id: row.get("steam_app_id")?,
+        discord_status: row.get("discord_status")?,
         cover_url: row.get("cover_path")?,
         play_time: seconds_to_playtime_minutes(playtime_seconds),
         is_finished: row.get::<_, i64>("is_finished")? != 0,
@@ -512,6 +518,7 @@ mod tests {
             path: format!("/games/{id}.exe"),
             vndb_id: Some("v42".to_string()),
             steam_app_id: Some("412830".to_string()),
+            discord_status: Some("Shiro route".to_string()),
             cover_url: Some("https://example.com/cover.jpg".to_string()),
             play_time: 125,
             is_finished: true,
@@ -539,6 +546,7 @@ mod tests {
         assert_eq!(actual.vndb_id, expected.vndb_id);
         assert_eq!(actual.cover_url, expected.cover_url);
         assert_eq!(actual.steam_app_id, expected.steam_app_id);
+        assert_eq!(actual.discord_status, expected.discord_status);
         assert_eq!(actual.play_time, expected.play_time);
         assert_eq!(actual.is_finished, expected.is_finished);
         assert_eq!(actual.is_hidden, expected.is_hidden);
