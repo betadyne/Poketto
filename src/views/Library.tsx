@@ -1,20 +1,20 @@
 import { Show, For, createSignal, createEffect, onCleanup } from "solid-js";
 import {
-  Plus,
-  Gamepad2,
-  Clock,
-  Search,
-  LayoutGrid,
-  List,
-  Library as LibraryIcon,
-  ChevronDown,
-  Filter,
-  User,
-  Check,
-  Settings,
-  ScrollText,
-  LogOut,
-} from "lucide-solid";
+  IconPlus,
+  IconDeviceGamepad2,
+  IconClock,
+  IconSearch,
+  IconLayoutGrid,
+  IconList,
+  IconLibrary as LibraryIcon,
+  IconChevronDown,
+  IconFilter,
+  IconUser,
+  IconCheck,
+  IconSettings,
+  IconNotes as ScrollText,
+  IconLogout as LogOut,
+} from "@tabler/icons-solidjs";
 import { useNavigate } from "@solidjs/router";
 import { GameCard } from "../components/GameCard";
 import type { Game } from "../types";
@@ -97,7 +97,7 @@ export function Library(props: LibraryProps) {
           <nav class="space-y-1">
             <button class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all">
               <div class="w-9 h-9 rounded-lg bg-[var(--color-accent)] flex items-center justify-center">
-                <LibraryIcon class="w-5 h-5 text-white" />
+                <LibraryIcon class="w-5 h-5 text-white" strokeWidth={1.5} />
               </div>
               <span class="font-medium text-[var(--color-text-primary)]">
                 My Games
@@ -113,7 +113,7 @@ export function Library(props: LibraryProps) {
               class="w-full flex items-center gap-3 px-3 py-2.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] rounded-xl transition-all group"
             >
               <div class="w-9 h-9 rounded-lg bg-[var(--color-bg-secondary)] group-hover:bg-[var(--color-border)] flex items-center justify-center transition-colors">
-                <Settings class="w-5 h-5 text-[var(--color-icon)]" />
+                <IconSettings class="w-5 h-5 text-[var(--color-icon)]" strokeWidth={1.5} />
               </div>
               <span class="font-medium">Settings</span>
             </button>
@@ -122,13 +122,13 @@ export function Library(props: LibraryProps) {
               class="w-full flex items-center gap-3 px-3 py-2.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] rounded-xl transition-all group"
             >
               <div class="w-9 h-9 rounded-lg bg-[var(--color-bg-secondary)] group-hover:bg-[var(--color-border)] flex items-center justify-center transition-colors">
-                <ScrollText class="w-5 h-5 text-[var(--color-icon)]" />
+                <ScrollText class="w-5 h-5 text-[var(--color-icon)]" strokeWidth={1.5} />
               </div>
               <span class="font-medium">Logs</span>
             </button>
             <button class="w-full flex items-center gap-3 px-3 py-2.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] rounded-xl transition-all group">
               <div class="w-9 h-9 rounded-lg bg-[var(--color-bg-secondary)] group-hover:bg-[var(--color-border)] flex items-center justify-center transition-colors">
-                <LogOut class="w-5 h-5 text-[var(--color-icon)]" />
+                <LogOut class="w-5 h-5 text-[var(--color-icon)]" strokeWidth={1.5} />
               </div>
               <span class="font-medium">Log out</span>
             </button>
@@ -147,7 +147,7 @@ export function Library(props: LibraryProps) {
           </h2>
 
           <div class="flex-1 max-w-xl relative group">
-            <Search class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--color-icon)] group-focus-within:text-[var(--color-accent)] transition-colors" />
+            <IconSearch class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--color-icon)] group-focus-within:text-[var(--color-accent)] transition-colors" strokeWidth={1.5} />
             <input
               type="text"
               value={props.searchQuery}
@@ -160,7 +160,7 @@ export function Library(props: LibraryProps) {
           <div class="flex items-center gap-4">
             <Show when={props.authUser}>
               <div class="flex items-center gap-2 px-3 py-1.5 bg-[var(--color-bg-secondary)] rounded-xl">
-                <User class="w-4 h-4 text-[var(--color-accent)]" />
+                <IconUser class="w-4 h-4 text-[var(--color-accent)]" strokeWidth={1.5} />
                 <span class="text-sm font-medium text-[var(--color-text-primary)]">
                   {props.authUser}
                 </span>
@@ -173,7 +173,7 @@ export function Library(props: LibraryProps) {
                   onClick={props.onStopTracking}
                   class="flex items-center gap-2 px-4 py-2 bg-[var(--color-danger-light)] text-[var(--color-danger)] hover:bg-[var(--color-danger)] hover:text-white rounded-xl transition-all"
                 >
-                  <Clock class="w-4 h-4 animate-pulse" />
+                  <IconClock class="w-4 h-4 animate-pulse" strokeWidth={1.5} />
                   <span class="text-sm font-bold">Stop Game</span>
                 </button>
               </Show>
@@ -182,7 +182,7 @@ export function Library(props: LibraryProps) {
                 onClick={props.onAddGame}
                 class="flex items-center gap-2 px-4 py-2.5 bg-[var(--color-accent)] text-white font-bold text-sm rounded-xl hover:bg-[var(--color-accent-hover)] transition-all"
               >
-                <Plus class="w-4 h-4" />
+                <IconPlus class="w-4 h-4" strokeWidth={1.5} />
                 <span>Add Game</span>
               </button>
             </div>
@@ -216,8 +216,9 @@ export function Library(props: LibraryProps) {
                   <span class="text-[var(--color-text-primary)] font-medium">
                     {getSortLabel()}
                   </span>
-                  <ChevronDown
+                  <IconChevronDown
                     class={`w-4 h-4 text-[var(--color-icon)] transition-transform ${showSortDropdown() ? "rotate-180" : ""}`}
+                    strokeWidth={1.5}
                   />
                 </button>
 
@@ -238,7 +239,7 @@ export function Library(props: LibraryProps) {
                         >
                           <span>{option.label}</span>
                           <Show when={props.sortBy === option.value}>
-                            <Check class="w-4 h-4 text-[var(--color-success)]" />
+                            <IconCheck class="w-4 h-4 text-[var(--color-success)]" strokeWidth={1.5} />
                           </Show>
                         </button>
                       )}
@@ -260,10 +261,11 @@ export function Library(props: LibraryProps) {
                       : "bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border)]"
                   }`}
                 >
-                  <Filter class="w-4 h-4" />
+                  <IconFilter class="w-4 h-4" strokeWidth={1.5} />
                   <span>Filters</span>
-                  <ChevronDown
+                  <IconChevronDown
                     class={`w-4 h-4 transition-transform ${showFiltersDropdown() ? "rotate-180" : ""}`}
+                    strokeWidth={1.5}
                   />
                 </button>
 
@@ -297,7 +299,7 @@ export function Library(props: LibraryProps) {
                       : "text-[var(--color-icon)] hover:text-[var(--color-text-primary)]"
                   }`}
                 >
-                  <LayoutGrid class="w-4 h-4" />
+                  <IconLayoutGrid class="w-4 h-4" strokeWidth={1.5} />
                 </button>
                 <button
                   onClick={() => setViewMode("list")}
@@ -307,7 +309,7 @@ export function Library(props: LibraryProps) {
                       : "text-[var(--color-icon)] hover:text-[var(--color-text-primary)]"
                   }`}
                 >
-                  <List class="w-4 h-4" />
+                  <IconList class="w-4 h-4" strokeWidth={1.5} />
                 </button>
               </div>
             </div>
@@ -319,7 +321,7 @@ export function Library(props: LibraryProps) {
             when={props.filteredGames.length > 0}
             fallback={
               <div class="flex flex-col items-center justify-center h-64 text-[var(--color-text-tertiary)] border-2 border-dashed border-[var(--color-border)] rounded-3xl">
-                <Gamepad2 class="w-12 h-12 mb-3 opacity-20" />
+                <IconDeviceGamepad2 class="w-12 h-12 mb-3 opacity-20" strokeWidth={1.5} />
                 <p>No games found in this category.</p>
                 <button
                   onClick={props.onAddGame}
@@ -355,7 +357,7 @@ export function Library(props: LibraryProps) {
                             when={game.cover_url}
                             fallback={
                               <div class="w-full h-full flex items-center justify-center">
-                                <Gamepad2 class="w-6 h-6 text-[var(--color-icon)]" />
+                                <IconDeviceGamepad2 class="w-6 h-6 text-[var(--color-icon)]" strokeWidth={1.5} />
                               </div>
                             }
                           >

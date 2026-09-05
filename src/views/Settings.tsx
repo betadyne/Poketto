@@ -1,12 +1,12 @@
 import { Show, For, createSignal, onMount } from "solid-js";
 import {
-  Library as LibraryIcon,
-  Settings as SettingsIcon,
-  ScrollText,
-  LogOut,
-  User,
-  RefreshCw,
-} from "lucide-solid";
+  IconLibrary as LibraryIcon,
+  IconSettings as SettingsIcon,
+  IconNotes as ScrollText,
+  IconLogout as LogOut,
+  IconUser,
+  IconRefresh,
+} from "@tabler/icons-solidjs";
 import { useNavigate } from "@solidjs/router";
 
 import { useSettings } from "../context";
@@ -102,7 +102,7 @@ export function Settings() {
               class="w-full flex items-center gap-3 px-3 py-2.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] rounded-xl transition-all group"
             >
               <div class="w-9 h-9 rounded-lg bg-[var(--color-bg-secondary)] group-hover:bg-[var(--color-border)] flex items-center justify-center transition-colors">
-                <LibraryIcon class="w-5 h-5 text-[var(--color-icon)]" />
+                <LibraryIcon class="w-5 h-5 text-[var(--color-icon)]" strokeWidth={1.5} />
               </div>
               <span class="font-medium">My Games</span>
             </button>
@@ -113,7 +113,7 @@ export function Settings() {
           <nav class="space-y-1">
             <button class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all">
               <div class="w-9 h-9 rounded-lg bg-[var(--color-accent)] flex items-center justify-center">
-                <SettingsIcon class="w-5 h-5 text-white" />
+                <SettingsIcon class="w-5 h-5 text-white" strokeWidth={1.5} />
               </div>
               <span class="font-medium text-[var(--color-text-primary)]">
                 Settings
@@ -124,13 +124,13 @@ export function Settings() {
               class="w-full flex items-center gap-3 px-3 py-2.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] rounded-xl transition-all group"
             >
               <div class="w-9 h-9 rounded-lg bg-[var(--color-bg-secondary)] group-hover:bg-[var(--color-border)] flex items-center justify-center transition-colors">
-                <ScrollText class="w-5 h-5 text-[var(--color-icon)]" />
+                <ScrollText class="w-5 h-5 text-[var(--color-icon)]" strokeWidth={1.5} />
               </div>
               <span class="font-medium">Logs</span>
             </button>
             <button class="w-full flex items-center gap-3 px-3 py-2.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] rounded-xl transition-all group">
               <div class="w-9 h-9 rounded-lg bg-[var(--color-bg-secondary)] group-hover:bg-[var(--color-border)] flex items-center justify-center transition-colors">
-                <LogOut class="w-5 h-5 text-[var(--color-icon)]" />
+                <LogOut class="w-5 h-5 text-[var(--color-icon)]" strokeWidth={1.5} />
               </div>
               <span class="font-medium">Log out</span>
             </button>
@@ -193,7 +193,7 @@ export function Settings() {
                   >
                     <div class="flex items-center justify-between bg-[var(--color-bg-secondary)] px-4 py-3 rounded-xl">
                       <span class="text-[var(--color-text-primary)] flex items-center gap-2 text-sm font-medium">
-                        <User class="w-4 h-4 text-[var(--color-accent)]" /> {settings.authUser()}
+                        <IconUser class="w-4 h-4 text-[var(--color-accent)]" strokeWidth={1.5} /> {settings.authUser()}
                       </span>
                       <button
                         onClick={settings.clearToken}
@@ -402,8 +402,9 @@ export function Settings() {
                     disabled={updater.status() === "checking"}
                     class="w-full px-4 py-2.5 bg-[var(--color-bg-secondary)] hover:bg-[var(--color-border)] disabled:opacity-50 rounded-xl text-sm text-[var(--color-text-primary)] font-medium transition-colors flex items-center justify-center gap-2"
                   >
-                    <RefreshCw
+                    <IconRefresh
                       class={`w-4 h-4 ${updater.status() === "checking" ? "animate-spin" : ""}`}
+                      strokeWidth={1.5}
                     />
                     {updater.status() === "checking"
                       ? "Checking..."

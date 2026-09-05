@@ -1,10 +1,10 @@
 import { Show, createEffect, onCleanup } from "solid-js";
 import {
-  Play,
-  Gamepad2,
-  EyeOff,
-  MoreHorizontal,
-} from "lucide-solid";
+  IconPlayerPlayFilled,
+  IconDeviceGamepad2,
+  IconEyeOff,
+  IconDotsVertical,
+} from "@tabler/icons-solidjs";
 import type { Game } from "../types";
 
 interface GameCardProps {
@@ -88,7 +88,7 @@ export function GameCard(props: GameCardProps) {
           when={props.game.cover_url}
           fallback={
             <div class="w-full h-full flex flex-col items-center justify-center p-4 bg-[var(--color-bg-secondary)]">
-              <Gamepad2 class="w-16 h-16 text-[var(--color-icon)] mb-4" />
+              <IconDeviceGamepad2 class="w-16 h-16 text-[var(--color-icon)] mb-4" strokeWidth={1.5} />
               <h3 class="text-[var(--color-text-secondary)] text-center font-bold line-clamp-2">
                 {props.game.title}
               </h3>
@@ -111,7 +111,7 @@ export function GameCard(props: GameCardProps) {
               onClick={handleThreeDotsClick}
               class="bg-black/80 rounded-full px-2 py-1 hover:bg-black/90 transition-colors"
             >
-              <MoreHorizontal class="w-4 h-4 text-white" />
+              <IconDotsVertical class="w-4 h-4 text-white" strokeWidth={1.5} />
             </button>
           </div>
 
@@ -132,7 +132,7 @@ export function GameCard(props: GameCardProps) {
                 }}
                 class="w-10 h-10 rounded-full bg-[var(--color-accent)] text-white flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg"
               >
-                <Play class="w-4 h-4 fill-current ml-0.5" />
+                <IconPlayerPlayFilled class="w-4 h-4 fill-current ml-0.5" />
               </button>
             </div>
           </div>
@@ -146,7 +146,7 @@ export function GameCard(props: GameCardProps) {
 
         <Show when={props.game.is_hidden && props.showHidden}>
           <div class="absolute top-4 right-4 bg-black/80 rounded p-1.5">
-            <EyeOff class="w-4 h-4 text-white/70" />
+            <IconEyeOff class="w-4 h-4 text-white/70" strokeWidth={1.5} />
           </div>
         </Show>
       </div>

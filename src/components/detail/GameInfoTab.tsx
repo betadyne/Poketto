@@ -1,13 +1,14 @@
 import { createSignal, For, Show, onCleanup } from "solid-js";
 import {
-  Gamepad2,
-  Clock,
-  Star,
-  ExternalLink,
-  ChevronDown,
-  AlertCircle,
-  X,
-} from "lucide-solid";
+  IconDeviceGamepad2,
+  IconClock,
+  IconStar,
+  IconStarFilled,
+  IconExternalLink,
+  IconChevronDown,
+  IconAlertCircle,
+  IconX,
+} from "@tabler/icons-solidjs";
 import { open } from "@tauri-apps/plugin-shell";
 import type {
   Game,
@@ -64,7 +65,7 @@ export function GameInfoTab(props: GameInfoTabProps) {
       <Show when={errorMessage()}>
         <div class="fixed top-32 left-1/2 z-[100] animate-fade-in-down">
           <div class="flex items-center gap-3 px-5 py-3.5 bg-[#FEF2F2] rounded-2xl shadow-xl border border-[var(--color-danger)]/20">
-            <AlertCircle class="w-5 h-5 text-[var(--color-danger)] flex-shrink-0" />
+            <IconAlertCircle class="w-5 h-5 text-[var(--color-danger)] flex-shrink-0" strokeWidth={1.5} />
             <span class="text-[var(--color-danger)] font-medium text-sm">
               {errorMessage()}
             </span>
@@ -72,7 +73,7 @@ export function GameInfoTab(props: GameInfoTabProps) {
               onClick={() => setErrorMessage(null)}
               class="ml-2 p-1 hover:bg-[var(--color-danger)]/20 rounded-lg transition-colors"
             >
-              <X class="w-4 h-4 text-[var(--color-danger)]" />
+              <IconX class="w-4 h-4 text-[var(--color-danger)]" strokeWidth={1.5} />
             </button>
           </div>
         </div>
@@ -112,7 +113,7 @@ export function GameInfoTab(props: GameInfoTabProps) {
                 when={props.vnDetail.image?.url}
                 fallback={
                   <div class="flex items-center justify-center h-full">
-                    <Gamepad2 class="w-20 h-20 text-[var(--color-icon)]" />
+                    <IconDeviceGamepad2 class="w-20 h-20 text-[var(--color-icon)]" strokeWidth={1.5} />
                   </div>
                 }
               >
@@ -128,7 +129,7 @@ export function GameInfoTab(props: GameInfoTabProps) {
               </Show>
               <Show when={props.vnDetail.rating}>
                 <div class="absolute top-4 right-4 px-3 py-1.5 bg-black/80 rounded-full flex items-center gap-1.5 shadow-xl">
-                  <Star class="w-4 h-4 text-yellow-400 fill-current" />
+                  <IconStarFilled class="w-4 h-4 text-yellow-400 fill-current" />
                   <span class="text-white font-bold">
                     {(props.vnDetail.rating! / 10).toFixed(2)}
                   </span>
@@ -141,7 +142,7 @@ export function GameInfoTab(props: GameInfoTabProps) {
             <div class="grid grid-cols-3 gap-4">
               <div class="relative bg-[var(--color-bg-secondary)] p-4 rounded-[20px] flex flex-col gap-1 items-start group hover:bg-[var(--color-border)] transition-colors">
                 <div class="flex items-center gap-2 text-[var(--color-text-secondary)] text-sm font-medium">
-                  <Star class="w-4 h-4" /> Your Vote
+                  <IconStar class="w-4 h-4" strokeWidth={1.5} /> Your Vote
                 </div>
                 <button
                   onClick={handleVoteClick}
@@ -152,8 +153,9 @@ export function GameInfoTab(props: GameInfoTabProps) {
                       ? (props.userVn.vote / 10).toFixed(1)
                       : "Rate..."}
                   </span>
-                  <ChevronDown
+                  <IconChevronDown
                     class={`w-5 h-5 text-[var(--color-icon)] transition-transform ${showVoteDropdown() ? "rotate-180" : ""}`}
+                    strokeWidth={1.5}
                   />
                 </button>
                 <Show when={showVoteDropdown()}>
@@ -178,8 +180,9 @@ export function GameInfoTab(props: GameInfoTabProps) {
                             }}
                             class={`w-full px-4 py-3 text-left hover:bg-[var(--color-bg-secondary)] transition-colors flex items-center gap-3 ${props.userVn?.vote === v ? "bg-[var(--color-accent)]/10 text-[var(--color-accent)]" : "text-[var(--color-text-primary)] hover:text-[var(--color-text-primary)]"}`}
                           >
-                            <Star
+                            <IconStar
                               class={`w-4 h-4 ${v >= 80 ? "text-yellow-400 fill-yellow-400" : v >= 60 ? "text-yellow-400" : "text-[var(--color-icon)]"}`}
+                              strokeWidth={1.5}
                             />
                             <span class="text-lg font-bold">
                               {(v / 10).toFixed(1)}
@@ -197,7 +200,7 @@ export function GameInfoTab(props: GameInfoTabProps) {
 
               <div class="relative bg-[var(--color-bg-secondary)] p-4 rounded-[20px] flex flex-col gap-1 items-start hover:bg-[var(--color-border)] transition-colors">
                 <div class="flex items-center gap-2 text-[var(--color-text-secondary)] text-sm font-medium">
-                  <Gamepad2 class="w-4 h-4" /> Status
+                  <IconDeviceGamepad2 class="w-4 h-4" strokeWidth={1.5} /> Status
                 </div>
                 <button
                   onClick={handleStatusClick}
@@ -206,8 +209,9 @@ export function GameInfoTab(props: GameInfoTabProps) {
                   <span class="text-2xl font-bold text-[var(--color-text-primary)]">
                     {props.userVn?.labels?.[0]?.label || "Set Status"}
                   </span>
-                  <ChevronDown
+                  <IconChevronDown
                     class={`w-5 h-5 text-[var(--color-icon)] transition-transform ${showStatusDropdown() ? "rotate-180" : ""}`}
+                    strokeWidth={1.5}
                   />
                 </button>
                 <Show when={showStatusDropdown()}>
@@ -243,7 +247,7 @@ export function GameInfoTab(props: GameInfoTabProps) {
 
               <div class="bg-[var(--color-bg-secondary)] p-4 rounded-[20px] flex flex-col gap-1 items-start hover:bg-[var(--color-border)] transition-colors">
                 <div class="flex items-center gap-2 text-[var(--color-text-secondary)] text-sm font-medium">
-                  <Clock class="w-4 h-4" /> Total Playtime
+                  <IconClock class="w-4 h-4" strokeWidth={1.5} /> Total Playtime
                 </div>
                 <div class="text-2xl font-bold text-[var(--color-text-primary)]">
                   {props.formatPlayTime(props.game.play_time)}
@@ -253,7 +257,7 @@ export function GameInfoTab(props: GameInfoTabProps) {
 
             <div class="bg-[var(--color-bg-secondary)] p-4 rounded-[20px] flex flex-col gap-1 items-start hover:bg-[var(--color-border)] transition-colors">
               <div class="flex items-center gap-2 text-[var(--color-text-secondary)] text-sm font-medium">
-                <Clock class="w-4 h-4" /> Last Played
+                  <IconClock class="w-4 h-4" strokeWidth={1.5} /> Last Played
               </div>
               <div class="text-2xl font-bold text-[var(--color-text-primary)]">
                 {props.formatLastPlayed(props.game.last_played ?? null)}
@@ -279,7 +283,7 @@ export function GameInfoTab(props: GameInfoTabProps) {
               onClick={() => open(`https://vndb.org/${props.vnDetail.id}`)}
               class="inline-flex items-center gap-2 px-5 py-2.5 bg-[var(--color-bg-secondary)] hover:bg-[var(--color-border)] rounded-xl text-[var(--color-text-primary)] font-medium transition-colors shadow-sm hover:shadow group"
             >
-              <ExternalLink class="w-4 h-4 group-hover:scale-110 transition-transform" />
+              <IconExternalLink class="w-4 h-4 group-hover:scale-110 transition-transform" strokeWidth={1.5} />
               View on VNDB
             </button>
 

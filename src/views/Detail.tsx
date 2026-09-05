@@ -1,5 +1,5 @@
 import { Show } from "solid-js";
-import { Play, Clock, Loader2 } from "lucide-solid";
+import { IconPlayerPlayFilled, IconClock, IconLoader2 } from "@tabler/icons-solidjs";
 import { Sidebar } from "../components/Sidebar";
 import { GameInfoTab } from "../components/detail/GameInfoTab";
 import { CharacterList } from "../components/detail/CharacterList";
@@ -48,7 +48,7 @@ export function Detail(props: DetailProps) {
         <Show when={props.isRefreshing}>
           <div class="absolute inset-0 bg-white/90 flex items-center justify-center z-40">
             <div class="flex flex-col items-center gap-4">
-              <Loader2 class="w-12 h-12 text-[var(--color-icon)] animate-spin" />
+              <IconLoader2 class="w-12 h-12 text-[var(--color-icon)] animate-spin" strokeWidth={1.5} />
               <span class="text-[var(--color-text-secondary)] text-lg font-medium">
                 Refreshing data...
               </span>
@@ -87,7 +87,7 @@ export function Detail(props: DetailProps) {
               when={props.runningGame !== props.game.id}
               fallback={
                 <button class="px-6 py-2.5 bg-[var(--color-success-light)] text-[var(--color-success)] rounded-full font-bold text-sm tracking-wide flex items-center gap-2 cursor-default">
-                  <Clock class="w-4 h-4" /> RUNNING
+                  <IconClock class="w-4 h-4" strokeWidth={1.5} /> RUNNING
                 </button>
               }
             >
@@ -96,7 +96,7 @@ export function Detail(props: DetailProps) {
                 class="group relative px-8 py-2.5 bg-[var(--color-accent)] text-white rounded-full font-bold text-sm tracking-wide overflow-hidden shadow-lg hover:shadow-xl transition-shadow"
               >
                 <span class="relative z-10 flex items-center gap-2">
-                  <Play class="w-4 h-4 fill-current" /> PLAY NOW
+                  <IconPlayerPlayFilled class="w-4 h-4 fill-current" /> PLAY NOW
                 </span>
                 <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-500"></div>
               </button>

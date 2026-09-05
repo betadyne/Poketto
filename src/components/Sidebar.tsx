@@ -1,6 +1,6 @@
 import { Show } from "solid-js";
 import { useNavigate } from "@solidjs/router";
-import { ArrowLeft, RefreshCw, Eye, EyeOff, Settings, ScrollText } from "lucide-solid";
+import { IconArrowLeft, IconRefresh, IconEye, IconEyeOff, IconSettings, IconNotes } from "@tabler/icons-solidjs";
 
 interface SidebarProps {
     onBack: () => void;
@@ -19,7 +19,7 @@ export function Sidebar(props: SidebarProps) {
                 class="p-3 rounded-xl bg-[var(--color-bg-secondary)] hover:bg-[var(--color-border)] text-[var(--color-icon)] hover:text-[var(--color-text-primary)] transition-colors shadow-sm"
                 title="Back"
             >
-                <ArrowLeft class="w-6 h-6" />
+                <IconArrowLeft class="w-6 h-6" strokeWidth={1.5} />
             </button>
 
             <div class="h-px w-10 bg-[var(--color-border)] my-2"></div>
@@ -29,7 +29,7 @@ export function Sidebar(props: SidebarProps) {
                 class="p-3 rounded-xl hover:bg-[var(--color-bg-secondary)] text-[var(--color-icon)] hover:text-[var(--color-text-primary)] transition-colors"
                 title="Refresh Data"
             >
-                <RefreshCw class="w-6 h-6" />
+                <IconRefresh class="w-6 h-6" strokeWidth={1.5} />
             </button>
 
             <button
@@ -37,8 +37,8 @@ export function Sidebar(props: SidebarProps) {
                 class={`p-3 rounded-xl hover:bg-[var(--color-bg-secondary)] transition-colors relative ${props.showSpoilers ? "text-[var(--color-accent)]" : "text-[var(--color-icon)] hover:text-[var(--color-text-primary)]"}`}
                 title="Toggle Spoilers"
             >
-                <Show when={props.showSpoilers} fallback={<EyeOff class="w-6 h-6" />}>
-                    <Eye class="w-6 h-6" />
+                <Show when={props.showSpoilers} fallback={<IconEyeOff class="w-6 h-6" strokeWidth={1.5} />}>
+                    <IconEye class="w-6 h-6" strokeWidth={1.5} />
                 </Show>
             </button>
 
@@ -49,7 +49,7 @@ export function Sidebar(props: SidebarProps) {
                 class="p-3 rounded-xl hover:bg-[var(--color-bg-secondary)] text-[var(--color-icon)] hover:text-[var(--color-text-primary)] transition-colors"
                 title="Logs"
             >
-                <ScrollText class="w-6 h-6" />
+                <IconNotes class="w-6 h-6" strokeWidth={1.5} />
             </button>
 
             <button
@@ -57,7 +57,7 @@ export function Sidebar(props: SidebarProps) {
                 class="p-3 rounded-xl hover:bg-[var(--color-bg-secondary)] text-[var(--color-icon)] hover:text-[var(--color-text-primary)] transition-colors"
                 title="Settings"
             >
-                <Settings class="w-6 h-6" />
+                <IconSettings class="w-6 h-6" strokeWidth={1.5} />
             </button>
         </aside>
     );

@@ -1,4 +1,4 @@
-import { Minus, Square, X, Copy } from "lucide-solid";
+import { IconMinus, IconSquare, IconX, IconCopy } from "@tabler/icons-solidjs";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { createSignal, onMount } from "solid-js";
 
@@ -53,7 +53,7 @@ export function TitleBar() {
           class="h-full w-11 flex items-center justify-center text-[var(--color-icon)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
           title="Minimize"
         >
-          <Minus class="w-4 h-4" />
+          <IconMinus class="w-4 h-4" strokeWidth={1.5} />
         </button>
 
         <button
@@ -62,9 +62,9 @@ export function TitleBar() {
           title={isMaximized() ? "Restore" : "Maximize"}
         >
           {isMaximized() ? (
-            <Copy class="w-3.5 h-3.5 rotate-180" />
+            <IconCopy class="w-3.5 h-3.5 rotate-180" strokeWidth={1.5} />
           ) : (
-            <Square class="w-3 h-3" />
+            <IconSquare class="w-3 h-3" strokeWidth={1.5} />
           )}
         </button>
 
@@ -73,7 +73,7 @@ export function TitleBar() {
           class="h-full w-11 flex items-center justify-center text-[var(--color-icon)] hover:text-[var(--color-danger)] hover:bg-[var(--color-danger-light)] transition-colors"
           title="Close"
         >
-          <X class="w-4 h-4" />
+          <IconX class="w-4 h-4" strokeWidth={1.5} />
         </button>
       </div>
     </div>

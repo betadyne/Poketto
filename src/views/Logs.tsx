@@ -1,17 +1,17 @@
 import { Show, For, createSignal, createMemo, onMount, createEffect } from "solid-js";
 import {
-  Library as LibraryIcon,
-  Settings as SettingsIcon,
-  ScrollText,
-  LogOut,
-  RefreshCw,
-  FolderOpen,
-  ArrowDownToLine,
-  Copy,
-  Search,
-  X,
-  FileText,
-} from "lucide-solid";
+  IconLibrary as LibraryIcon,
+  IconSettings as SettingsIcon,
+  IconNotes as ScrollText,
+  IconLogout as LogOut,
+  IconRefresh,
+  IconFolderOpen,
+  IconArrowDown,
+  IconCopy,
+  IconSearch,
+  IconX,
+  IconFileText,
+} from "@tabler/icons-solidjs";
 import { useNavigate } from "@solidjs/router";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-shell";
@@ -204,7 +204,7 @@ export function Logs() {
               class="w-full flex items-center gap-3 px-3 py-2.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] rounded-xl transition-all group"
             >
               <div class="w-9 h-9 rounded-lg bg-[var(--color-bg-secondary)] group-hover:bg-[var(--color-border)] flex items-center justify-center transition-colors">
-                <LibraryIcon class="w-5 h-5 text-[var(--color-icon)]" />
+                <LibraryIcon class="w-5 h-5 text-[var(--color-icon)]" strokeWidth={1.5} />
               </div>
               <span class="font-medium">My Games</span>
             </button>
@@ -218,13 +218,13 @@ export function Logs() {
               class="w-full flex items-center gap-3 px-3 py-2.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] rounded-xl transition-all group"
             >
               <div class="w-9 h-9 rounded-lg bg-[var(--color-bg-secondary)] group-hover:bg-[var(--color-border)] flex items-center justify-center transition-colors">
-                <SettingsIcon class="w-5 h-5 text-[var(--color-icon)]" />
+                <SettingsIcon class="w-5 h-5 text-[var(--color-icon)]" strokeWidth={1.5} />
               </div>
               <span class="font-medium">Settings</span>
             </button>
             <button class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all">
               <div class="w-9 h-9 rounded-lg bg-[var(--color-accent)] flex items-center justify-center">
-                <ScrollText class="w-5 h-5 text-white" />
+                <ScrollText class="w-5 h-5 text-white" strokeWidth={1.5} />
               </div>
               <span class="font-medium text-[var(--color-text-primary)]">
                 Logs
@@ -232,7 +232,7 @@ export function Logs() {
             </button>
             <button class="w-full flex items-center gap-3 px-3 py-2.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] rounded-xl transition-all group">
               <div class="w-9 h-9 rounded-lg bg-[var(--color-bg-secondary)] group-hover:bg-[var(--color-border)] flex items-center justify-center transition-colors">
-                <LogOut class="w-5 h-5 text-[var(--color-icon)]" />
+                <LogOut class="w-5 h-5 text-[var(--color-icon)]" strokeWidth={1.5} />
               </div>
               <span class="font-medium">Log out</span>
             </button>
@@ -260,7 +260,7 @@ export function Logs() {
               }`}
               title="Auto-scroll to bottom"
             >
-              <ArrowDownToLine class="w-4 h-4" />
+              <IconArrowDown class="w-4 h-4" strokeWidth={1.5} />
               <span class="font-medium">Auto-scroll</span>
             </button>
 
@@ -269,7 +269,7 @@ export function Logs() {
               class="flex items-center gap-2 px-3 py-2 bg-[var(--color-bg-secondary)] hover:bg-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-secondary)] transition-colors"
               title="Copy filtered logs"
             >
-              <Copy class="w-4 h-4" />
+              <IconCopy class="w-4 h-4" strokeWidth={1.5} />
               <span class="font-medium">{copied() ? "Copied" : "Copy"}</span>
             </button>
 
@@ -278,7 +278,7 @@ export function Logs() {
               class="flex items-center gap-2 px-3 py-2 bg-[var(--color-bg-secondary)] hover:bg-[var(--color-border)] rounded-xl text-sm text-[var(--color-text-secondary)] transition-colors"
               title="Open log folder"
             >
-              <FolderOpen class="w-4 h-4" />
+              <IconFolderOpen class="w-4 h-4" strokeWidth={1.5} />
               <span class="font-medium">Open Folder</span>
             </button>
 
@@ -287,7 +287,7 @@ export function Logs() {
               disabled={loading()}
               class="flex items-center gap-2 px-3 py-2 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-50 rounded-xl text-sm text-white font-medium transition-colors"
             >
-              <RefreshCw class={`w-4 h-4 ${loading() ? "animate-spin" : ""}`} />
+              <IconRefresh class={`w-4 h-4 ${loading() ? "animate-spin" : ""}`} strokeWidth={1.5} />
               <span>Refresh</span>
             </button>
           </div>
@@ -315,7 +315,7 @@ export function Logs() {
           </div>
 
           <div class="flex-1 max-w-md relative group">
-            <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-icon)] group-focus-within:text-[var(--color-accent)] transition-colors" />
+            <IconSearch class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-icon)] group-focus-within:text-[var(--color-accent)] transition-colors" strokeWidth={1.5} />
             <input
               type="text"
               value={searchQuery()}
@@ -328,7 +328,7 @@ export function Logs() {
                 onClick={() => setSearchQuery("")}
                 class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--color-icon)] hover:text-[var(--color-text-primary)] transition-colors"
               >
-                <X class="w-4 h-4" />
+                <IconX class="w-4 h-4" strokeWidth={1.5} />
               </button>
             </Show>
           </div>
@@ -363,7 +363,7 @@ export function Logs() {
             when={filteredLines().length > 0}
             fallback={
               <div class="flex-1 flex flex-col items-center justify-center text-[var(--color-text-tertiary)]">
-                <FileText class="w-12 h-12 mb-3 opacity-20" />
+                <IconFileText class="w-12 h-12 mb-3 opacity-20" strokeWidth={1.5} />
                 <Show
                   when={parsedLines().length > 0}
                   fallback={

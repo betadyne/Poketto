@@ -9,15 +9,15 @@ import {
   createEffect,
 } from "solid-js";
 import {
-  X,
-  Search,
-  Folder,
-  Image,
-  Wine,
-  Monitor,
-  Check,
-  Loader2,
-} from "lucide-solid";
+  IconX,
+  IconSearch,
+  IconFolder,
+  IconPhoto,
+  IconGlassFull,
+  IconDeviceDesktop,
+  IconCheck,
+  IconLoader2,
+} from "@tabler/icons-solidjs";
 import { open } from "@tauri-apps/plugin-dialog";
 import type {
   GameMetadata,
@@ -350,7 +350,7 @@ export function GameSettingsOverlay(props: GameSettingsOverlayProps) {
             onClick={props.onClose}
             class="text-[var(--color-icon)] hover:text-[var(--color-text-primary)] transition-colors"
           >
-            <X class="w-5 h-5" />
+            <IconX class="w-5 h-5" strokeWidth={1.5} />
           </button>
         </div>
 
@@ -362,7 +362,7 @@ export function GameSettingsOverlay(props: GameSettingsOverlayProps) {
                   when={coverUrl()}
                   fallback={
                     <div class="w-full h-full flex items-center justify-center text-[var(--color-icon)]">
-                      <Image class="w-8 h-8" />
+                      <IconPhoto class="w-8 h-8" strokeWidth={1.5} />
                     </div>
                   }
                 >
@@ -414,16 +414,16 @@ export function GameSettingsOverlay(props: GameSettingsOverlayProps) {
                   >
                     <Show
                       when={isSearching()}
-                      fallback={<Search class="w-4 h-4" />}
+                      fallback={<IconSearch class="w-4 h-4" strokeWidth={1.5} />}
                     >
-                      <Loader2 class="w-4 h-4 animate-spin" />
+                      <IconLoader2 class="w-4 h-4 animate-spin" strokeWidth={1.5} />
                     </Show>
                   </button>
                 </div>
 
                 <Show when={vndbId()}>
                   <div class="flex items-center gap-2 px-3 py-2 bg-[var(--color-success-light)] border border-[var(--color-success)] rounded-lg">
-                    <Check class="w-4 h-4 text-[var(--color-success)]" />
+                    <IconCheck class="w-4 h-4 text-[var(--color-success)]" strokeWidth={1.5} />
                     <span class="text-sm text-[var(--color-success)]">
                       Linked to {vndbId()}
                     </span>
@@ -463,7 +463,7 @@ export function GameSettingsOverlay(props: GameSettingsOverlayProps) {
                             </p>
                           </div>
                           <Show when={vndbId() === result.id}>
-                            <Check class="w-4 h-4 text-[var(--color-accent)]" />
+                            <IconCheck class="w-4 h-4 text-[var(--color-accent)]" strokeWidth={1.5} />
                           </Show>
                         </button>
                       )}
@@ -476,7 +476,7 @@ export function GameSettingsOverlay(props: GameSettingsOverlayProps) {
 
           <div class="space-y-2">
             <label class="text-sm font-medium text-[var(--color-text-primary)] flex items-center gap-2">
-              <Image class="w-4 h-4" />
+              <IconPhoto class="w-4 h-4" strokeWidth={1.5} />
               Cover Art
             </label>
             <div class="flex gap-2">
@@ -492,7 +492,7 @@ export function GameSettingsOverlay(props: GameSettingsOverlayProps) {
                 class="px-3 py-2 bg-[var(--color-bg-secondary)] hover:bg-[var(--color-border)] rounded-lg text-[var(--color-text-primary)] transition-colors"
                 title="Browse local image"
               >
-                <Folder class="w-4 h-4" />
+                <IconFolder class="w-4 h-4" strokeWidth={1.5} />
               </button>
             </div>
             <p class="text-xs text-[var(--color-text-tertiary)]">
@@ -502,7 +502,7 @@ export function GameSettingsOverlay(props: GameSettingsOverlayProps) {
 
           <div class="space-y-2">
             <label class="text-sm font-medium text-[var(--color-text-primary)] flex items-center gap-2">
-              <Monitor class="w-4 h-4" />
+              <IconDeviceDesktop class="w-4 h-4" strokeWidth={1.5} />
               Platform Version
             </label>
             <select
@@ -525,7 +525,7 @@ export function GameSettingsOverlay(props: GameSettingsOverlayProps) {
           <Show when={showWineSettings()}>
             <div class="space-y-4 p-4 bg-[var(--color-bg-secondary)] rounded-lg border border-[var(--color-border)]">
               <h3 class="text-sm font-medium text-[var(--color-accent)] flex items-center gap-2">
-                <Wine class="w-4 h-4" />
+                <IconGlassFull class="w-4 h-4" strokeWidth={1.5} />
                 Wine/Proton Settings
               </h3>
 
@@ -560,7 +560,7 @@ export function GameSettingsOverlay(props: GameSettingsOverlayProps) {
                       class="px-3 py-2 bg-[var(--color-bg-primary)] hover:bg-[var(--color-border)] rounded-lg text-[var(--color-text-primary)] transition-colors"
                       title="Browse"
                     >
-                      <Folder class="w-4 h-4" />
+                      <IconFolder class="w-4 h-4" strokeWidth={1.5} />
                     </button>
                   </div>
                 </div>
@@ -656,7 +656,7 @@ export function GameSettingsOverlay(props: GameSettingsOverlayProps) {
                 class="px-3 py-2 bg-[var(--color-bg-secondary)] hover:bg-[var(--color-border)] rounded-lg text-[var(--color-text-primary)] transition-colors"
                 title="Browse"
               >
-                <Folder class="w-4 h-4" />
+              <IconFolder class="w-4 h-4" strokeWidth={1.5} />
               </button>
             </div>
             <p class="text-xs text-[var(--color-text-tertiary)]">
@@ -680,7 +680,7 @@ export function GameSettingsOverlay(props: GameSettingsOverlayProps) {
             class="flex-1 px-4 py-2 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white font-medium transition-colors flex items-center justify-center gap-2"
           >
             <Show when={isSaving()}>
-              <Loader2 class="w-4 h-4 animate-spin" />
+              <IconLoader2 class="w-4 h-4 animate-spin" strokeWidth={1.5} />
             </Show>
             {isSaving() ? "Saving..." : "Finish"}
           </button>

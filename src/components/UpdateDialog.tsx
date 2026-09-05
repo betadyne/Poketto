@@ -1,5 +1,5 @@
 import { Show } from "solid-js";
-import { X, Download, RefreshCw, CheckCircle, AlertCircle } from "lucide-solid";
+import { IconX, IconDownload, IconRefresh, IconCircleCheck, IconAlertCircle } from "@tabler/icons-solidjs";
 import type { UpdateStatus, UpdateInfo } from "../hooks/useUpdater";
 
 interface UpdateDialogProps {
@@ -32,19 +32,19 @@ export function UpdateDialog(props: UpdateDialogProps) {
           <div class="flex items-center justify-between p-4 border-b border-[var(--color-border)]">
             <h2 class="text-lg font-bold text-[var(--color-text-primary)] flex items-center gap-2">
               <Show when={props.status === "available"}>
-                <Download class="w-5 h-5 text-[var(--color-accent)]" />
+                <IconDownload class="w-5 h-5 text-[var(--color-accent)]" strokeWidth={1.5} />
                 Update Available
               </Show>
               <Show when={props.status === "downloading"}>
-                <RefreshCw class="w-5 h-5 text-[var(--color-accent)] animate-spin" />
+                <IconRefresh class="w-5 h-5 text-[var(--color-accent)] animate-spin" strokeWidth={1.5} />
                 Downloading Update
               </Show>
               <Show when={props.status === "ready"}>
-                <CheckCircle class="w-5 h-5 text-[var(--color-success)]" />
+                <IconCircleCheck class="w-5 h-5 text-[var(--color-success)]" strokeWidth={1.5} />
                 Update Ready
               </Show>
               <Show when={props.status === "error"}>
-                <AlertCircle class="w-5 h-5 text-[var(--color-danger)]" />
+                <IconAlertCircle class="w-5 h-5 text-[var(--color-danger)]" strokeWidth={1.5} />
                 Update Error
               </Show>
             </h2>
@@ -52,7 +52,7 @@ export function UpdateDialog(props: UpdateDialogProps) {
               onClick={props.onDismiss}
               class="text-[var(--color-icon)] hover:text-[var(--color-text-primary)]"
             >
-              <X class="w-5 h-5" />
+              <IconX class="w-5 h-5" strokeWidth={1.5} />
             </button>
           </div>
 
@@ -79,7 +79,7 @@ export function UpdateDialog(props: UpdateDialogProps) {
                     onClick={props.onDownload}
                     class="flex-1 px-4 py-2 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] rounded-lg text-white font-medium flex items-center justify-center gap-2"
                   >
-                    <Download class="w-4 h-4" />
+                    <IconDownload class="w-4 h-4" strokeWidth={1.5} />
                     Download & Install
                   </button>
                   <button
@@ -117,7 +117,7 @@ export function UpdateDialog(props: UpdateDialogProps) {
                     onClick={props.onRestart}
                     class="flex-1 px-4 py-2 bg-[var(--color-success)] hover:opacity-90 rounded-lg text-white font-medium flex items-center justify-center gap-2"
                   >
-                    <RefreshCw class="w-4 h-4" />
+                    <IconRefresh class="w-4 h-4" strokeWidth={1.5} />
                     Restart Now
                   </button>
                   <button

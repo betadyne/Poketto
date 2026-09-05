@@ -1,5 +1,5 @@
 import { For, Show } from "solid-js";
-import { User } from "lucide-solid";
+import { IconUser } from "@tabler/icons-solidjs";
 import type { VndbCharacter, VndbTrait, VndbImage } from "../../types";
 import { ROLE_NAMES, TRAIT_ORDER } from "../../constants";
 import { stripBBCode } from "../../utils";
@@ -64,7 +64,7 @@ export function CharacterCard(props: CharacterCardProps) {
           when={char.image?.url}
           fallback={
             <div class="aspect-[3/4] bg-[var(--color-border)] rounded-xl flex items-center justify-center">
-              <User class="w-12 h-12 text-[var(--color-icon)]" />
+              <IconUser class="w-12 h-12 text-[var(--color-icon)]" strokeWidth={1.5} />
             </div>
           }
         >

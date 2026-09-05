@@ -8,9 +8,11 @@ Scope: This file governs the entire repository.
 **Tauri v2 + SolidJS + Rust**:
 
 - **Frontend**: SolidJS + TypeScript + Tailwind CSS v4 (`src/`, Vite);
-  icons from `lucide-solid`. This is NOT React: there are no `react`,
-  `react-dom`, or `@tabler/icons-react` dependencies; UI primitives are
-  SolidJS (`createSignal`, `createMemo`, `For`, `Show`, `@solidjs/router`)
+  icons from `@tabler/icons-solidjs` (Tabler set, SolidJS port). This is
+  NOT React: there are no `react`, `react-dom`, or `@tabler/icons-react`
+  dependencies (React icon components do not render in SolidJS); UI
+  primitives are SolidJS (`createSignal`, `createMemo`, `For`, `Show`,
+  `@solidjs/router`)
 - **Backend**: Rust in `src-tauri/` (Tokio async runtime, SQLite library
   store via `rusqlite` `bundled`, JSON settings). There is no `redb` or
   `bincode` dependency.
@@ -215,8 +217,10 @@ an environment bug, never a code bug.
 - Pure logic (formatting, validation, blur gating, BBCode) lives in
   `src/utils/` with vitest coverage; every new util ships with a test.
 - Styling is Tailwind utilities in JSX plus theme tokens in
-  `src/index.css` (`--color-*`); icons come ONLY from `lucide-solid`.
-  NEVER introduce `@tabler/icons-react` without an approved migration
+  `src/index.css` (`--color-*`); icons come ONLY from
+  `@tabler/icons-solidjs` (outline icons use `strokeWidth={1.5}`,
+  `*Filled` variants for primary/active states). NEVER introduce
+  `@tabler/icons-react` without an approved React migration
 
 ### Test Structure
 
