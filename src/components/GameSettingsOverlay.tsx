@@ -19,6 +19,7 @@ import {
   IconLoader2,
 } from "@tabler/icons-solidjs";
 import { open } from "@tauri-apps/plugin-dialog";
+import { open as openUrl } from "@tauri-apps/plugin-shell";
 import type {
   GameMetadata,
   VndbSearchResult,
@@ -341,7 +342,6 @@ export function GameSettingsOverlay(props: GameSettingsOverlayProps) {
   return (
     <div
       class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      onClick={props.onClose}
     >
       <div
         class="bg-[var(--color-bg-primary)] rounded-lg w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col shadow-xl"
@@ -685,7 +685,16 @@ export function GameSettingsOverlay(props: GameSettingsOverlayProps) {
               />
             </div>
             <p class="text-xs text-[var(--color-text-tertiary)]">
-              Optional. When set, the game launches via the Steam client instead of the executable.
+              Optional. When set, the game launches via the Steam client
+              instead of the executable. Find it in the game's Steam Store
+              page URL or on{" "}
+              <button
+                onClick={() => openUrl("https://steamdb.info/")}
+                class="text-[var(--color-accent)] hover:underline"
+              >
+                SteamDB
+              </button>
+              .
             </p>
           </div>
         </div>
