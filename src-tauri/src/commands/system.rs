@@ -364,7 +364,7 @@ fn spawn_wine_linux(
         })
     } else {
         wine_settings.wine_prefix.clone().unwrap_or_else(|| {
-            wine::get_default_prefix_path(&game.id)
+            wine::get_default_prefix_path(&game.id, game.vndb_id.as_deref())
                 .to_str()
                 .unwrap_or("")
                 .to_string()

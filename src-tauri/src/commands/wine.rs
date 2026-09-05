@@ -87,10 +87,15 @@ pub fn get_default_wine_settings(state: State<AppState>) -> WineSettings {
 
 #[tauri::command]
 #[specta::specta]
-pub fn get_default_prefix_path(game_id: String) -> String {
+pub fn get_default_prefix_path(game_id: String, db: State<AppDatabase>) -> String {
     #[cfg(target_os = "linux")]
     {
-        wine::get_default_prefix_path(&game_id)
+        let vndb_id: Option<String> = db
+            .get_game_by_id(&game_id)
+            .ok()
+            .flatten()
+            .and_then(|game| game.vndb_id);
+        wine::get_default_prefix_path(&game_id, vndb_id.as_deref())
             .to_str()
             .unwrap_or("")
             .to_string()
@@ -98,6 +103,7 @@ pub fn get_default_prefix_path(game_id: String) -> String {
     #[cfg(not(target_os = "linux"))]
     {
         let _ = game_id;
+        let _ = db;
         String::new()
     }
 }
