@@ -59,7 +59,7 @@ Windows that preserves the full shipped feature set:
 
 - **Package manager:** npm (`package-lock.json` committed)
 - **Rust:** stable via `rust-toolchain.toml` (`clippy`, `rustfmt`); MSRV
-  1.77.2 per `src-tauri/Cargo.toml`
+  1.98.1 per `src-tauri/Cargo.toml`
 - **Dev profile:** `[profile.dev] incremental = true`; no blanket
   `opt-level` overrides (fast iteration over dev-binary speed)
 - **Bundling:** NSIS target, updater artifacts with GitHub release

@@ -1,7 +1,7 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-#[derive(Debug, Error, specta::Type)]
+#[derive(Debug, Deserialize, Error, specta::Type)]
 #[serde(tag = "kind", content = "message")]
 pub enum AppError {
     #[error("IO error: {0}")]

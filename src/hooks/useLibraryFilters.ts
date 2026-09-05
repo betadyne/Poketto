@@ -1,4 +1,4 @@
-import { createSignal, createMemo, Accessor } from "solid-js";
+import { createSignal, createMemo, Accessor, type Signal } from "solid-js";
 import { makePersisted } from "@solid-primitives/storage";
 import type { Game } from "../types";
 
@@ -20,16 +20,18 @@ export interface LibraryFilters {
 export function useLibraryFilters(games: Accessor<Game[]>): LibraryFilters {
   const [searchQuery, setSearchQuery] = createSignal("");
 
-  const [sortBy, setSortBy] = makePersisted(createSignal<SortBy>("title"), {
-    name: "library-sort-by",
-  });
-  const [sortOrder, setSortOrder] = makePersisted(
+  const [sortBy, setSortBy] = makePersisted<SortBy, Signal<SortBy>>(
+    createSignal<SortBy>("title"),
+    { name: "library-sort-by" },
+  );
+  const [sortOrder, setSortOrder] = makePersisted<SortOrder, Signal<SortOrder>>(
     createSignal<SortOrder>("asc"),
     { name: "library-sort-order" },
   );
-  const [showHidden, setShowHidden] = makePersisted(createSignal(false), {
-    name: "library-show-hidden",
-  });
+  const [showHidden, setShowHidden] = makePersisted<boolean, Signal<boolean>>(
+    createSignal(false),
+    { name: "library-show-hidden" },
+  );
 
   const filteredGames = createMemo(() => {
     let result = games();
