@@ -71,6 +71,10 @@ migration work:
 - NEVER start the migration build unless the user asks; planning and review
   only until then
 - If behavior/architecture changed, update this AGENTS.md in the same commit
+- The `computer` tool (host desktop control: screenshots, window
+  listing, native input) is available in this environment. Prefer it
+  over `slint-viewer` screenshots when the user asks to verify the
+  real running app, and re-check fresh screenshots after UI changes.
 
 ## Session Handoff Protocol (GitHub Issues)
 
