@@ -69,6 +69,18 @@ export component GameCard inherits Rectangle {
                     spacing: Theme.space-sm;
 
                     Text {
+                        text: root.game.title;
+                        color: Theme.text-muted;
+                        font-size: 12px;
+                        font-weight: 600;
+                        wrap: word-wrap;
+                        overflow: elide;
+                        height: 34px;
+                        width: 100%;
+                        horizontal-alignment: center;
+                    }
+
+                    Text {
                         text: "NSFW Content";
                         color: Theme.text;
                         font-size: Theme.font-md;
@@ -148,14 +160,33 @@ export component GameCard inherits Rectangle {
                 }
             }
 
+            if !root.blocked : Rectangle {
+                y: parent.height - 70px;
+                width: 100%;
+                height: 70px;
+                background: @linear-gradient(180deg, #00000000 0%, #000000d9 100%);
+                opacity: touch.has-hover ? 1.0 : 0.0;
+                animate opacity { duration: 150ms; }
+
+                Text {
+                    text: root.game.title;
+                    color: #ffffff;
+                    font-size: 12px;
+                    font-weight: 600;
+                    wrap: word-wrap;
+                    overflow: elide;
+                    x: 10px;
+                    y: 70px - self.height - 8px;
+                    width: parent.width - 20px;
+                }
+            }
+
             if touch.has-hover && !root.blocked : Rectangle {
                 x: parent.width - 40px;
-                y: parent.height - 40px;
+                y: parent.height - 78px;
                 width: 32px;
                 height: 32px;
-                background: Theme.accent;
-                border-width: 1px;
-                border-color: #ffffff;
+                background: Theme.primary;
                 border-radius: 16px;
 
                 Image {
@@ -164,7 +195,7 @@ export component GameCard inherits Rectangle {
                     height: 16px;
                     x: (parent.width - 16px) / 2;
                     y: (parent.height - 16px) / 2;
-                    colorize: Theme.text-on-primary;
+                    colorize: #ffffff;
                 }
 
                 TouchArea {
@@ -172,16 +203,6 @@ export component GameCard inherits Rectangle {
                     clicked => { root.play-game(root.game.id); }
                 }
             }
-        }
-
-        Text {
-            text: root.game.title;
-            color: Theme.text;
-            font-size: 13px;
-            font-weight: 600;
-            wrap: word-wrap;
-            overflow: elide;
-            height: 36px;
         }
     }
 
