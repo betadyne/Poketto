@@ -141,13 +141,12 @@ pub fn launch_game(
         tauri::async_runtime::spawn(async move {
             let exit_result = task::spawn_blocking(move || child.wait()).await;
 
-            let minutes = start_time.elapsed().as_secs() / 60;
+            let (minutes, seconds) = session_durations(start_time.elapsed().as_secs());
             let state = app_handle_clone.state::<AppState>();
 
             if let Err(e) = state.discord_rpc.clear_activity() {
                 log::warn!("Failed to clear Discord activity: {}", e);
             }
-            let seconds = minutes.saturating_mul(60).min(i64::MAX as u64) as i64;
             persist_session(&app_handle_clone, &game_id, seconds);
 
             {
@@ -500,16 +499,18 @@ fn map_spawn_error(e: std::io::Error, path: &Path) -> AppError {
 // Other Commands
 // ============================================================================
 
+fn session_durations(elapsed_secs: u64) -> (u64, i64) {
+    (elapsed_secs / 60, elapsed_secs.min(i64::MAX as u64) as i64)
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn stop_tracking(state: State<AppState>, db: State<AppDatabase>) -> AppResult<u64> {
     let mut running = state.running_game.lock();
     if let Some(game) = running.take() {
-        let elapsed = game.start_time.elapsed();
-        let minutes = elapsed.as_secs() / 60;
+        let (minutes, seconds) = session_durations(game.start_time.elapsed().as_secs());
         let game_id = game.id.clone();
 
-        let seconds = minutes.saturating_mul(60).min(i64::MAX as u64) as i64;
         db.add_playtime(&game_id, seconds)?;
 
         record_daily_playtime(&game_id, minutes);
@@ -690,5 +691,15 @@ mod tests {
     #[test]
     fn test_steam_protocol_url() {
         assert_eq!(steam_protocol_url("412830"), "steam://rungameid/412830");
+    }
+
+    #[test]
+    fn test_sub_minute_session_keeps_exact_seconds() {
+        let (minutes, seconds) = session_durations(45);
+        assert_eq!(minutes, 0);
+        assert_eq!(seconds, 45);
+        let (minutes, seconds) = session_durations(125);
+        assert_eq!(minutes, 2);
+        assert_eq!(seconds, 125);
     }
 }

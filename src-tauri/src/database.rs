@@ -641,6 +641,16 @@ mod tests {
     }
 
     #[test]
+    fn test_sub_minute_playtime_stamps_last_played() {
+        let db = AppDatabase::open_in_memory().expect("in-memory database");
+        db.insert_game(&sample_game("game-4")).unwrap();
+        db.add_playtime("game-4", 45).unwrap();
+        let loaded = db.get_game_by_id("game-4").unwrap().expect("game exists");
+        assert!(loaded.last_played.is_some());
+        assert_eq!(loaded.play_time, 125);
+    }
+
+    #[test]
     fn test_delete_cascades_playtime_sessions() {
         let db = AppDatabase::open_in_memory().expect("in-memory database");
         db.insert_game(&sample_game("game-3")).unwrap();
