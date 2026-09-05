@@ -12,7 +12,8 @@ export component LibraryView inherits Rectangle {
     in property <bool> blur-nsfw;
     in property <bool> show-hidden: false;
     in property <int> columns: Math.max(1, Math.floor((root.width / 1px - 64) / 215));
-    property <bool> list-mode: false;
+    in-out property <bool> list-mode: false;
+    property <string> sort-mode-name: ["Name", "Name (Z-A)", "Most Played", "Last Played"][root.sort-index];
 
     callback game-clicked(string);
     callback search-accepted(string);
@@ -115,7 +116,7 @@ export component LibraryView inherits Rectangle {
                     alignment: center;
 
                     Text {
-                        text: ["Sort by Name", "Title Z-A", "Most Played", "Recently Played"][root.sort-index];
+                        text: "Sort by " + root.sort-mode-name;
                         color: Theme.text-soft;
                         font-size: 13px;
                         font-weight: 500;
@@ -343,7 +344,7 @@ export component LibraryView inherits Rectangle {
             }
 
             Rectangle {
-                height: 32px;
+                height: mode-toggle.preferred-height;
                 width: mode-toggle.preferred-width;
                 background: Theme.surface;
                 border-width: 1px;
@@ -356,9 +357,9 @@ export component LibraryView inherits Rectangle {
 
                     Rectangle {
                         width: 32px;
-                        height: 24px;
-                        background: !root.list-mode ? Theme.sidebar : transparent;
-                        border-radius: Theme.radius-pill;
+                        height: 30px;
+                        background: !root.list-mode ? Theme.surface-hover : transparent;
+                        border-radius: 6px;
 
                         Image {
                             source: @image-url("../icons/layout-grid.svg");
@@ -377,9 +378,9 @@ export component LibraryView inherits Rectangle {
 
                     Rectangle {
                         width: 32px;
-                        height: 24px;
-                        background: root.list-mode ? Theme.sidebar : transparent;
-                        border-radius: Theme.radius-pill;
+                        height: 30px;
+                        background: root.list-mode ? Theme.surface-hover : transparent;
+                        border-radius: 6px;
 
                         Image {
                             source: @image-url("../icons/list.svg");
@@ -442,28 +443,30 @@ export component LibraryView inherits Rectangle {
             vertical-stretch: 1;
 
             for game in root.games : Rectangle {
-                height: 72px;
+                height: 92px;
 
                 Rectangle {
                     y: 4px;
                     width: 100%;
-                    height: 64px;
-                    background: Theme.sidebar;
+                    height: 84px;
+                    background: Theme.canvas;
                     border-width: 1px;
                     border-color: Theme.border;
-                    border-radius: Theme.radius-sm;
+                    border-radius: Theme.radius-lg;
 
                 HorizontalLayout {
-                    padding-left: Theme.pad-sm;
-                    padding-right: Theme.pad-sm;
+                    padding-left: 12px;
+                    padding-right: 12px;
+                    padding-top: 8px;
+                    padding-bottom: 8px;
                     spacing: Theme.space-sm;
 
                     Rectangle {
-                        width: 36px;
-                        height: 48px;
-                        y: (parent.height - 48px) / 2;
+                        width: 58px;
+                        height: 68px;
+                        y: (parent.height - 68px) / 2;
                         background: Theme.surface;
-                        border-radius: 6px;
+                        border-radius: 8px;
                         clip: true;
 
                         if game.show-cover : Image {
@@ -474,27 +477,39 @@ export component LibraryView inherits Rectangle {
                         }
                     }
 
-                    Text {
-                        text: game.title;
-                        color: Theme.text;
-                        font-size: Theme.font-md;
-                        font-weight: 600;
-                        vertical-alignment: center;
+                    VerticalLayout {
+                        alignment: center;
+                        spacing: 4px;
                         horizontal-stretch: 1;
-                        overflow: elide;
+
+                        Text {
+                            text: game.title;
+                            color: Theme.text;
+                            font-size: 14px;
+                            font-weight: 600;
+                            width: 100%;
+                            overflow: elide;
+                        }
+
+                        Text {
+                            text: game.playtime != "" ? game.playtime : "0m";
+                            color: Theme.text-muted;
+                            font-size: 12px;
+                            width: 100%;
+                        }
                     }
 
-                    if game.rating > 0 : Text {
-                        text: Math.round(game.rating * 10) / 10;
-                        color: Theme.text-muted;
-                        font-size: Theme.font-md;
-                        vertical-alignment: center;
-                    }
+                    Rectangle {
+                        width: 80px;
 
-                    Button {
-                        text: "Play";
-                        primary: true;
-                        clicked => { root.play-game(game.id); }
+                        Button {
+                            text: "Play";
+                            primary: true;
+                            width: 100%;
+                            btn-height: 38px;
+                            y: (parent.height - self.height) / 2;
+                            clicked => { root.play-game(game.id); }
+                        }
                     }
                 }
 
