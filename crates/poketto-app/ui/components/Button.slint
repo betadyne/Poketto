@@ -7,13 +7,15 @@ export component Button inherits Rectangle {
     in property <bool> disabled: false;
     in property <bool> show-icon: false;
     in property <image> icon;
+    in property <length> btn-height: 36px;
+    in property <int> font-weight: 400;
     callback clicked;
 
     background: root.primary
         ? (touch.pressed ? Theme.primary-pressed : touch.has-hover ? Theme.primary-hover : Theme.primary)
         : (touch.pressed ? Theme.surface-pressed : touch.has-hover ? Theme.surface-hover : Theme.surface);
     border-radius: Theme.radius-md;
-    height: 36px;
+    height: root.btn-height;
     min-width: layout.preferred-width;
     horizontal-stretch: root.fill ? 1 : 0;
     opacity: root.disabled ? 0.5 : 1;
@@ -41,6 +43,7 @@ export component Button inherits Rectangle {
             text: root.text;
             color: root.primary ? Theme.text-on-primary : Theme.text;
             font-size: Theme.font-md;
+            font-weight: root.font-weight;
             vertical-alignment: center;
         }
     }

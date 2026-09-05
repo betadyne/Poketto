@@ -129,38 +129,41 @@ export component GameCard inherits Rectangle {
                 y: 8px;
                 width: play-layout.preferred-width;
                 height: play-layout.preferred-height;
-                background: Theme.primary;
-                border-radius: Theme.radius-sm;
+                background: Theme.royal-deep;
+                border-radius: Theme.radius-pill;
 
                 play-layout := HorizontalLayout {
-                    padding-left: Theme.pad-sm;
-                    padding-right: Theme.pad-sm;
-                    padding-top: 4px;
-                    padding-bottom: 4px;
+                    padding-left: 8px;
+                    padding-right: 8px;
+                    padding-top: 2px;
+                    padding-bottom: 2px;
 
                     Text {
                         text: "Playing";
                         color: Theme.text-on-primary;
-                        font-size: Theme.font-sm;
+                        font-size: 10px;
+                        font-weight: 700;
                         vertical-alignment: center;
                     }
                 }
             }
 
             if touch.has-hover && !root.blocked : Rectangle {
-                x: parent.width - 44px;
-                y: parent.height - 44px;
-                width: 36px;
-                height: 36px;
+                x: parent.width - 40px;
+                y: parent.height - 40px;
+                width: 32px;
+                height: 32px;
                 background: Theme.accent;
-                border-radius: 18px;
+                border-width: 1px;
+                border-color: #ffffff;
+                border-radius: 16px;
 
                 Image {
                     source: @image-url("../icons/player-play.svg");
-                    width: 18px;
-                    height: 18px;
-                    x: (parent.width - 18px) / 2;
-                    y: (parent.height - 18px) / 2;
+                    width: 16px;
+                    height: 16px;
+                    x: (parent.width - 16px) / 2;
+                    y: (parent.height - 16px) / 2;
                     colorize: Theme.text-on-primary;
                 }
 

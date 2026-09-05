@@ -11,7 +11,7 @@ export component LibraryView inherits Rectangle {
     in-out property <int> active-filter;
     in property <bool> blur-nsfw;
     in property <bool> show-hidden: false;
-    in property <int> columns: Math.max(1, Math.floor((root.width / 1px - 64) / 205));
+    in property <int> columns: Math.max(1, Math.floor((root.width / 1px - 80) / 205));
     property <bool> list-mode: false;
     property <bool> sort-open: false;
     property <bool> filter-open: false;
@@ -32,38 +32,55 @@ export component LibraryView inherits Rectangle {
     property <int> row-count: Math.ceil(games.length / root.columns);
 
     VerticalLayout {
-        padding-left: 32px;
-        padding-right: 32px;
-        padding-top: 24px;
-        padding-bottom: 32px;
         spacing: 0;
 
         HorizontalLayout {
-            spacing: Theme.space-md;
+            padding-left: 32px;
+            padding-right: 32px;
+            padding-top: 24px;
+            padding-bottom: 16px;
+            spacing: 0;
 
             Text {
                 text: "Overview";
                 color: Theme.text;
-                font-size: Theme.font-xl;
+                font-size: 22px;
                 font-weight: 700;
                 vertical-alignment: center;
                 horizontal-stretch: 1;
             }
 
-            SearchBar {
-                width: 380px;
-                text <=> root.query;
-                placeholder: "Search game titles...";
-                accepted(query) => { root.search-accepted(query); }
-            }
+            HorizontalLayout {
+                spacing: 12px;
 
-            Button {
-                text: "+ Add Game";
-                primary: true;
-                clicked => { root.add-clicked(); }
+                SearchBar {
+                    width: 360px;
+                    text <=> root.query;
+                    placeholder: "Search game titles...";
+                    accepted(query) => { root.search-accepted(query); }
+                }
+
+                Button {
+                    text: "+ Add Game";
+                    primary: true;
+                    btn-height: 38px;
+                    font-weight: 600;
+                    clicked => { root.add-clicked(); }
+                }
             }
         }
-        Rectangle { height: 18px; }
+
+        Rectangle {
+            height: 1px;
+            background: Theme.surface;
+        }
+
+        VerticalLayout {
+            padding-left: 32px;
+            padding-right: 32px + 16px;
+            padding-top: 14px;
+            padding-bottom: 32px;
+            spacing: 0;
 
         HorizontalLayout {
             spacing: 8px;
@@ -71,15 +88,15 @@ export component LibraryView inherits Rectangle {
             Text {
                 text: "All Games";
                 color: Theme.text;
-                font-size: 15px;
-                font-weight: 700;
+                font-size: 14px;
+                font-weight: 600;
                 vertical-alignment: center;
             }
 
             Text {
                 text: "(" + root.games.length + ")";
                 color: Theme.text-muted;
-                font-size: 15px;
+                font-size: 14px;
                 vertical-alignment: center;
                 horizontal-stretch: 1;
             }
@@ -437,4 +454,5 @@ export component LibraryView inherits Rectangle {
             }
         }
     }
+}
 }

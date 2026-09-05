@@ -3,13 +3,14 @@ import { Theme } from "../tokens.slint";
 export component SearchBar inherits Rectangle {
     in-out property <string> text;
     in property <string> placeholder: "Search library...";
+    in property <length> box-height: 38px;
     callback accepted(string);
 
-    background: Theme.surface;
+    background: Theme.canvas;
     border-width: 1px;
     border-color: Theme.border;
     border-radius: Theme.radius-md;
-    height: 40px;
+    height: root.box-height;
 
     HorizontalLayout {
         padding-left: Theme.pad-md;
