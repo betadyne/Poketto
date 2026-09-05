@@ -11,7 +11,7 @@ export component LibraryView inherits Rectangle {
     in-out property <int> active-filter;
     in property <bool> blur-nsfw;
     in property <bool> show-hidden: false;
-    in property <int> columns: Math.max(1, Math.floor((root.width / 1px - 80) / 199));
+    in property <int> columns: Math.max(1, Math.floor((root.width / 1px - 80) / 215));
     property <bool> list-mode: false;
     property <bool> sort-open: false;
     property <bool> filter-open: false;
@@ -111,14 +111,17 @@ export component LibraryView inherits Rectangle {
                 border-radius: 8px;
 
                 sort-pill := HorizontalLayout {
-                    padding-left: 12px;
-                    padding-right: 12px;
+                    padding-left: 14px;
+                    padding-right: 14px;
+                    padding-top: 7px;
+                    padding-bottom: 7px;
                     spacing: 6px;
 
                     Text {
                         text: ["Sort by Name", "Title Z-A", "Most Played", "Recently Played"][root.sort-index];
-                        color: Theme.text;
+                        color: Theme.text-soft;
                         font-size: 13px;
+                        font-weight: 500;
                         vertical-alignment: center;
                     }
 
@@ -148,8 +151,10 @@ export component LibraryView inherits Rectangle {
                 border-radius: 8px;
 
                 filter-pill := HorizontalLayout {
-                    padding-left: 12px;
-                    padding-right: 12px;
+                    padding-left: 14px;
+                    padding-right: 14px;
+                    padding-top: 7px;
+                    padding-bottom: 7px;
                     spacing: 6px;
 
                     Image {
@@ -157,13 +162,14 @@ export component LibraryView inherits Rectangle {
                         width: 14px;
                         height: 14px;
                         y: (parent.height - 14px) / 2;
-                        colorize: Theme.text-muted;
+                        colorize: Theme.text-soft;
                     }
 
                     Text {
                         text: "Filters ∨";
-                        color: Theme.text;
+                        color: Theme.text-soft;
                         font-size: 13px;
+                        font-weight: 500;
                         vertical-alignment: center;
                     }
                 }
@@ -188,7 +194,9 @@ export component LibraryView inherits Rectangle {
                 height: 32px;
                 width: mode-toggle.preferred-width;
                 background: Theme.surface;
-                border-radius: Theme.radius-pill;
+                border-width: 1px;
+                border-color: Theme.border;
+                border-radius: 8px;
 
                 mode-toggle := HorizontalLayout {
                     padding: 4px;
@@ -206,7 +214,7 @@ export component LibraryView inherits Rectangle {
                             height: 16px;
                             x: (parent.width - 16px) / 2;
                             y: (parent.height - 16px) / 2;
-                            colorize: !root.list-mode ? Theme.primary : Theme.text-muted;
+                            colorize: !root.list-mode ? Theme.text : Theme.text-faint;
                         }
 
                         TouchArea {
@@ -227,121 +235,12 @@ export component LibraryView inherits Rectangle {
                             height: 16px;
                             x: (parent.width - 16px) / 2;
                             y: (parent.height - 16px) / 2;
-                            colorize: root.list-mode ? Theme.primary : Theme.text-muted;
+                            colorize: root.list-mode ? Theme.text : Theme.text-faint;
                         }
 
                         TouchArea {
                             mouse-cursor: pointer;
                             clicked => { root.list-mode = true; }
-                        }
-                    }
-                }
-            }
-        }
-        if root.sort-open : Rectangle {
-            height: options-sort.preferred-height;
-            background: Theme.sidebar;
-            border-width: 1px;
-            border-color: Theme.border;
-            border-radius: Theme.radius-sm;
-
-            options-sort := VerticalLayout {
-                padding: 6px;
-                spacing: 2px;
-
-                for label[i] in ["Sort by Name", "Title Z-A", "Most Played", "Recently Played"] : Rectangle {
-                    height: 32px;
-                    background: touch-opt.has-hover || i == root.sort-index ? Theme.surface : transparent;
-                    border-radius: 6px;
-
-                    HorizontalLayout {
-                        padding-left: 10px;
-                        padding-right: 10px;
-
-                        Text {
-                            text: label;
-                            color: i == root.sort-index ? Theme.primary : Theme.text;
-                            font-size: 13px;
-                            font-weight: i == root.sort-index ? 600 : 400;
-                            vertical-alignment: center;
-                        }
-                    }
-
-                    touch-opt := TouchArea {
-                        mouse-cursor: pointer;
-                        clicked => {
-                            if (label == "Sort by Name") { root.sort-changed("title", true); }
-                            else if (label == "Title Z-A") { root.sort-changed("title", false); }
-                            else if (label == "Most Played") { root.sort-changed("play_time", false); }
-                            else { root.sort-changed("last_played", false); }
-                            root.sort-open = false;
-                        }
-                    }
-                }
-            }
-        }
-
-        if root.filter-open : Rectangle {
-            height: options-filter.preferred-height;
-            background: Theme.sidebar;
-            border-width: 1px;
-            border-color: Theme.border;
-            border-radius: Theme.radius-sm;
-
-            options-filter := VerticalLayout {
-                padding: 6px;
-                spacing: 2px;
-
-                for label[i] in ["All", "Unfinished", "Finished", "Hidden"] : Rectangle {
-                    height: 32px;
-                    background: touch-fopt.has-hover || i == root.active-filter ? Theme.surface : transparent;
-                    border-radius: 6px;
-
-                    HorizontalLayout {
-                        padding-left: 10px;
-                        padding-right: 10px;
-
-                        Text {
-                            text: label;
-                            color: i == root.active-filter ? Theme.primary : Theme.text;
-                            font-size: 13px;
-                            font-weight: i == root.active-filter ? 600 : 400;
-                            vertical-alignment: center;
-                        }
-                    }
-
-                    touch-fopt := TouchArea {
-                        mouse-cursor: pointer;
-                        clicked => {
-                            root.filter-changed(i);
-                            root.filter-open = false;
-                        }
-                    }
-                }
-
-                Rectangle {
-                    height: 32px;
-                    background: touch-hidden.has-hover ? Theme.surface : transparent;
-                    border-radius: 6px;
-
-                    HorizontalLayout {
-                        padding-left: 10px;
-                        padding-right: 10px;
-
-                        Text {
-                            text: root.show-hidden ? "Hide Hidden" : "Show Hidden";
-                            color: root.show-hidden ? Theme.primary : Theme.text;
-                            font-size: 13px;
-                            font-weight: root.show-hidden ? 600 : 400;
-                            vertical-alignment: center;
-                        }
-                    }
-
-                    touch-hidden := TouchArea {
-                        mouse-cursor: pointer;
-                        clicked => {
-                            root.toggle-show-hidden(!root.show-hidden);
-                            root.filter-open = false;
                         }
                     }
                 }
@@ -360,15 +259,15 @@ export component LibraryView inherits Rectangle {
             vertical-stretch: 1;
 
             for r in root.row-count : Rectangle {
-                height: 244px;
+                height: 284px;
 
                 HorizontalLayout {
-                    height: 236px;
-                    spacing: 18px;
+                    height: 276px;
+                    spacing: 20px;
                     alignment: start;
 
                     for c in root.columns : Rectangle {
-                        width: 181px;
+                        width: 195px;
 
                         property <int> index: r * root.columns + c;
 
@@ -451,6 +350,168 @@ export component LibraryView inherits Rectangle {
                     mouse-cursor: pointer;
                     clicked => { root.game-clicked(game.id); }
                 }
+                }
+            }
+        }
+    }
+
+    if root.sort-open || root.filter-open : Rectangle {
+        width: 100%;
+        height: 100%;
+
+        TouchArea {
+            width: 100%;
+            height: 100%;
+            mouse-cursor: pointer;
+            clicked => {
+                root.sort-open = false;
+                root.filter-open = false;
+            }
+        }
+
+        if root.sort-open : Rectangle {
+            x: parent.width - 170px - 32px;
+            y: 131px;
+            width: 170px;
+            height: sort-options.preferred-height;
+            background: Theme.sidebar;
+            border-width: 1px;
+            border-color: Theme.border;
+            border-radius: 12px;
+            drop-shadow-blur: 16px;
+            drop-shadow-color: #00000015;
+
+            sort-options := VerticalLayout {
+                padding: 6px;
+                spacing: 2px;
+
+                for label[i] in ["Sort by Name", "Title Z-A", "Most Played", "Recently Played"] : Rectangle {
+                    height: 32px;
+                    background: touch-opt.has-hover ? Theme.surface : transparent;
+                    border-radius: 6px;
+
+                    HorizontalLayout {
+                        padding-left: 12px;
+                        padding-right: 12px;
+
+                        Text {
+                            text: label;
+                            color: Theme.text;
+                            font-size: 13px;
+                            vertical-alignment: center;
+                            horizontal-stretch: 1;
+                        }
+
+                        Text {
+                            text: "✓";
+                            color: #10b981;
+                            font-size: 13px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                            visible: i == root.sort-index;
+                        }
+                    }
+
+                    touch-opt := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            if (label == "Sort by Name") { root.sort-changed("title", true); }
+                            else if (label == "Title Z-A") { root.sort-changed("title", false); }
+                            else if (label == "Most Played") { root.sort-changed("play_time", false); }
+                            else { root.sort-changed("last_played", false); }
+                            root.sort-open = false;
+                        }
+                    }
+                }
+            }
+        }
+
+        if root.filter-open : Rectangle {
+            x: parent.width - 170px - 32px;
+            y: 131px;
+            width: 170px;
+            height: filter-options.preferred-height;
+            background: Theme.sidebar;
+            border-width: 1px;
+            border-color: Theme.border;
+            border-radius: 12px;
+            drop-shadow-blur: 16px;
+            drop-shadow-color: #00000015;
+
+            filter-options := VerticalLayout {
+                padding: 6px;
+                spacing: 2px;
+
+                for label[i] in ["All", "Unfinished", "Finished", "Hidden"] : Rectangle {
+                    height: 32px;
+                    background: touch-fopt.has-hover ? Theme.surface : transparent;
+                    border-radius: 6px;
+
+                    HorizontalLayout {
+                        padding-left: 12px;
+                        padding-right: 12px;
+
+                        Text {
+                            text: label;
+                            color: Theme.text;
+                            font-size: 13px;
+                            vertical-alignment: center;
+                            horizontal-stretch: 1;
+                        }
+
+                        Text {
+                            text: "✓";
+                            color: #10b981;
+                            font-size: 13px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                            visible: i == root.active-filter;
+                        }
+                    }
+
+                    touch-fopt := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            root.filter-changed(i);
+                            root.filter-open = false;
+                        }
+                    }
+                }
+
+                Rectangle {
+                    height: 32px;
+                    background: touch-hidden.has-hover ? Theme.surface : transparent;
+                    border-radius: 6px;
+
+                    HorizontalLayout {
+                        padding-left: 12px;
+                        padding-right: 12px;
+
+                        Text {
+                            text: root.show-hidden ? "Hide Hidden" : "Show Hidden";
+                            color: Theme.text;
+                            font-size: 13px;
+                            vertical-alignment: center;
+                            horizontal-stretch: 1;
+                        }
+
+                        Text {
+                            text: "✓";
+                            color: #10b981;
+                            font-size: 13px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                            visible: root.show-hidden;
+                        }
+                    }
+
+                    touch-hidden := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            root.toggle-show-hidden(!root.show-hidden);
+                            root.filter-open = false;
+                        }
+                    }
                 }
             }
         }

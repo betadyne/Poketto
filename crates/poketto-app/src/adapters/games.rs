@@ -1,7 +1,7 @@
 use poketto_core::db::{self, Connection, DbResult, SortBy, SortOrder};
 use poketto_core::models::Game;
 use slint::{Model, VecModel};
-
+use super::detail::format_playtime;
 use crate::GameCardData;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -69,6 +69,7 @@ pub fn card_data(game: &Game, nsfw: bool) -> GameCardData {
         hidden: game.is_hidden,
         is_nsfw: nsfw,
         revealed: false,
+        playtime: format_playtime(game.play_time_minutes).into(),
         playing: false,
         cover: slint::Image::default(),
     }

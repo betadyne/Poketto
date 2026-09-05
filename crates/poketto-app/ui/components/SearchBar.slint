@@ -6,10 +6,10 @@ export component SearchBar inherits Rectangle {
     in property <length> box-height: 38px;
     callback accepted(string);
 
-    background: Theme.canvas;
+    background: Theme.surface;
     border-width: 1px;
-    border-color: Theme.border;
-    border-radius: Theme.radius-md;
+    border-color: Theme.surface-pressed;
+    border-radius: 10px;
     height: root.box-height;
 
     HorizontalLayout {
@@ -44,7 +44,7 @@ export component SearchBar inherits Rectangle {
         y: 0;
         height: 100%;
         text: root.placeholder;
-        color: Theme.text-muted;
+        color: Theme.text-faint;
         font-size: Theme.font-md;
         vertical-alignment: center;
     }

@@ -9,6 +9,7 @@ export struct GameCardData {
     hidden: bool,
     is-nsfw: bool,
     revealed: bool,
+    playtime: string,
     playing: bool,
     cover: image,
 }
@@ -25,18 +26,18 @@ export component GameCard inherits Rectangle {
 
     property <bool> blocked: root.game.is-nsfw && root.blur-nsfw && !root.game.revealed;
 
-    width: 165px;
+    width: 195px;
 
     VerticalLayout {
         spacing: Theme.space-sm;
 
         Rectangle {
-            width: 165px;
-            height: 235px;
+            width: 195px;
+            height: 275px;
             background: Theme.surface;
             border-width: 1px;
             border-color: touch.has-hover ? Theme.accent : Theme.border;
-            border-radius: Theme.radius-lg;
+            border-radius: Theme.radius-xl;
             clip: true;
 
             if !root.game.show-cover && !root.blocked : Text {
@@ -161,33 +162,67 @@ export component GameCard inherits Rectangle {
             }
 
             if !root.blocked : Rectangle {
-                y: parent.height - 70px;
+                y: parent.height - self.height;
                 width: 100%;
-                height: 70px;
-                background: @linear-gradient(180deg, #00000000 0%, #000000d9 100%);
+                height: 90px;
+                background: @linear-gradient(180deg, #00000000 0%, #000000e0 100%);
                 opacity: touch.has-hover ? 1.0 : 0.0;
                 animate opacity { duration: 150ms; }
 
                 Text {
                     text: root.game.title;
                     color: #ffffff;
-                    font-size: 12px;
+                    font-size: 13px;
                     font-weight: 600;
                     wrap: word-wrap;
                     overflow: elide;
-                    x: 10px;
-                    y: 70px - self.height - 8px;
-                    width: parent.width - 20px;
+                    x: 12px;
+                    y: parent.height - self.height - 12px;
+                    width: parent.width - 56px;
                 }
             }
 
             if touch.has-hover && !root.blocked : Rectangle {
-                x: parent.width - 40px;
-                y: parent.height - 78px;
-                width: 32px;
-                height: 32px;
+                x: 10px;
+                y: 10px;
+                width: 28px;
+                height: 28px;
+                background: #00000099;
+                border-radius: 14px;
+
+                Text {
+                    text: "...";
+                    color: #ffffff;
+                    font-size: 14px;
+                    font-weight: 700;
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2 - 4px;
+                }
+
+                TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.edit-game(root.game.id); }
+                }
+            }
+
+            if touch.has-hover && !root.blocked : Text {
+                text: root.game.playtime;
+                color: #ffffff;
+                font-size: 11px;
+                font-weight: 600;
+                x: parent.width - 46px;
+                y: parent.height - 76px;
+                width: 36px;
+                horizontal-alignment: right;
+            }
+
+            if touch.has-hover && !root.blocked : Rectangle {
+                x: parent.width - 44px;
+                y: parent.height - 44px;
+                width: 34px;
+                height: 34px;
                 background: Theme.primary;
-                border-radius: 16px;
+                border-radius: 17px;
 
                 Image {
                     source: @image-url("../icons/player-play.svg");
