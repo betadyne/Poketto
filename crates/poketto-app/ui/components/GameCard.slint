@@ -25,17 +25,17 @@ export component GameCard inherits Rectangle {
 
     property <bool> blocked: root.game.is-nsfw && root.blur-nsfw && !root.game.revealed;
 
-    width: 160px;
+    width: 165px;
 
     VerticalLayout {
         spacing: Theme.space-sm;
 
         Rectangle {
-            width: 160px;
-            height: 213px;
+            width: 165px;
+            height: 235px;
             background: Theme.surface;
             border-width: 1px;
-            border-color: touch.has-hover ? Theme.primary : Theme.border;
+            border-color: touch.has-hover ? Theme.accent : Theme.border;
             border-radius: Theme.radius-lg;
             clip: true;
 
@@ -152,7 +152,7 @@ export component GameCard inherits Rectangle {
                 y: parent.height - 44px;
                 width: 36px;
                 height: 36px;
-                background: Theme.primary;
+                background: Theme.accent;
                 border-radius: 18px;
 
                 Image {
@@ -176,7 +176,9 @@ export component GameCard inherits Rectangle {
             color: Theme.text;
             font-size: 13px;
             font-weight: 600;
+            wrap: word-wrap;
             overflow: elide;
+            height: 36px;
         }
     }
 
