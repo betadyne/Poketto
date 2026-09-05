@@ -149,6 +149,16 @@ an environment bug, never a code bug.
   reproducible builds.
 - Check crates.io for the newest stable release before touching a
   version requirement; pin the checked version, then sync the lockfile.
+- Stability first: NEVER upgrade a dependency (major, minor, or
+  pre-release pin) just because a newer release exists. Hold every
+  update that breaks compilation, tests, lints, or the IPC contract;
+  revert it, do not fix-forward, unless the task explicitly approves
+  the migration.
+- When the official docs show a feature you need that only exists in a
+  newer version, STOP and report it instead of upgrading: name the
+  crate, the current vs needed version, the feature, and why it is
+  needed. Wait for an approved update plan before touching the
+  manifest.
 - Backend `Cargo.toml` MUST NOT gain path dependencies outside
   `src-tauri/`.
 - The `discord-rich-presence` dependency is pinned to a git rev; do not
