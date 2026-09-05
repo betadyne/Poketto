@@ -33,13 +33,13 @@ pub fn launch_game(
         .get_game_by_id(&id)?
         .ok_or_else(|| AppError::NotFound("Game not found".into()))?;
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
     let steam_app_id = game
         .steam_app_id
         .clone()
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty());
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     let steam_app_id: Option<String> = None;
 
     let settings = state.settings.lock().clone();
@@ -207,8 +207,41 @@ fn write_steam_appid_file(exe_path: &str, app_id: &str) {
     }
 }
 
+fn steam_protocol_url(app_id: &str) -> String {
+    format!("steam://rungameid/{app_id}")
+}
+
+#[cfg(target_os = "windows")]
+const STEAM_EXE_CANDIDATES: &[&str] = &[
+    "C:\\Program Files (x86)\\Steam\\steam.exe",
+    "C:\\Program Files\\Steam\\steam.exe",
+];
+
+#[cfg(target_os = "windows")]
 fn spawn_steam_game(app_id: &str) -> AppResult<()> {
-    let url = format!("steam://rungameid/{app_id}");
+    let url = steam_protocol_url(app_id);
+    if Command::new("cmd")
+        .args(["/C", "start", "", url.as_str()])
+        .spawn()
+        .is_ok()
+    {
+        log::info!("Launched via Steam protocol: {url}");
+        return Ok(());
+    }
+    for candidate in STEAM_EXE_CANDIDATES {
+        if Command::new(candidate).arg(&url).spawn().is_ok() {
+            log::info!("Launched via Steam client {candidate}: {url}");
+            return Ok(());
+        }
+    }
+    Err(AppError::ProcessLaunch(format!(
+        "Failed to launch Steam game {app_id}: Steam client not found"
+    )))
+}
+
+#[cfg(not(target_os = "windows"))]
+fn spawn_steam_game(app_id: &str) -> AppResult<()> {
+    let url = steam_protocol_url(app_id);
     match Command::new("steam").arg(&url).spawn() {
         Ok(_) => {
             log::info!("Launched via Steam protocol: {url}");
@@ -668,5 +701,10 @@ mod tests {
 
             assert!(result.env_vars.is_empty());
         }
+    }
+
+    #[test]
+    fn test_steam_protocol_url() {
+        assert_eq!(steam_protocol_url("412830"), "steam://rungameid/412830");
     }
 }
