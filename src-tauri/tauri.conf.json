@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Poketto",
-  "version": "0.1.4-beta",
+  "version": "0.1.4-hotfix",
   "identifier": "com.poketto.app",
   "build": {
     "frontendDist": "../dist",
