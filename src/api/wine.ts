@@ -84,6 +84,24 @@ export const getWineTypeDisplayName = (type: string): string => {
   return names[type] || type;
 };
 
+export interface WineOptionGroup {
+  label: string;
+  options: { value: string; label: string }[];
+}
+
+export const wineVersionsToOptionGroups = (
+  versions: WineVersion[],
+): WineOptionGroup[] =>
+  Object.entries(groupWineVersionsByType(versions))
+    .filter(([, grouped]) => grouped.length > 0)
+    .map(([type, grouped]) => ({
+      label: getWineTypeDisplayName(type),
+      options: grouped.map((version) => ({
+        value: version.binary_path,
+        label: version.name,
+      })),
+    }));
+
 export const getWineSourceDisplayName = (source: string): string => {
   const names: Record<string, string> = {
     System: "System",

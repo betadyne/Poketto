@@ -13,6 +13,7 @@ import { open } from "@tauri-apps/plugin-shell";
 import { useSettings } from "../context";
 import { useUpdater } from "../hooks/useUpdater";
 import * as api from "../api";
+import { Dropdown } from "../components/Dropdown";
 
 interface DiscordButtonConfig {
   key: "vndb_game" | "vndb_profile" | "github";
@@ -318,35 +319,16 @@ export function Settings() {
                     <label class="text-sm font-medium text-[var(--color-text-primary)] mb-2 block">
                       Default Wine Version
                     </label>
-                    <select
+                    <Dropdown
                       value={defaultWineBinary()}
-                      onChange={(e) => {
-                        setDefaultWineBinary(e.currentTarget.value);
+                      onChange={(value) => {
+                        setDefaultWineBinary(value);
                         saveWineDefaults();
                       }}
-                      class="w-full px-3 py-2 bg-[var(--color-bg-secondary)] rounded-xl text-[var(--color-text-primary)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
-                    >
-                      <Show when={wineVersions().length === 0}>
-                        <option value="">No Wine/Proton found</option>
-                      </Show>
-                      <For
-                        each={Object.entries(
-                          api.groupWineVersionsByType(wineVersions()),
-                        )}
-                      >
-                        {([type, versions]) => (
-                          <Show when={versions.length > 0}>
-                            <optgroup label={api.getWineTypeDisplayName(type)}>
-                              <For each={versions}>
-                                {(v) => (
-                                  <option value={v.binary_path}>{v.name}</option>
-                                )}
-                              </For>
-                            </optgroup>
-                          </Show>
-                        )}
-                      </For>
-                    </select>
+                      placeholder="No Wine/Proton found"
+                      disabled={wineVersions().length === 0}
+                      groups={api.wineVersionsToOptionGroups(wineVersions())}
+                    />
                   </div>
 
                   <div class="flex items-center justify-between">

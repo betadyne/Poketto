@@ -30,6 +30,7 @@ import type {
 } from "../bindings";
 import * as api from "../api";
 import { isVndbId, shouldBlur } from "../utils";
+import { Dropdown } from "./Dropdown";
 
 export interface GameSettingsOverlayProps {
   mode: "add" | "edit";
@@ -280,12 +281,6 @@ export function GameSettingsOverlay(props: GameSettingsOverlayProps) {
     }
   };
 
-  const groupedVersions = createMemo(() => {
-    const versions = wineVersions();
-    if (!versions) return {};
-    return api.groupWineVersionsByType(versions);
-  });
-
   const blurCheck = (img: VndbImage | null): boolean =>
     shouldBlur(img, props.blurNsfw);
 
@@ -515,16 +510,20 @@ export function GameSettingsOverlay(props: GameSettingsOverlayProps) {
               <IconDeviceDesktop class="w-4 h-4" strokeWidth={1.5} />
               Platform Version
             </label>
-            <select
+            <Dropdown
               value={platformVersion()}
-              onChange={(e) =>
-                setPlatformVersion(e.currentTarget.value as "windows" | "linux")
+              onChange={(value) =>
+                setPlatformVersion(value as "windows" | "linux")
               }
-              class="w-full px-3 py-2 bg-[var(--color-bg-secondary)] rounded-lg text-[var(--color-text-primary)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
-            >
-              <option value="windows">Windows</option>
-              <option value="linux">Linux</option>
-            </select>
+              groups={[
+                {
+                  options: [
+                    { value: "windows", label: "Windows" },
+                    { value: "linux", label: "Linux" },
+                  ],
+                },
+              ]}
+            />
             <p class="text-xs text-[var(--color-text-tertiary)]">
               {platformVersion() === "windows"
                 ? "Windows executable (.exe) - requires Wine/Proton on Linux"
@@ -588,27 +587,13 @@ export function GameSettingsOverlay(props: GameSettingsOverlayProps) {
                     </div>
                   }
                 >
-                  <select
+                  <Dropdown
                     value={wineVersion()}
-                    onChange={(e) =>
-                      handleWineVersionChange(e.currentTarget.value)
-                    }
-                    class="w-full px-3 py-2 bg-[var(--color-bg-primary)] rounded-lg text-[var(--color-text-primary)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
-                  >
-                    <For each={Object.entries(groupedVersions())}>
-                      {([type, versions]) => (
-                        <Show when={versions.length > 0}>
-                          <optgroup label={api.getWineTypeDisplayName(type)}>
-                            <For each={versions}>
-                              {(v) => (
-                                <option value={v.binary_path}>{v.name}</option>
-                              )}
-                            </For>
-                          </optgroup>
-                        </Show>
-                      )}
-                    </For>
-                  </select>
+                    onChange={handleWineVersionChange}
+                    tone="primary"
+                    placeholder="Select Wine/Proton version..."
+                    groups={api.wineVersionsToOptionGroups(wineVersions() ?? [])}
+                  />
                 </Show>
               </div>
 

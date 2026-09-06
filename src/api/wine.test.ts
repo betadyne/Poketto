@@ -4,6 +4,7 @@ import {
   groupWineVersionsBySource,
   getWineTypeDisplayName,
   getWineSourceDisplayName,
+  wineVersionsToOptionGroups,
 } from "./wine";
 import type { WineVersion } from "../bindings";
 
@@ -79,6 +80,29 @@ describe("groupWineVersionsBySource", () => {
     const result = groupWineVersionsBySource(versions);
 
     expect(result["Unknown"]).toHaveLength(1);
+  });
+});
+
+describe("wineVersionsToOptionGroups", () => {
+  it("maps grouped versions to labeled dropdown options", () => {
+    const groups = wineVersionsToOptionGroups([
+      createVersion("wine-9.0", "Wine"),
+      createVersion("GE-Proton10", "ProtonGE"),
+    ]);
+    expect(groups).toEqual([
+      {
+        label: "Wine",
+        options: [{ value: "/path/to/wine-9.0", label: "wine-9.0" }],
+      },
+      {
+        label: "GE-Proton",
+        options: [{ value: "/path/to/GE-Proton10", label: "GE-Proton10" }],
+      },
+    ]);
+  });
+
+  it("returns empty array for empty input", () => {
+    expect(wineVersionsToOptionGroups([])).toEqual([]);
   });
 });
 
