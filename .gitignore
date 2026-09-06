@@ -42,3 +42,8 @@ src-tauri/NSIS
 # Agent tooling secrets
 tools/agents/.env
 tools/agents/*.env
+
+# Private planning docs (local only, never commit)
+PRD.md
+.agents/
+.claude/
