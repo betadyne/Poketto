@@ -2,6 +2,7 @@
 set -euo pipefail
 shopt -s nullglob
 
+export PATH="$HOME/.cargo/bin:$PATH"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
@@ -181,6 +182,7 @@ upload_release() {
     git tag "$tag"
     log "created tag $tag"
   fi
+  git push origin "$tag"
   if gh release view "$tag" >/dev/null 2>&1; then
     gh release upload "$tag" "$OUT"/* --clobber
   else
