@@ -90,8 +90,7 @@ build_linux() {
   if [[ "$DRY_RUN" == "1" ]]; then
     log "dry-run: skipping npm run tauri build"
   else
-    command -v rpmbuild >/dev/null || die "rpm-build missing (sudo dnf install rpm-build)"
-    npm run tauri build -- --bundles appimage,deb,rpm
+    NO_STRIP=1 npm run tauri build -- --bundles appimage,deb,rpm
   fi
   collect_first "$BUNDLE/appimage/*.AppImage" "$OUT/${BASE}-linux-x64.AppImage" "AppImage" || true
   collect_first "$BUNDLE/deb/*.deb" "$OUT/${BASE}-linux-x64.deb" "deb" || true
