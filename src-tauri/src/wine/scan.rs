@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::path::Path;
 
 use crate::models::{WineSource, WineType, WineVersion};
@@ -250,6 +251,30 @@ fn get_bottles_wine() -> Vec<WineVersion> {
     versions
 }
 
+fn dedupe_key(version: &WineVersion) -> (WineType, String) {
+    let normalized = version
+        .name
+        .to_lowercase()
+        .chars()
+        .filter(|c| c.is_alphanumeric())
+        .collect();
+    (version.wine_type.clone(), normalized)
+}
+
+fn dedupe_versions(versions: Vec<WineVersion>) -> Vec<WineVersion> {
+    let mut seen_paths = HashSet::new();
+    let mut seen_runners = HashSet::new();
+    versions
+        .into_iter()
+        .filter(|version| {
+            let canonical = std::fs::canonicalize(Path::new(&version.binary_path))
+                .map(|path| path.to_string_lossy().into_owned())
+                .unwrap_or_else(|_| version.binary_path.clone());
+            seen_paths.insert(canonical) && seen_runners.insert(dedupe_key(version))
+        })
+        .collect()
+}
+
 pub fn get_all_wine_versions() -> Vec<WineVersion> {
     let mut versions = Vec::new();
 
@@ -259,9 +284,7 @@ pub fn get_all_wine_versions() -> Vec<WineVersion> {
     versions.extend(get_lutris_wine());
     versions.extend(get_bottles_wine());
 
-    versions.dedup_by(|a, b| a.binary_path == b.binary_path);
-
-    versions
+    dedupe_versions(versions)
 }
 
 pub fn get_default_wine() -> Option<WineVersion> {
@@ -282,4 +305,51 @@ pub fn get_default_wine() -> Option<WineVersion> {
     }
 
     get_all_wine_versions().into_iter().next()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample(path: &str, name: &str, wine_type: WineType) -> WineVersion {
+        WineVersion {
+            name: name.to_string(),
+            binary_path: path.to_string(),
+            lib_path: None,
+            wine_type,
+            version: None,
+            source: None,
+        }
+    }
+
+    #[test]
+    fn test_same_runner_from_different_paths_merges() {
+        let versions = vec![
+            sample("/usr/bin/wine", "Wine 9.0", WineType::Wine),
+            sample("/usr/bin/wine64", "Wine 9.0", WineType::Wine),
+            sample("/opt/wine-9.0/bin/wine", "wine-9.0", WineType::Wine),
+        ];
+        let deduped = dedupe_versions(versions);
+        assert_eq!(deduped.len(), 1);
+        assert_eq!(deduped[0].binary_path, "/usr/bin/wine");
+    }
+
+    #[test]
+    fn test_separator_and_case_variants_merge() {
+        let versions = vec![
+            sample("/a/proton", "Proton 9.0", WineType::Proton),
+            sample("/b/proton", "proton-9.0", WineType::Proton),
+        ];
+        assert_eq!(dedupe_versions(versions).len(), 1);
+    }
+
+    #[test]
+    fn test_distinct_runners_survive() {
+        let versions = vec![
+            sample("/other/wine", "Wine 9.0", WineType::ProtonGE),
+            sample("/usr/bin/wine", "Wine 9.0", WineType::Wine),
+            sample("/opt/staging/bin/wine", "Wine Staging 9.0", WineType::Wine),
+        ];
+        assert_eq!(dedupe_versions(versions).len(), 3);
+    }
 }

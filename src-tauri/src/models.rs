@@ -6,7 +6,7 @@ use std::time::Instant;
 // Wine/Proton Types for Linux Support
 // ============================================================================
 
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, specta::Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize, specta::Type)]
 pub enum WineType {
     #[default]
     Wine,
