@@ -40,6 +40,19 @@ impl AppState {
     pub fn settle_running(&self, id: &str, start_time: Instant) -> Settle {
         settle_running_slot(&mut self.running_game.lock(), id, start_time)
     }
+
+    pub fn is_current_session(&self, id: &str, start_time: Instant) -> bool {
+        is_current_slot(&self.running_game.lock(), id, start_time)
+    }
+}
+
+pub(crate) fn is_current_slot(
+    slot: &Option<RunningGame>,
+    id: &str,
+    start_time: Instant,
+) -> bool {
+    slot.as_ref()
+        .is_some_and(|running| running.id == id && running.start_time == start_time)
 }
 
 #[cfg(test)]
@@ -87,5 +100,17 @@ mod tests {
             settle_running_slot(&mut slot, "game-1", Instant::now()),
             Settle::Gone
         );
+    }
+
+    #[test]
+    fn test_is_current_session_matches_id_and_start() {
+        let session = running("game-1");
+        let start = session.start_time;
+        let slot = Some(session);
+        assert!(is_current_slot(&slot, "game-1", start));
+        let later = start + std::time::Duration::from_secs(3600);
+        assert!(!is_current_slot(&slot, "game-1", later));
+        assert!(!is_current_slot(&slot, "game-2", start));
+        assert!(!is_current_slot(&None, "game-1", start));
     }
 }

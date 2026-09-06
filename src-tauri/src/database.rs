@@ -172,7 +172,7 @@ impl AppDatabase {
         let conn = self.lock()?;
         conn.execute(
             "UPDATE games SET title = :title, exe_path = :exe_path, prefix_path = :prefix_path, \
-             runner = :runner, playtime_seconds = :playtime_seconds, last_played = COALESCE(:last_played, last_played), \
+             runner = :runner, playtime_seconds = MAX(playtime_seconds, :playtime_seconds), last_played = COALESCE(:last_played, last_played), \
              cover_path = :cover_path, vndb_id = :vndb_id, steam_app_id = :steam_app_id, \
              discord_status = :discord_status, is_finished = :is_finished, \
              is_hidden = :is_hidden, show_spoilers = :show_spoilers, \
@@ -697,6 +697,23 @@ mod tests {
         let loaded = db.get_game_by_id("game-keep").unwrap().expect("game exists");
         assert_eq!(loaded.title, "Renamed");
         assert_eq!(loaded.last_played, stamped);
+    }
+
+    #[test]
+    fn test_update_game_never_reduces_playtime() {
+        let db = AppDatabase::open_in_memory().expect("in-memory database");
+        let game = sample_game("game-stale");
+        db.insert_game(&game).unwrap();
+        let mut stale = game.clone();
+        stale.play_time = 10;
+        db.update_game(&stale).unwrap();
+        let loaded = db.get_game_by_id("game-stale").unwrap().expect("game exists");
+        assert_eq!(loaded.play_time, 125);
+        let mut fresh = game.clone();
+        fresh.play_time = 200;
+        db.update_game(&fresh).unwrap();
+        let loaded = db.get_game_by_id("game-stale").unwrap().expect("game exists");
+        assert_eq!(loaded.play_time, 200);
     }
 
     #[test]

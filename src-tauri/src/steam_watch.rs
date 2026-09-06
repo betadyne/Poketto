@@ -10,6 +10,7 @@ use crate::state::{AppState, Settle};
 
 const WAIT_TIMEOUT: Duration = Duration::from_secs(60);
 const POLL_INTERVAL: Duration = Duration::from_secs(2);
+pub(crate) const NATIVE_HANDOVER_SECS: u64 = 10;
 
 pub fn spawn_steam_watcher(
     app_handle: AppHandle,

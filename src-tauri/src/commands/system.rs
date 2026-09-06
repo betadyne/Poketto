@@ -11,7 +11,7 @@ use crate::models::{
     AppSettings, GameExitedPayload, GameMetadata, GameType, RunningGame, WineSettings, WineType,
 };
 use crate::state::{AppState, Settle};
-use crate::steam_watch::{binary_file_name, kill_session_processes, persist_session, spawn_steam_watcher};
+use crate::steam_watch::{NATIVE_HANDOVER_SECS, binary_file_name, kill_session_processes, persist_session, spawn_steam_watcher};
 
 #[cfg(target_os = "linux")]
 use crate::wine;
@@ -141,6 +141,7 @@ pub fn launch_game(
     let game_id = id.clone();
     let launched_via_steam = child.is_none();
     let watcher_handle = app_handle.clone();
+    let exe_path = game.path.clone();
 
     if let Some(mut child) = child {
         tauri::async_runtime::spawn(async move {
@@ -148,12 +149,21 @@ pub fn launch_game(
 
             let (minutes, seconds) = session_durations(start_time.elapsed().as_secs());
             let state = app_handle_clone.state::<AppState>();
+            if seconds < NATIVE_HANDOVER_SECS as i64
+                && binary_file_name(&exe_path).is_some()
+                && state.is_current_session(&game_id, start_time)
+            {
+                log::info!(
+                    "Game exited instantly, falling back to process-name tracking: {game_id}"
+                );
+                spawn_steam_watcher(app_handle_clone.clone(), game_id.clone(), exe_path, start_time);
+                return;
+            }
             match state.settle_running(&game_id, start_time) {
                 Settle::Mine => {
                     if let Err(e) = state.discord_rpc.clear_activity() {
                         log::warn!("Failed to clear Discord activity: {}", e);
                     }
-                    persist_session(&app_handle_clone, &game_id, seconds);
                     if let Err(e) = app_handle.emit(
                         "game-exited",
                         GameExitedPayload {
