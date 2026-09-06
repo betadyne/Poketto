@@ -14,6 +14,7 @@ import { useSettings } from "../context";
 import { useUpdater } from "../hooks/useUpdater";
 import * as api from "../api";
 import { Dropdown } from "../components/Dropdown";
+import { UpdateOverlay } from "../components/UpdateOverlay";
 
 interface DiscordButtonConfig {
   key: "vndb_game" | "vndb_profile" | "github";
@@ -408,6 +409,17 @@ export function Settings() {
             </section>
 
           </div>
+      <UpdateOverlay
+        status={updater.status()}
+        updateInfo={updater.updateInfo()}
+        downloadProgress={updater.downloadProgress()}
+        error={updater.error()}
+        onDownload={updater.downloadAndInstall}
+        onManualDownload={updater.openManualDownload}
+        onRetry={() => updater.checkForUpdates(false)}
+        onRestart={updater.restartApp}
+        onDismiss={updater.dismissUpdate}
+      />
         </div>
       </main>
     </div>

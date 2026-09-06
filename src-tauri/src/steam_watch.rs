@@ -53,8 +53,9 @@ pub(crate) fn persist_session(app_handle: &AppHandle, game_id: &str, seconds: i6
     let seconds = seconds.max(0);
     let minutes = seconds as u64 / 60;
     let db = app_handle.state::<AppDatabase>();
-    if let Err(e) = db.add_playtime(game_id, seconds) {
-        log::error!("Failed to save game playtime: {e}");
+    match db.add_playtime(game_id, seconds) {
+        Ok(()) => log::info!("Saved playtime session: game={game_id} seconds={seconds}"),
+        Err(e) => log::error!("Failed to save game playtime: {e}"),
     }
     record_daily_playtime(game_id, minutes);
 }
@@ -62,22 +63,24 @@ pub(crate) fn persist_session(app_handle: &AppHandle, game_id: &str, seconds: i6
 pub(crate) fn kill_session_processes(pid: Option<u32>, binary: Option<&str>) {
     let mut system = System::new();
     system.refresh_processes(ProcessesToUpdate::All, false);
+    let mut killed = 0;
     if let Some(pid) = pid {
-        kill_process_tree(&system, Pid::from_u32(pid));
+        killed += kill_process_tree(&system, Pid::from_u32(pid));
     }
     if let Some(binary) = binary {
         for process in system.processes().values() {
-            if process_matches(&process.name().to_string_lossy(), binary) {
-                process.kill();
+            if process_matches(&process.name().to_string_lossy(), binary) && process.kill() {
+                killed += 1;
             }
         }
     }
+    log::info!("Stop terminated {killed} process(es)");
 }
 
-fn kill_process_tree(system: &System, root: Pid) {
+fn kill_process_tree(system: &System, root: Pid) -> usize {
     let processes = system.processes();
     if !processes.contains_key(&root) {
-        return;
+        return 0;
     }
     let mut order = vec![root];
     let mut index = 0;
@@ -90,11 +93,15 @@ fn kill_process_tree(system: &System, root: Pid) {
             }
         }
     }
+    let mut killed = 0;
     for pid in order.iter().rev() {
         if let Some(process) = processes.get(pid) {
-            process.kill();
+            if process.kill() {
+                killed += 1;
+            }
         }
     }
+    killed
 }
 
 fn clear_presence(app_handle: &AppHandle) {

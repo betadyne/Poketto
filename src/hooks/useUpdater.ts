@@ -2,6 +2,7 @@ import { createSignal, onMount } from "solid-js";
 import { check, Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { open as openUrl } from "@tauri-apps/plugin-shell";
+import { error as logError, info as logInfo } from "@tauri-apps/plugin-log";
 import { RELEASE_PAGE_URL, releaseTagUrl } from "../utils/updates";
 
 export type UpdateStatus =
@@ -45,10 +46,12 @@ export function useUpdater() {
                     date: update.date || "",
                 });
                 setStatus("available");
+                void logInfo(`Update available: v${update.version}`);
                 return true;
             } else {
                 if (!silent) {
                     setStatus("up-to-date");
+                    void logInfo("Update check: already up to date");
                 }
                 return false;
             }
@@ -58,7 +61,7 @@ export function useUpdater() {
             if (!silent) {
                 setError(errorMsg);
                 setStatus("error");
-                console.error("Update check failed:", errorMsg);
+                void logError(`Update check failed: ${errorMsg}`);
             }
             return false;
         }
@@ -98,11 +101,11 @@ export function useUpdater() {
             });
 
             setStatus("ready");
+            void logInfo(`Update downloaded: v${updateInfo()?.version ?? "unknown"}`);
         } catch (e) {
             const errorMsg = e instanceof Error ? e.message : String(e);
             setError(errorMsg);
-            setStatus(updateInfo() ? "manual" : "error");
-            console.error("Update download failed:", errorMsg);
+            void logError(`Update download failed: ${errorMsg}`);
         }
     };
 
@@ -115,7 +118,7 @@ export function useUpdater() {
         try {
             await openUrl(manualDownloadUrl());
         } catch (e) {
-            console.error("Failed to open release page:", e);
+            void logError(`Failed to open release page: ${e instanceof Error ? e.message : String(e)}`);
         }
     };
 
@@ -123,7 +126,7 @@ export function useUpdater() {
         try {
             await relaunch();
         } catch (e) {
-            console.error("Failed to restart app:", e);
+            void logError(`Failed to restart app: ${e instanceof Error ? e.message : String(e)}`);
         }
     };
 

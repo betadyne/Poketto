@@ -19,7 +19,7 @@ import { Detail } from "./views/Detail";
 import { Settings } from "./views/Settings";
 import { Logs } from "./views/Logs";
 import { TitleBar } from "./components/TitleBar";
-import { UpdateDialog } from "./components/UpdateDialog";
+import { UpdateOverlay } from "./components/UpdateOverlay";
 import {
   GameSettingsOverlay,
   type GameSettingsData,
@@ -122,13 +122,14 @@ function LibraryPage() {
         />
       </Show>
 
-      <UpdateDialog
+      <UpdateOverlay
         status={updater.status()}
         updateInfo={updater.updateInfo()}
         downloadProgress={updater.downloadProgress()}
         error={updater.error()}
         onDownload={updater.downloadAndInstall}
         onManualDownload={updater.openManualDownload}
+        onRetry={() => updater.checkForUpdates(false)}
         onRestart={updater.restartApp}
         onDismiss={updater.dismissUpdate}
       />
@@ -247,13 +248,14 @@ function DetailPage() {
         </ErrorBoundary>
       </Show>
 
-      <UpdateDialog
+      <UpdateOverlay
         status={updater.status()}
         updateInfo={updater.updateInfo()}
         downloadProgress={updater.downloadProgress()}
         error={updater.error()}
         onDownload={updater.downloadAndInstall}
         onManualDownload={updater.openManualDownload}
+        onRetry={() => updater.checkForUpdates(false)}
         onRestart={updater.restartApp}
         onDismiss={updater.dismissUpdate}
       />

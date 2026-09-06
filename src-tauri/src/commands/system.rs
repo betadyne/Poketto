@@ -532,6 +532,7 @@ pub fn stop_tracking(state: State<AppState>, db: State<AppDatabase>) -> AppResul
         let game_id = game.id.clone();
 
         db.add_playtime(&game_id, seconds)?;
+        log::info!("Stopped tracking: game={game_id} seconds={seconds}");
 
         record_daily_playtime(&game_id, minutes);
 

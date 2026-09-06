@@ -17,6 +17,7 @@
     "fs:default",
     "shell:allow-open",
     "updater:default",
+    "log:default",
     "process:allow-restart"
   ]
 }
