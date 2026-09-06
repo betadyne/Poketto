@@ -8,6 +8,7 @@ interface UpdateDialogProps {
   downloadProgress: number;
   error: string | null;
   onDownload: () => void;
+  onManualDownload: () => void;
   onRestart: () => void;
   onDismiss: () => void;
 }
@@ -17,6 +18,7 @@ export function UpdateDialog(props: UpdateDialogProps) {
     props.status === "available" ||
     props.status === "downloading" ||
     props.status === "ready" ||
+    props.status === "manual" ||
     props.status === "error";
 
   return (
@@ -42,6 +44,10 @@ export function UpdateDialog(props: UpdateDialogProps) {
               <Show when={props.status === "ready"}>
                 <IconCircleCheck class="w-5 h-5 text-[var(--color-success)]" strokeWidth={1.5} />
                 Update Ready
+              </Show>
+              <Show when={props.status === "manual"}>
+                <IconDownload class="w-5 h-5 text-[var(--color-accent)]" strokeWidth={1.5} />
+                Manual Update Required
               </Show>
               <Show when={props.status === "error"}>
                 <IconAlertCircle class="w-5 h-5 text-[var(--color-danger)]" strokeWidth={1.5} />
@@ -119,6 +125,35 @@ export function UpdateDialog(props: UpdateDialogProps) {
                   >
                     <IconRefresh class="w-4 h-4" strokeWidth={1.5} />
                     Restart Now
+                  </button>
+                  <button
+                    onClick={props.onDismiss}
+                    class="px-4 py-2 bg-[var(--color-bg-secondary)] hover:bg-[var(--color-border)] rounded-lg text-[var(--color-text-primary)]"
+                  >
+                    Later
+                  </button>
+                </div>
+              </div>
+            </Show>
+
+            <Show when={props.status === "manual" && props.updateInfo}>
+              <div class="space-y-3">
+                <p class="text-[var(--color-text-secondary)]">
+                  Version{" "}
+                  <span class="text-[var(--color-text-primary)] font-semibold">
+                    v{props.updateInfo!.version}
+                  </span>{" "}
+                  is available, but automatic install is not supported for
+                  this install type. Download the package for your system
+                  from the release page and install it manually.
+                </p>
+                <div class="flex flex-col sm:flex-row gap-3 pt-2">
+                  <button
+                    onClick={props.onManualDownload}
+                    class="flex-1 px-4 py-2 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] rounded-lg text-white font-medium flex items-center justify-center gap-2"
+                  >
+                    <IconDownload class="w-4 h-4" strokeWidth={1.5} />
+                    Open Release Page
                   </button>
                   <button
                     onClick={props.onDismiss}

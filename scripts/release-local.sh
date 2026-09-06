@@ -189,7 +189,17 @@ upload_release() {
     # shellcheck disable=SC2086
     gh release create "$tag" "$OUT"/* --title "Poketto v${VERSION}" --generate-notes
   fi
+  ensure_release_notes "$tag"
   log "uploaded dist-release/* to $tag"
+}
+ensure_release_notes() {
+  local tag="$1" marker="Recommended downloads:" body
+  body="$(gh release view "$tag" --json body -q .body)"
+  [[ "$body" == *"$marker"* ]] && return 0
+  {
+    printf '%s\n\n---\n**%s** Linux users who want in-app auto-update should grab the `.AppImage`. System packages (`.deb`, `.rpm`) and portable archives update manually from this page.\n' "$body" "$marker"
+  } | gh release edit "$tag" --notes-file -
+  log "added download recommendation to $tag notes"
 }
 
 rm -rf "$OUT"

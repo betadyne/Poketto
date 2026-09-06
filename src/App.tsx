@@ -128,6 +128,7 @@ function LibraryPage() {
         downloadProgress={updater.downloadProgress()}
         error={updater.error()}
         onDownload={updater.downloadAndInstall}
+        onManualDownload={updater.openManualDownload}
         onRestart={updater.restartApp}
         onDismiss={updater.dismissUpdate}
       />
@@ -252,6 +253,7 @@ function DetailPage() {
         downloadProgress={updater.downloadProgress()}
         error={updater.error()}
         onDownload={updater.downloadAndInstall}
+        onManualDownload={updater.openManualDownload}
         onRestart={updater.restartApp}
         onDismiss={updater.dismissUpdate}
       />

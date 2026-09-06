@@ -1,6 +1,8 @@
 import { createSignal, onMount } from "solid-js";
 import { check, Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
+import { open as openUrl } from "@tauri-apps/plugin-shell";
+import { RELEASE_PAGE_URL, releaseTagUrl } from "../utils/updates";
 
 export type UpdateStatus =
     | "idle"
@@ -8,6 +10,7 @@ export type UpdateStatus =
     | "available"
     | "downloading"
     | "ready"
+    | "manual"
     | "error"
     | "up-to-date";
 
@@ -98,8 +101,21 @@ export function useUpdater() {
         } catch (e) {
             const errorMsg = e instanceof Error ? e.message : String(e);
             setError(errorMsg);
-            setStatus("error");
+            setStatus(updateInfo() ? "manual" : "error");
             console.error("Update download failed:", errorMsg);
+        }
+    };
+
+    const manualDownloadUrl = () => {
+        const info = updateInfo();
+        return info ? releaseTagUrl(info.version) : RELEASE_PAGE_URL;
+    };
+
+    const openManualDownload = async () => {
+        try {
+            await openUrl(manualDownloadUrl());
+        } catch (e) {
+            console.error("Failed to open release page:", e);
         }
     };
 
@@ -128,8 +144,10 @@ export function useUpdater() {
         updateInfo,
         downloadProgress,
         error,
+        manualDownloadUrl,
         checkForUpdates,
         downloadAndInstall,
+        openManualDownload,
         restartApp,
         dismissUpdate,
     };
