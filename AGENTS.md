@@ -298,6 +298,28 @@ Types: `feat`, `fix`, `docs`, `refactor`, `chore`, `test`
 - Push to the branch's upstream (`git push`) right after committing so
   the remote always mirrors completed work.
 
+### Release Flow (New Version)
+
+1. Bump `version` in `package.json`, `src-tauri/tauri.conf.json`,
+   `src-tauri/Cargo.toml`; `cargo check`, commit, push.
+2. Run the local release with highlights and cleanup:
+   ```bash
+   IMPORTANT_NOTES='**Highlights**
+   - <user-facing change per line>' bash scripts/release-local.sh --cleanup
+   ```
+   The script builds Linux (AppImage, deb, rpm, portable tar.xz) and
+   Windows (NSIS setup, portable zip), renames to
+   `Poketto-<version>-<os>-x64.<ext>`, signs updater artifacts with
+   `~/.tauri/poketto.key` (`--no-sign` fallback with a warning), merges
+   `latest.json` for both platforms, tags `v<version>`, uploads to the
+   GitHub Release (generated notes + highlights + download
+   recommendation), then deletes `dist-release/` and `src-tauri/target/`.
+3. Verify: `gh release view v<version>` lists 7 assets; `latest.json`
+   parses with both platform URLs returning 200. Back up
+   `~/.tauri/poketto.key`: losing it breaks future auto-updates.
+4. Sync the drifted lockfile (`git add src-tauri/Cargo.lock`, commit
+   `chore: sync Cargo.lock to <version>`, push).
+
 ### Pull Request Guidelines (English only)
 
 1. Create feature branch from `main`
