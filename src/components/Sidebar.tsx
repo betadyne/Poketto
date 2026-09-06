@@ -13,7 +13,7 @@ export function Sidebar(props: SidebarProps) {
     const navigate = useNavigate();
 
     return (
-        <aside class="w-[80px] flex flex-col items-center py-6 bg-[var(--color-bg-primary)] border-r border-[var(--color-border)] shrink-0 gap-6 z-20">
+        <aside class="w-16 lg:w-[80px] flex flex-col items-center py-4 lg:py-6 bg-[var(--color-bg-primary)] border-r border-[var(--color-border)] shrink-0 gap-4 lg:gap-6 z-20">
             <button
                 onClick={props.onBack}
                 class="p-3 rounded-xl bg-[var(--color-bg-secondary)] hover:bg-[var(--color-border)] text-[var(--color-icon)] hover:text-[var(--color-text-primary)] transition-colors shadow-sm"

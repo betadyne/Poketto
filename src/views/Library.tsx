@@ -86,20 +86,20 @@ export function Library(props: LibraryProps) {
 
   return (
     <div class="flex h-full bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] overflow-hidden font-['Nunito_Sans']">
-      <aside class="w-64 bg-[var(--color-bg-primary)] flex flex-col border-r border-[var(--color-border)]">
-        <div class="p-6">
-          <h1 class="font-bold text-xl text-[var(--color-text-primary)] tracking-tight">
+      <aside class="w-16 lg:w-64 shrink-0 bg-[var(--color-bg-primary)] flex flex-col border-r border-[var(--color-border)]">
+        <div class="p-4 lg:p-6 flex justify-center lg:justify-start">
+          <h1 class="hidden lg:block font-bold text-xl text-[var(--color-text-primary)] tracking-tight">
             Poketto
           </h1>
         </div>
 
-        <div class="flex-1 overflow-y-auto px-4 custom-scrollbar flex flex-col gap-4">
+        <div class="flex-1 overflow-y-auto px-2 lg:px-4 custom-scrollbar flex flex-col gap-4">
           <nav class="space-y-1">
-            <button class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all">
+            <button title="My Games" class="w-full flex items-center justify-center lg:justify-start gap-0 lg:gap-3 px-0 lg:px-3 py-2.5 rounded-xl transition-all">
               <div class="w-9 h-9 rounded-lg bg-[var(--color-accent)] flex items-center justify-center">
                 <LibraryIcon class="w-5 h-5 text-white" strokeWidth={1.5} />
               </div>
-              <span class="font-medium text-[var(--color-text-primary)]">
+              <span class="hidden lg:inline font-medium text-[var(--color-text-primary)]">
                 My Games
               </span>
             </button>
@@ -110,43 +110,45 @@ export function Library(props: LibraryProps) {
           <nav class="space-y-1">
             <button
               onClick={() => navigate("/settings")}
-              class="w-full flex items-center gap-3 px-3 py-2.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] rounded-xl transition-all group"
+              title="Settings"
+              class="w-full flex items-center justify-center lg:justify-start gap-0 lg:gap-3 px-0 lg:px-3 py-2.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] rounded-xl transition-all group"
             >
               <div class="w-9 h-9 rounded-lg bg-[var(--color-bg-secondary)] group-hover:bg-[var(--color-border)] flex items-center justify-center transition-colors">
                 <IconSettings class="w-5 h-5 text-[var(--color-icon)]" strokeWidth={1.5} />
               </div>
-              <span class="font-medium">Settings</span>
+              <span class="hidden lg:inline font-medium">Settings</span>
             </button>
             <button
               onClick={() => navigate("/logs")}
-              class="w-full flex items-center gap-3 px-3 py-2.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] rounded-xl transition-all group"
+              title="Logs"
+              class="w-full flex items-center justify-center lg:justify-start gap-0 lg:gap-3 px-0 lg:px-3 py-2.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] rounded-xl transition-all group"
             >
               <div class="w-9 h-9 rounded-lg bg-[var(--color-bg-secondary)] group-hover:bg-[var(--color-border)] flex items-center justify-center transition-colors">
                 <ScrollText class="w-5 h-5 text-[var(--color-icon)]" strokeWidth={1.5} />
               </div>
-              <span class="font-medium">Logs</span>
+              <span class="hidden lg:inline font-medium">Logs</span>
             </button>
-            <button class="w-full flex items-center gap-3 px-3 py-2.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] rounded-xl transition-all group">
+            <button title="Log out" class="w-full flex items-center justify-center lg:justify-start gap-0 lg:gap-3 px-0 lg:px-3 py-2.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] rounded-xl transition-all group">
               <div class="w-9 h-9 rounded-lg bg-[var(--color-bg-secondary)] group-hover:bg-[var(--color-border)] flex items-center justify-center transition-colors">
                 <LogOut class="w-5 h-5 text-[var(--color-icon)]" strokeWidth={1.5} />
               </div>
-              <span class="font-medium">Log out</span>
+              <span class="hidden lg:inline font-medium">Log out</span>
             </button>
           </nav>
         </div>
 
-        <div class="p-6 text-xs text-[var(--color-text-tertiary)] font-medium text-center">
+        <div class="hidden lg:block p-6 text-xs text-[var(--color-text-tertiary)] font-medium text-center">
           Poketto Version: {__APP_VERSION__}
         </div>
       </aside>
 
       <main class="flex-1 flex flex-col min-w-0 bg-[var(--color-bg-primary)]">
-        <header class="h-20 px-8 flex items-center justify-between gap-8 border-b border-[var(--color-border)]">
-          <h2 class="text-2xl font-bold text-[var(--color-text-primary)]">
+        <header class="min-h-20 px-4 lg:px-8 py-3 flex flex-wrap items-center gap-x-4 gap-y-3 border-b border-[var(--color-border)]">
+          <h2 class="shrink-0 text-xl lg:text-2xl font-bold text-[var(--color-text-primary)]">
             Overview
           </h2>
 
-          <div class="flex-1 max-w-xl relative group">
+          <div class="flex-1 min-w-[160px] max-w-xl relative group">
             <IconSearch class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--color-icon)] group-focus-within:text-[var(--color-accent)] transition-colors" strokeWidth={1.5} />
             <input
               type="text"
@@ -157,11 +159,11 @@ export function Library(props: LibraryProps) {
             />
           </div>
 
-          <div class="flex items-center gap-4">
-            <Show when={props.authUser}>
-              <div class="flex items-center gap-2 px-3 py-1.5 bg-[var(--color-bg-secondary)] rounded-xl">
+          <div class="flex items-center gap-2 lg:gap-4 ml-auto">
+              <Show when={props.authUser}>
+              <div class="hidden md:flex items-center gap-2 px-3 py-1.5 bg-[var(--color-bg-secondary)] rounded-xl max-w-44">
                 <IconUser class="w-4 h-4 text-[var(--color-accent)]" strokeWidth={1.5} />
-                <span class="text-sm font-medium text-[var(--color-text-primary)]">
+                <span class="text-sm font-medium text-[var(--color-text-primary)] truncate">
                   {props.authUser}
                 </span>
               </div>
@@ -171,7 +173,7 @@ export function Library(props: LibraryProps) {
               <Show when={props.runningGame}>
                 <button
                   onClick={props.onStopTracking}
-                  class="flex items-center gap-2 px-4 py-2 bg-[var(--color-danger-light)] text-[var(--color-danger)] hover:bg-[var(--color-danger)] hover:text-white rounded-xl transition-all"
+                  class="flex items-center gap-2 px-3 lg:px-4 py-2 bg-[var(--color-danger-light)] text-[var(--color-danger)] hover:bg-[var(--color-danger)] hover:text-white rounded-xl transition-all"
                 >
                   <IconClock class="w-4 h-4 animate-pulse" strokeWidth={1.5} />
                   <span class="text-sm font-bold">Stop Game</span>
@@ -180,7 +182,7 @@ export function Library(props: LibraryProps) {
 
               <button
                 onClick={props.onAddGame}
-                class="flex items-center gap-2 px-4 py-2.5 bg-[var(--color-accent)] text-white font-bold text-sm rounded-xl hover:bg-[var(--color-accent-hover)] transition-all"
+                class="flex items-center gap-2 px-3 lg:px-4 py-2.5 bg-[var(--color-accent)] text-white font-bold text-sm rounded-xl hover:bg-[var(--color-accent-hover)] transition-all"
               >
                 <IconPlus class="w-4 h-4" strokeWidth={1.5} />
                 <span>Add Game</span>
@@ -189,8 +191,8 @@ export function Library(props: LibraryProps) {
           </div>
         </header>
 
-        <div class="px-8 py-6 flex flex-col gap-6">
-          <div class="flex items-center justify-between">
+        <div class="px-4 lg:px-8 py-6 flex flex-col gap-6">
+          <div class="flex flex-wrap items-center justify-between gap-2">
             <div class="flex items-center gap-2">
               <span class="text-[var(--color-text-primary)] font-medium">
                 All Games
@@ -200,7 +202,7 @@ export function Library(props: LibraryProps) {
               </span>
             </div>
 
-            <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2">
               <div class="sort-dropdown relative">
                 <button
                   onClick={(e) => {
@@ -316,7 +318,7 @@ export function Library(props: LibraryProps) {
           </div>
         </div>
 
-        <div class="flex-1 overflow-y-auto px-8 pt-4 pb-8 custom-scrollbar">
+        <div class="flex-1 overflow-y-auto px-4 lg:px-8 pt-4 pb-8 custom-scrollbar">
           <Show
             when={props.filteredGames.length > 0}
             fallback={
@@ -401,7 +403,7 @@ export function Library(props: LibraryProps) {
                 </div>
               }
             >
-              <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6">
+              <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
                 <For each={props.filteredGames}>
                   {(game) => (
                     <GameCard
