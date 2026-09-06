@@ -1,5 +1,5 @@
-import { For, Show } from "solid-js";
-import { IconUser, IconGenderMale, IconGenderFemale } from "@tabler/icons-solidjs";
+import { For, Match, Show, Switch } from "solid-js";
+import { IconUser, IconGenderMale, IconGenderFemale, IconQuestionMark } from "@tabler/icons-solidjs";
 import type { VndbCharacter, VndbTrait, VndbImage } from "../../types";
 import { ROLE_NAMES, TRAIT_ORDER } from "../../constants";
 import { stripBBCode, sexLabel } from "../../utils";
@@ -113,21 +113,23 @@ export function CharacterCard(props: CharacterCardProps) {
           >
             {ROLE_NAMES[role()] || role()}
           </span>
-          <Show when={shownSex()}>
+          <Show when={props.character.sex != null}>
             <span
               title={sexTooltip()}
               aria-label={sexTooltip()}
               class="text-sm ml-auto bg-[var(--color-accent)]/10 text-[var(--color-text-secondary)] px-2 py-1 rounded flex items-center gap-1"
             >
-              <Show when={shownSex() === "m" || shownSex() === "f"} fallback={shownSex()}>
-                <Show
-                  when={shownSex() === "m"}
-                  fallback={
-                    <IconGenderFemale class="w-4 h-4 text-pink-500" strokeWidth={1.5} />
-                  }
-                >
+              <Switch>
+                <Match when={shownSex() === "m"}>
                   <IconGenderMale class="w-4 h-4 text-blue-500" strokeWidth={1.5} />
-                </Show>
+                </Match>
+                <Match when={shownSex() === "f"}>
+                  <IconGenderFemale class="w-4 h-4 text-pink-500" strokeWidth={1.5} />
+                </Match>
+                <Match when={shownSex() != null}>{shownSex()}</Match>
+              </Switch>
+              <Show when={shownSex() == null}>
+                <IconQuestionMark class="w-4 h-4 text-[var(--color-icon)]" strokeWidth={1.5} />
               </Show>
               <Show when={sexDiffers()}>({sexLabel(apparentSex())})</Show>
             </span>

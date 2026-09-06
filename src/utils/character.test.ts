@@ -14,8 +14,8 @@ describe("sexLabel", () => {
     expect(sexLabel("b")).toBe("b");
   });
 
-  it("returns empty string for missing codes", () => {
-    expect(sexLabel(null)).toBe("");
-    expect(sexLabel(undefined)).toBe("");
+  it("returns Unknown for missing codes", () => {
+    expect(sexLabel(null)).toBe("Unknown");
+    expect(sexLabel(undefined)).toBe("Unknown");
   });
 });
