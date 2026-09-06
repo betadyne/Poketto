@@ -60,12 +60,12 @@ WIN_BUNDLE="src-tauri/target/x86_64-pc-windows-gnu/release/bundle"
 LINUX_BIN="src-tauri/target/release/poketto"
 WIN_BIN="src-tauri/target/x86_64-pc-windows-gnu/release/poketto.exe"
 SIGN_ARGS=()
-if [[ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" && -z "${TAURI_SIGNING_PRIVATE_KEY_PATH:-}" && -f "$HOME/.tauri/poketto.key" ]]; then
-  export TAURI_SIGNING_PRIVATE_KEY_PATH="$HOME/.tauri/poketto.key"
+if [[ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" && -f "$HOME/.tauri/poketto.key" ]]; then
+  export TAURI_SIGNING_PRIVATE_KEY="$(cat "$HOME/.tauri/poketto.key")"
   export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}"
   log "using signing key $HOME/.tauri/poketto.key"
 fi
-if [[ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" && -z "${TAURI_SIGNING_PRIVATE_KEY_PATH:-}" ]]; then
+if [[ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]]; then
   SIGN_ARGS+=(--no-sign)
 fi
 
