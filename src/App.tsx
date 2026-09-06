@@ -206,7 +206,7 @@ function DetailPage() {
         when={vndb.vnDetail() && currentGame()}
         fallback={
           <div class="flex-1 flex items-center justify-center text-slate-400">
-            Loading...
+            Fetching game data from VNDB...
           </div>
         }
       >
