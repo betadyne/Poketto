@@ -63,6 +63,7 @@ pub fn run() {
             stop_tracking,
             poll_running_game,
             get_elapsed_time,
+            get_app_exe_path,
             set_game_hidden,
             set_discord_rpc_enabled,
             set_discord_rpc_buttons,
@@ -113,6 +114,11 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.set_focus();
+            }
+        }))
         .invoke_handler(builder.invoke_handler())
         .manage(state)
         .manage(app_db)

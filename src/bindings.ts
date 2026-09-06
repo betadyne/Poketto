@@ -35,6 +35,7 @@ export const commands = {
 	stopTracking: () => typedError<number, AppError>(__TAURI_INVOKE("stop_tracking")),
 	pollRunningGame: () => __TAURI_INVOKE<string | null>("poll_running_game"),
 	getElapsedTime: () => __TAURI_INVOKE<number>("get_elapsed_time"),
+	getAppExePath: () => __TAURI_INVOKE<string>("get_app_exe_path"),
 	setGameHidden: (id: string, hidden: boolean) => typedError<null, AppError>(__TAURI_INVOKE("set_game_hidden", { id, hidden })),
 	setDiscordRpcEnabled: (enabled: boolean) => typedError<null, AppError>(__TAURI_INVOKE("set_discord_rpc_enabled", { enabled })),
 	setDiscordRpcButtons: (vndbGame: boolean, vndbProfile: boolean, github: boolean) => typedError<null, AppError>(__TAURI_INVOKE("set_discord_rpc_buttons", { vndbGame, vndbProfile, github })),

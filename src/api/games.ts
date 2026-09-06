@@ -11,3 +11,4 @@ export const launchGame = (id: string) => commands.launchGame(id);
 export const stopTracking = () => commands.stopTracking();
 export const pollRunningGame = () => commands.pollRunningGame();
 export const getElapsedTime = () => commands.getElapsedTime();
+export const getAppExePath = () => commands.getAppExePath();

@@ -40,8 +40,10 @@ export function Settings() {
   const [steamRuntimeAvailable, setSteamRuntimeAvailable] = createSignal(false);
   const [defaultWineBinary, setDefaultWineBinary] = createSignal<string>("");
   const [useSteamRuntime, setUseSteamRuntime] = createSignal(false);
+  const [exePath, setExePath] = createSignal<string>("");
 
   onMount(async () => {
+    setExePath(await api.getAppExePath());
     const p = await api.getPlatform();
     setPlatform(p);
     if (p === "linux") {
@@ -403,6 +405,9 @@ export function Settings() {
                   </button>
                   <p class="text-xs text-[var(--color-text-tertiary)] mt-1.5">
                     Current version: v{__APP_VERSION__}
+                  </p>
+                  <p class="text-xs text-[var(--color-text-tertiary)] mt-1.5 break-all">
+                    Installation: {exePath() || "Unknown"}
                   </p>
                 </div>
               </div>

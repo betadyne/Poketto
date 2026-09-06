@@ -548,6 +548,14 @@ pub fn stop_tracking(state: State<AppState>, db: State<AppDatabase>) -> AppResul
     }
     Ok(0)
 }
+
+#[tauri::command]
+#[specta::specta]
+pub fn get_app_exe_path() -> String {
+    std::env::current_exe()
+        .map(|path| path.to_string_lossy().into_owned())
+        .unwrap_or_default()
+}
 #[tauri::command]
 #[specta::specta]
 pub fn poll_running_game(state: State<AppState>) -> Option<String> {
