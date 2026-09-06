@@ -111,7 +111,7 @@ export type VndbCharacter = {
 	cup: string | null,
 	age: number | null,
 	birthday: number[] | null,
-	sex: string[] | null,
+	sex: (string | null)[] | null,
 	vns: VndbCharacterVn[] | null,
 	traits: VndbTrait[] | null,
 };

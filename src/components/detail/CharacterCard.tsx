@@ -57,7 +57,7 @@ export function CharacterCard(props: CharacterCardProps) {
   const actualSex = () => props.character.sex?.[1] ?? apparentSex();
   const shownSex = () => (props.showSpoilers ? actualSex() : apparentSex());
   const sexDiffers = () =>
-    props.showSpoilers && actualSex() !== null && actualSex() !== apparentSex();
+    props.showSpoilers && apparentSex() !== null && actualSex() !== null && actualSex() !== apparentSex();
   const sexTooltip = () =>
     sexDiffers()
       ? `Gender: ${sexLabel(actualSex())} (spoiler; presented as ${sexLabel(apparentSex())})`
