@@ -10,8 +10,8 @@ use crate::error::{AppError, AppResult};
 use crate::models::{
     AppSettings, GameExitedPayload, GameMetadata, GameType, RunningGame, WineSettings, WineType,
 };
-use crate::state::AppState;
-use crate::steam_watch::{persist_session, spawn_steam_watcher};
+use crate::state::{AppState, Settle};
+use crate::steam_watch::{binary_file_name, kill_session_processes, persist_session, spawn_steam_watcher};
 
 #[cfg(target_os = "linux")]
 use crate::wine;
@@ -79,6 +79,8 @@ pub fn launch_game(
         *running = Some(RunningGame {
             id: id.clone(),
             start_time,
+            pid: child.as_ref().map(|child| child.id()),
+            binary: binary_file_name(&game.path),
         });
     }
 
@@ -146,25 +148,26 @@ pub fn launch_game(
 
             let (minutes, seconds) = session_durations(start_time.elapsed().as_secs());
             let state = app_handle_clone.state::<AppState>();
-
-            if let Err(e) = state.discord_rpc.clear_activity() {
-                log::warn!("Failed to clear Discord activity: {}", e);
-            }
-            persist_session(&app_handle_clone, &game_id, seconds);
-
-            {
-                let mut running = state.running_game.lock();
-                *running = None;
-            }
-
-            if let Err(e) = app_handle.emit(
-                "game-exited",
-                GameExitedPayload {
-                    game_id: game_id.clone(),
-                    play_minutes: minutes,
-                },
-            ) {
-                log::error!("Failed to emit game-exited event: {}", e);
+            match state.settle_running(&game_id, start_time) {
+                Settle::Mine => {
+                    if let Err(e) = state.discord_rpc.clear_activity() {
+                        log::warn!("Failed to clear Discord activity: {}", e);
+                    }
+                    persist_session(&app_handle_clone, &game_id, seconds);
+                    if let Err(e) = app_handle.emit(
+                        "game-exited",
+                        GameExitedPayload {
+                            game_id: game_id.clone(),
+                            play_minutes: minutes,
+                        },
+                    ) {
+                        log::error!("Failed to emit game-exited event: {}", e);
+                    }
+                }
+                Settle::Replaced => {
+                    persist_session(&app_handle_clone, &game_id, seconds);
+                }
+                Settle::Gone => {}
             }
 
             if let Ok(Err(e)) = exit_result {
@@ -173,7 +176,7 @@ pub fn launch_game(
         });
     }
     if launched_via_steam {
-        spawn_steam_watcher(watcher_handle, id.clone(), game.path.clone());
+        spawn_steam_watcher(watcher_handle, id.clone(), game.path.clone(), start_time);
     }
 
     Ok(())
@@ -509,8 +512,12 @@ fn session_durations(elapsed_secs: u64) -> (u64, i64) {
 #[tauri::command]
 #[specta::specta]
 pub fn stop_tracking(state: State<AppState>, db: State<AppDatabase>) -> AppResult<u64> {
-    let mut running = state.running_game.lock();
-    if let Some(game) = running.take() {
+    let taken = state.running_game.lock().take();
+    if let Some(game) = taken {
+        kill_session_processes(game.pid, game.binary.as_deref());
+        if let Err(e) = state.discord_rpc.clear_activity() {
+            log::warn!("Failed to clear Discord activity: {e}");
+        }
         let (minutes, seconds) = session_durations(game.start_time.elapsed().as_secs());
         let game_id = game.id.clone();
 
@@ -522,7 +529,6 @@ pub fn stop_tracking(state: State<AppState>, db: State<AppDatabase>) -> AppResul
     }
     Ok(0)
 }
-
 #[tauri::command]
 #[specta::specta]
 pub fn poll_running_game(state: State<AppState>) -> Option<String> {

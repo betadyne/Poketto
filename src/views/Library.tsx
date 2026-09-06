@@ -412,6 +412,7 @@ export function Library(props: LibraryProps) {
                       showHidden={props.showHidden}
                       formatPlayTime={props.formatPlayTime}
                       onPlay={props.onLaunchGame}
+                      onStop={props.onStopTracking}
                       onRemove={props.onRemoveGame}
                       onEditSettings={props.onEditSettings}
                       onClick={(g) =>

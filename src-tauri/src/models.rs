@@ -244,6 +244,8 @@ pub struct GameExitedPayload {
 pub struct RunningGame {
     pub id: String,
     pub start_time: Instant,
+    pub pid: Option<u32>,
+    pub binary: Option<String>,
 }
 
 #[cfg(test)]

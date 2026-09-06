@@ -1,6 +1,7 @@
 import { Show, createSignal, createEffect, onCleanup } from "solid-js";
 import {
   IconPlayerPlayFilled,
+  IconSquareFilled,
   IconDeviceGamepad2,
   IconEyeOff,
   IconDots,
@@ -13,6 +14,7 @@ interface GameCardProps {
   showHidden: boolean;
   formatPlayTime: (m: number) => string;
   onPlay: (id: string) => void;
+  onStop: () => void;
   onRemove: (id: string) => void;
   onEditSettings: (game: Game) => void;
   onClick: (game: Game) => void;
@@ -128,11 +130,20 @@ export function GameCard(props: GameCardProps) {
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  props.onPlay(props.game.id);
+                  if (props.isRunning) {
+                    props.onStop();
+                  } else {
+                    props.onPlay(props.game.id);
+                  }
                 }}
-                class="w-10 h-10 rounded-full bg-[var(--color-accent)] text-white flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg"
+                title={props.isRunning ? "Stop game" : "Play game"}
+                class={`w-10 h-10 rounded-full text-white flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-lg ${
+                  props.isRunning ? "bg-[var(--color-danger)]" : "bg-[var(--color-accent)]"
+                }`}
               >
-                <IconPlayerPlayFilled class="w-4 h-4 fill-current ml-0.5" />
+                <Show when={props.isRunning} fallback={<IconPlayerPlayFilled class="w-4 h-4 fill-current ml-0.5" />}>
+                  <IconSquareFilled class="w-4 h-4" />
+                </Show>
               </button>
             </div>
           </div>

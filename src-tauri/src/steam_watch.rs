@@ -1,17 +1,22 @@
 use std::path::Path;
 use std::time::{Duration, Instant};
 
-use sysinfo::{ProcessesToUpdate, System};
+use sysinfo::{Pid, ProcessesToUpdate, System};
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::database::{record_daily_playtime, AppDatabase};
 use crate::models::GameExitedPayload;
-use crate::state::AppState;
+use crate::state::{AppState, Settle};
 
 const WAIT_TIMEOUT: Duration = Duration::from_secs(60);
 const POLL_INTERVAL: Duration = Duration::from_secs(2);
 
-pub fn spawn_steam_watcher(app_handle: AppHandle, game_id: String, exe_path: String) {
+pub fn spawn_steam_watcher(
+    app_handle: AppHandle,
+    game_id: String,
+    exe_path: String,
+    start_time: Instant,
+) {
     tauri::async_runtime::spawn(async move {
         let Some(binary) = binary_file_name(&exe_path) else {
             log::warn!("Steam watcher aborted, cannot read binary name from: {exe_path}");
@@ -20,7 +25,7 @@ pub fn spawn_steam_watcher(app_handle: AppHandle, game_id: String, exe_path: Str
         let mut system = System::new();
         if !wait_for_process(&mut system, &binary).await {
             log::warn!("Steam watcher timed out waiting for process: {binary}");
-            if release_running(&app_handle, &game_id) {
+            if app_handle.state::<AppState>().settle_running(&game_id, start_time) == Settle::Mine {
                 clear_presence(&app_handle);
                 emit_exited(&app_handle, &game_id, 0);
             }
@@ -29,10 +34,16 @@ pub fn spawn_steam_watcher(app_handle: AppHandle, game_id: String, exe_path: Str
         let started = Instant::now();
         watch_until_exit(&mut system, &binary).await;
         let seconds = started.elapsed().as_secs().min(i64::MAX as u64) as i64;
-        persist_session(&app_handle, &game_id, seconds);
-        if release_running(&app_handle, &game_id) {
-            clear_presence(&app_handle);
-            emit_exited(&app_handle, &game_id, seconds.max(0) as u64 / 60);
+        match app_handle.state::<AppState>().settle_running(&game_id, start_time) {
+            Settle::Mine => {
+                persist_session(&app_handle, &game_id, seconds);
+                clear_presence(&app_handle);
+                emit_exited(&app_handle, &game_id, seconds.max(0) as u64 / 60);
+            }
+            Settle::Replaced => {
+                persist_session(&app_handle, &game_id, seconds);
+            }
+            Settle::Gone => {}
         }
     });
 }
@@ -47,14 +58,41 @@ pub(crate) fn persist_session(app_handle: &AppHandle, game_id: &str, seconds: i6
     record_daily_playtime(game_id, minutes);
 }
 
-pub(crate) fn release_running(app_handle: &AppHandle, game_id: &str) -> bool {
-    let state = app_handle.state::<AppState>();
-    let mut running = state.running_game.lock();
-    if running.as_ref().is_some_and(|game| game.id == game_id) {
-        *running = None;
-        true
-    } else {
-        false
+pub(crate) fn kill_session_processes(pid: Option<u32>, binary: Option<&str>) {
+    let mut system = System::new();
+    system.refresh_processes(ProcessesToUpdate::All, false);
+    if let Some(pid) = pid {
+        kill_process_tree(&system, Pid::from_u32(pid));
+    }
+    if let Some(binary) = binary {
+        for process in system.processes().values() {
+            if process_matches(&process.name().to_string_lossy(), binary) {
+                process.kill();
+            }
+        }
+    }
+}
+
+fn kill_process_tree(system: &System, root: Pid) {
+    let processes = system.processes();
+    if !processes.contains_key(&root) {
+        return;
+    }
+    let mut order = vec![root];
+    let mut index = 0;
+    while index < order.len() {
+        let parent = order[index];
+        index += 1;
+        for (pid, process) in processes.iter() {
+            if process.parent() == Some(parent) && !order.contains(pid) {
+                order.push(*pid);
+            }
+        }
+    }
+    for pid in order.iter().rev() {
+        if let Some(process) = processes.get(pid) {
+            process.kill();
+        }
     }
 }
 
@@ -111,7 +149,7 @@ async fn refresh_and_match(system: &mut System, binary: &str) -> bool {
     running
 }
 
-fn binary_file_name(exe_path: &str) -> Option<String> {
+pub(crate) fn binary_file_name(exe_path: &str) -> Option<String> {
     Path::new(exe_path)
         .file_name()
         .and_then(|name| name.to_str())
@@ -126,7 +164,7 @@ fn truncated_comm(binary: &str) -> &str {
     &binary[..end]
 }
 
-fn process_matches(process_name: &str, binary: &str) -> bool {
+pub(crate) fn process_matches(process_name: &str, binary: &str) -> bool {
     let process_name = process_name.to_lowercase();
     let binary = binary.to_lowercase();
     process_name == binary || linux_comm_matches(&process_name, &binary)
@@ -203,5 +241,33 @@ mod tests {
     async fn test_absent_process_reports_not_running() {
         let mut system = System::new();
         assert!(!refresh_and_match(&mut system, "poketto-definitely-not-running-9f8c").await);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_kill_process_tree_terminates_descendants() {
+        use std::process::Command;
+
+        let mut child = Command::new("sh")
+            .args(["-c", "sleep 60"])
+            .spawn()
+            .expect("spawn sleeper");
+        let mut system = System::new();
+        system.refresh_processes(ProcessesToUpdate::All, false);
+        kill_process_tree(&system, Pid::from_u32(child.id()));
+        let deadline = Instant::now() + Duration::from_secs(10);
+        let exited = loop {
+            if Instant::now() >= deadline {
+                break false;
+            }
+            match child.try_wait() {
+                Ok(Some(_)) => break true,
+                Ok(None) => std::thread::sleep(Duration::from_millis(100)),
+                Err(_) => break false,
+            }
+        };
+        let _ = child.kill();
+        let _ = child.wait();
+        assert!(exited, "process tree survived kill");
     }
 }
