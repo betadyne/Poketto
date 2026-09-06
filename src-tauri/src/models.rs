@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
 use std::time::Instant;
 
@@ -162,9 +162,18 @@ pub struct VndbCharacter {
     pub cup: Option<String>,
     pub age: Option<i32>,
     pub birthday: Option<Vec<i32>>,
+    #[serde(default, deserialize_with = "nullable_string_vec")]
     pub sex: Option<Vec<String>>,
     pub vns: Option<Vec<VndbCharacterVn>>,
     pub traits: Option<Vec<VndbTrait>>,
+}
+
+fn nullable_string_vec<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(Option::<Vec<Option<String>>>::deserialize(deserializer)?
+        .map(|values| values.into_iter().flatten().collect()))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
@@ -456,6 +465,27 @@ mod tests {
             let json = serde_json::to_string(&payload).unwrap();
             assert!(json.contains("game-123"));
             assert!(json.contains("45"));
+        }
+    }
+
+    mod character_sex_tests {
+        use super::*;
+
+        #[test]
+        fn test_null_sex_entry_deserializes_to_empty() {
+            let payload = serde_json::json!({
+                "results": [
+                    {"id": "c6185", "name": "Hidaka", "sex": [null]},
+                    {"id": "c4997", "name": "Yuuki", "sex": ["m", "m"]}
+                ]
+            });
+            let response: VndbResponse<VndbCharacter> =
+                serde_json::from_value(payload).expect("null sex must parse");
+            assert_eq!(response.results[0].sex, Some(vec![]));
+            assert_eq!(
+                response.results[1].sex,
+                Some(vec!["m".to_string(), "m".to_string()])
+            );
         }
     }
 }
