@@ -1,12 +1,12 @@
 [package]
 name = "poketto"
-version = "0.1.0-beta"
+version = "0.1.1-beta"
 description = "Visual Novel Game Launcher"
 authors = ["you"]
 license = "MIT"
 repository = ""
 edition = "2021"
-rust-version = "1.98.1"
+rust-version = "1.98"
 
 [lib]
 name = "poketto_lib"

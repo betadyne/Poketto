@@ -9,6 +9,7 @@ cd "$ROOT"
 DRY_RUN=0
 SKIP_UPLOAD=0
 ONLY="all"
+CLEANUP=0
 
 usage() {
   cat <<EOF
@@ -23,6 +24,8 @@ Options:
                    collect/rename/package steps, skip the upload.
   --skip-upload    Real builds, but do not create tag or GitHub Release.
   --only <target>  linux | windows (default: build both).
+  --cleanup        Remove dist-release/ and src-tauri/target after a
+                   successful upload.
   -h, --help       Show this help.
 EOF
 }
@@ -36,6 +39,7 @@ while [[ $# -gt 0 ]]; do
       [[ "$ONLY" == "linux" || "$ONLY" == "windows" ]] || { echo "error: --only accepts linux|windows" >&2; exit 1; }
       shift
       ;;
+    --cleanup) CLEANUP=1 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "error: unknown option $1" >&2; usage >&2; exit 1 ;;
   esac
@@ -56,7 +60,11 @@ WIN_BUNDLE="src-tauri/target/x86_64-pc-windows-gnu/release/bundle"
 LINUX_BIN="src-tauri/target/release/poketto"
 WIN_BIN="src-tauri/target/x86_64-pc-windows-gnu/release/poketto.exe"
 SIGN_ARGS=()
-if [[ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]]; then
+if [[ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" && -z "${TAURI_SIGNING_PRIVATE_KEY_PATH:-}" && -f "$HOME/.tauri/poketto.key" ]]; then
+  export TAURI_SIGNING_PRIVATE_KEY_PATH="$HOME/.tauri/poketto.key"
+  log "using signing key $HOME/.tauri/poketto.key"
+fi
+if [[ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" && -z "${TAURI_SIGNING_PRIVATE_KEY_PATH:-}" ]]; then
   SIGN_ARGS+=(--no-sign)
 fi
 
@@ -193,13 +201,44 @@ upload_release() {
   log "uploaded dist-release/* to $tag"
 }
 ensure_release_notes() {
-  local tag="$1" marker="Recommended downloads:" body
+  local tag="$1" marker="Recommended downloads:" body header="${IMPORTANT_NOTES:-}"
   body="$(gh release view "$tag" --json body -q .body)"
   [[ "$body" == *"$marker"* ]] && return 0
   {
+    [[ -n "$header" ]] && printf '%s\n\n' "$header"
     printf '%s\n\n---\n**%s** Linux users who want in-app auto-update should grab the `.AppImage`. System packages (`.deb`, `.rpm`) and portable archives update manually from this page.\n' "$body" "$marker"
   } | gh release edit "$tag" --notes-file -
   log "added download recommendation to $tag notes"
+}
+
+publish_updater_json() {
+  [[ "$DRY_RUN" == "1" || "${#SIGN_ARGS[@]}" -gt 0 ]] && return 0
+  local found=()
+  while IFS= read -r line; do found+=("$line"); done < <(find src-tauri/target -maxdepth 4 -name latest.json 2>/dev/null)
+  if [[ "${#found[@]}" == "0" ]]; then
+    warn "latest.json not generated; in-app updates will stay silent"
+    return 0
+  fi
+  UPDATER_RENAMES="{\"linux-x86_64\":\"${BASE}-linux-x64.AppImage\",\"windows-x86_64\":\"${BASE}-windows-x64.exe\"}" \
+    python3 - "${found[@]}" "$OUT/latest.json" <<'PYEOF'
+import json, os, sys
+base = None
+for path in sys.argv[1:-1]:
+    with open(path) as handle:
+        data = json.load(handle)
+    if base is None:
+        base = data
+        base.setdefault("platforms", {})
+    else:
+        base["platforms"].update(data.get("platforms", {}))
+for key, name in json.loads(os.environ["UPDATER_RENAMES"]).items():
+    if key in base["platforms"]:
+        url = base["platforms"][key]["url"]
+        base["platforms"][key]["url"] = url.rsplit("/", 1)[0] + "/" + name if "/" in url else name
+with open(sys.argv[-1], "w") as handle:
+    json.dump(base, handle, indent=2)
+PYEOF
+  log "updater -> latest.json from ${#found[@]} source file(s)"
 }
 
 rm -rf "$OUT"
@@ -211,7 +250,14 @@ fi
 [[ "$ONLY" == "all" || "$ONLY" == "linux" ]] && build_linux
 [[ "$ONLY" == "all" || "$ONLY" == "windows" ]] && build_windows
 
+publish_updater_json
+
 log "dist-release contents:"
 ls -la "$OUT"
 
 upload_release
+
+if [[ "$CLEANUP" == "1" && "$SKIP_UPLOAD" == "0" ]]; then
+  rm -rf "$OUT" src-tauri/target
+  log "cleaned dist-release and src-tauri/target"
+fi
