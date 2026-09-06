@@ -25,7 +25,7 @@ pub fn spawn_steam_watcher(
         };
         let mut system = System::new();
         if !wait_for_process(&mut system, &binary).await {
-            log::warn!("Steam watcher timed out waiting for process: {binary}");
+            log::warn!("Steam watcher timed out waiting for process: {binary} (game={game_id})");
             if app_handle.state::<AppState>().settle_running(&game_id, start_time) == Settle::Mine {
                 clear_presence(&app_handle);
                 emit_exited(&app_handle, &game_id, 0);

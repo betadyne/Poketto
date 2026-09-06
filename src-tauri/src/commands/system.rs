@@ -74,13 +74,21 @@ pub fn launch_game(
     let discord_start = discord::get_unix_timestamp();
 
     let start_time = Instant::now();
+    let session_pid = child.as_ref().map(|child| child.id());
+    let session_binary = binary_file_name(&game.path);
+    log::info!(
+        "Launched game: id={id} pid={} binary={} via_steam={}",
+        session_pid.map(|p| p.to_string()).unwrap_or_else(|| "-".to_string()),
+        session_binary.as_deref().unwrap_or("-"),
+        child.is_none()
+    );
     {
         let mut running = state.running_game.lock();
         *running = Some(RunningGame {
             id: id.clone(),
             start_time,
-            pid: child.as_ref().map(|child| child.id()),
-            binary: binary_file_name(&game.path),
+            pid: session_pid,
+            binary: session_binary,
         });
     }
 
