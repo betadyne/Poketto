@@ -104,6 +104,7 @@ build_linux() {
   if [[ "$DRY_RUN" == "1" ]]; then
     log "dry-run: skipping npm run tauri build"
   else
+    rm -rf "$BUNDLE"
     NO_STRIP=1 npm run tauri build -- --bundles appimage,deb,rpm "${SIGN_ARGS[@]}"
   fi
   collect_first "$BUNDLE/appimage/*.AppImage" "$OUT/${BASE}-linux-x64.AppImage" "AppImage" || true
@@ -160,6 +161,7 @@ build_windows() {
     if [[ -z "${CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER:-}" ]] && command -v x86_64-w64-mingw32-gcc >/dev/null; then
       export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER="x86_64-w64-mingw32-gcc"
     fi
+    rm -rf "$WIN_BUNDLE"
     npm run tauri build -- --target x86_64-pc-windows-gnu --bundles nsis "${SIGN_ARGS[@]}" || \
       warn "NSIS bundle failed (tauri auto-downloads NSIS on first run; retry or install nsis); continuing"
   else
@@ -214,32 +216,36 @@ ensure_release_notes() {
 
 publish_updater_json() {
   [[ "$DRY_RUN" == "1" || "${#SIGN_ARGS[@]}" -gt 0 ]] && return 0
-  local found=()
-  while IFS= read -r line; do found+=("$line"); done < <(find src-tauri/target -maxdepth 4 -name latest.json 2>/dev/null)
-  if [[ "${#found[@]}" == "0" ]]; then
-    warn "latest.json not generated; in-app updates will stay silent"
+  local base_url="https://github.com/betadyne/Poketto/releases/download/v${VERSION}"
+  local entries=()
+  local appimage=($BUNDLE/appimage/*.AppImage)
+  local setup=($WIN_BUNDLE/nsis/*-setup.exe)
+  [[ "${#appimage[@]}" == "1" && -f "${appimage[0]}.sig" ]] && \
+    entries+=("linux-x86_64|${appimage[0]}|${base_url}/${BASE}-linux-x64.AppImage")
+  [[ "${#setup[@]}" == "1" && -f "${setup[0]}.sig" ]] && \
+    entries+=("windows-x86_64|${setup[0]}|${base_url}/${BASE}-windows-x64.exe")
+  if [[ "${#entries[@]}" == "0" ]]; then
+    warn "no signed updater bundles found; in-app updates will stay silent"
     return 0
   fi
-  UPDATER_RENAMES="{\"linux-x86_64\":\"${BASE}-linux-x64.AppImage\",\"windows-x86_64\":\"${BASE}-windows-x64.exe\"}" \
-    python3 - "${found[@]}" "$OUT/latest.json" <<'PYEOF'
-import json, os, sys
-base = None
-for path in sys.argv[1:-1]:
-    with open(path) as handle:
-        data = json.load(handle)
-    if base is None:
-        base = data
-        base.setdefault("platforms", {})
-    else:
-        base["platforms"].update(data.get("platforms", {}))
-for key, name in json.loads(os.environ["UPDATER_RENAMES"]).items():
-    if key in base["platforms"]:
-        url = base["platforms"][key]["url"]
-        base["platforms"][key]["url"] = url.rsplit("/", 1)[0] + "/" + name if "/" in url else name
-with open(sys.argv[-1], "w") as handle:
-    json.dump(base, handle, indent=2)
+  UPDATER_VERSION="$VERSION" UPDATER_NOTES="${IMPORTANT_NOTES:-}" \
+    python3 - "$OUT/latest.json" "${entries[@]}" <<'PYEOF'
+import datetime, json, os, sys
+platforms = {}
+for arg in sys.argv[2:]:
+    key, path, url = arg.split("|", 2)
+    with open(path + ".sig") as handle:
+        platforms[key] = {"signature": handle.read().strip(), "url": url}
+manifest = {
+    "version": os.environ["UPDATER_VERSION"],
+    "notes": os.environ.get("UPDATER_NOTES", ""),
+    "pub_date": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z"),
+    "platforms": platforms,
+}
+with open(sys.argv[1], "w") as handle:
+    json.dump(manifest, handle, indent=2)
 PYEOF
-  log "updater -> latest.json from ${#found[@]} source file(s)"
+  log "updater -> latest.json with ${#entries[@]} platform(s)"
 }
 
 rm -rf "$OUT"
