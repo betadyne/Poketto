@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "tauri": "tauri",
+    "release:local": "bash scripts/release-local.sh",
     "test": "vitest run",
     "test:watch": "vitest"
   },
