@@ -365,7 +365,7 @@ export function GameSettingsOverlay(props: GameSettingsOverlayProps) {
         </div>
 
         <div class="flex-1 overflow-y-auto p-4 space-y-5">
-          <div class="flex gap-4">
+          <div class="flex flex-col sm:flex-row items-center sm:items-start gap-4">
             <div class="flex-shrink-0 w-32">
               <div class="w-32 h-44 bg-[var(--color-bg-secondary)] rounded-lg overflow-hidden border-2 border-[var(--color-border)]">
                 <Show

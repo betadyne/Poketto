@@ -64,7 +64,7 @@ export function GameInfoTab(props: GameInfoTabProps) {
     <>
       <Show when={errorMessage()}>
         <div class="fixed top-32 left-1/2 z-[100] animate-fade-in-down">
-          <div class="flex items-center gap-3 px-5 py-3.5 bg-[#FEF2F2] rounded-2xl shadow-xl border border-[var(--color-danger)]/20">
+          <div class="flex items-center gap-3 px-5 py-3.5 bg-[#FEF2F2] rounded-2xl shadow-xl border border-[var(--color-danger)]/20 max-w-[calc(100vw-2rem)]">
             <IconAlertCircle class="w-5 h-5 text-[var(--color-danger)] flex-shrink-0" strokeWidth={1.5} />
             <span class="text-[var(--color-danger)] font-medium text-sm">
               {errorMessage()}
@@ -81,7 +81,7 @@ export function GameInfoTab(props: GameInfoTabProps) {
 
       <div class="max-w-6xl mx-auto space-y-8">
         <div>
-          <h1 class="text-[64px] leading-tight font-extrabold text-[var(--color-text-primary)] tracking-tight">
+          <h1 class="text-4xl sm:text-5xl lg:text-[64px] leading-tight font-extrabold text-[var(--color-text-primary)] tracking-tight">
             {props.game.title}
           </h1>
         </div>
@@ -101,8 +101,8 @@ export function GameInfoTab(props: GameInfoTabProps) {
           </div>
         </Show>
 
-        <div class="flex gap-10">
-          <div class="w-[300px] shrink-0">
+        <div class="flex flex-col sm:flex-row gap-6 lg:gap-10">
+          <div class="w-48 sm:w-56 lg:w-[300px] shrink-0 self-start">
             <div class="aspect-[2/3] w-full rounded-[24px] overflow-hidden shadow-xl bg-[var(--color-bg-secondary)] relative group">
               <Show
                 when={props.vnDetail.image?.url}
@@ -134,7 +134,7 @@ export function GameInfoTab(props: GameInfoTabProps) {
           </div>
 
           <div class="flex-1 space-y-8">
-            <div class="grid grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div class="relative bg-[var(--color-bg-secondary)] p-4 rounded-[20px] flex flex-col gap-1 items-start group hover:bg-[var(--color-border)] transition-colors">
                 <div class="flex items-center gap-2 text-[var(--color-text-secondary)] text-sm font-medium">
                   <IconStar class="w-4 h-4" strokeWidth={1.5} /> Your Vote

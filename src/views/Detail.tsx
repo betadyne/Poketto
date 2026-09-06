@@ -56,11 +56,11 @@ export function Detail(props: DetailProps) {
           </div>
         </Show>
 
-        <div class="flex items-center gap-8 px-8 py-6 z-10">
+        <div class="flex flex-wrap items-center gap-3 lg:gap-8 px-4 lg:px-8 py-4 lg:py-6 z-10">
           <div class="flex items-center gap-1 bg-[var(--color-bg-secondary)] p-1 rounded-full">
             <button
               onClick={() => props.setPage("detail")}
-              class={`px-6 py-2 rounded-full text-sm font-bold transition-colors ${
+              class={`px-4 lg:px-6 py-2 rounded-full text-sm font-bold transition-colors ${
                 props.page === "detail"
                   ? "bg-[var(--color-accent)] text-white shadow-lg"
                   : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
@@ -70,7 +70,7 @@ export function Detail(props: DetailProps) {
             </button>
             <button
               onClick={() => props.setPage("detail-chars")}
-              class={`px-6 py-2 rounded-full text-sm font-bold transition-colors ${
+              class={`px-4 lg:px-6 py-2 rounded-full text-sm font-bold transition-colors ${
                 props.page === "detail-chars"
                   ? "bg-[var(--color-accent)] text-white shadow-lg"
                   : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
@@ -86,14 +86,14 @@ export function Detail(props: DetailProps) {
             <Show
               when={props.runningGame !== props.game.id}
               fallback={
-                <button class="px-6 py-2.5 bg-[var(--color-success-light)] text-[var(--color-success)] rounded-full font-bold text-sm tracking-wide flex items-center gap-2 cursor-default">
+                <button class="px-4 lg:px-6 py-2.5 bg-[var(--color-success-light)] text-[var(--color-success)] rounded-full font-bold text-sm tracking-wide flex items-center gap-2 cursor-default">
                   <IconClock class="w-4 h-4" strokeWidth={1.5} /> RUNNING
                 </button>
               }
             >
               <button
                 onClick={() => props.onLaunchGame(props.game.id)}
-                class="group relative px-8 py-2.5 bg-[var(--color-accent)] text-white rounded-full font-bold text-sm tracking-wide overflow-hidden shadow-lg hover:shadow-xl transition-shadow"
+                class="group relative px-5 lg:px-8 py-2.5 bg-[var(--color-accent)] text-white rounded-full font-bold text-sm tracking-wide overflow-hidden shadow-lg hover:shadow-xl transition-shadow"
               >
                 <span class="relative z-10 flex items-center gap-2">
                   <IconPlayerPlayFilled class="w-4 h-4 fill-current" /> PLAY NOW
@@ -104,7 +104,7 @@ export function Detail(props: DetailProps) {
           </Show>
         </div>
 
-        <div class="flex-1 overflow-y-auto px-8 pb-8 custom-scrollbar z-10">
+        <div class="flex-1 overflow-y-auto px-4 lg:px-8 pb-8 custom-scrollbar z-10">
           <Show when={props.page === "detail"}>
             <GameInfoTab
               game={props.game}

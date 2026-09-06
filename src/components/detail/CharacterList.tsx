@@ -49,8 +49,8 @@ export function CharacterList(props: CharacterListProps) {
           </div>
         }
       >
-        <div class="flex items-center justify-between mb-8">
-          <h2 class="text-2xl font-bold text-[var(--color-text-primary)]">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-6 lg:mb-8">
+          <h2 class="text-xl sm:text-2xl font-bold text-[var(--color-text-primary)]">
             Characters ({visibleCount()})
           </h2>
           <div class="text-sm text-[var(--color-text-secondary)] bg-[var(--color-bg-secondary)] px-4 py-2 rounded-lg">

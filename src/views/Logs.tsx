@@ -190,23 +190,23 @@ export function Logs() {
 
   return (
     <div class="flex h-full bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] overflow-hidden font-['Nunito_Sans']">
-      <aside class="w-64 bg-[var(--color-bg-primary)] flex flex-col border-r border-[var(--color-border)]">
-        <div class="p-6">
-          <h1 class="font-bold text-xl text-[var(--color-text-primary)] tracking-tight">
+      <aside class="w-16 lg:w-64 shrink-0 bg-[var(--color-bg-primary)] flex flex-col border-r border-[var(--color-border)]">
+        <div class="p-4 lg:p-6 flex justify-center lg:justify-start">
+          <h1 class="hidden lg:block font-bold text-xl text-[var(--color-text-primary)] tracking-tight">
             Poketto
           </h1>
         </div>
 
-        <div class="flex-1 overflow-y-auto px-4 custom-scrollbar flex flex-col gap-4">
+        <div class="flex-1 overflow-y-auto px-2 lg:px-4 custom-scrollbar flex flex-col gap-4">
           <nav class="space-y-1">
             <button
               onClick={() => navigate("/")}
-              class="w-full flex items-center gap-3 px-3 py-2.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] rounded-xl transition-all group"
+              class="w-full flex items-center justify-center lg:justify-start gap-0 lg:gap-3 px-0 lg:px-3 py-2.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] rounded-xl transition-all group"
             >
               <div class="w-9 h-9 rounded-lg bg-[var(--color-bg-secondary)] group-hover:bg-[var(--color-border)] flex items-center justify-center transition-colors">
                 <LibraryIcon class="w-5 h-5 text-[var(--color-icon)]" strokeWidth={1.5} />
               </div>
-              <span class="font-medium">My Games</span>
+              <span class="hidden lg:inline font-medium">My Games</span>
             </button>
           </nav>
 
@@ -215,38 +215,39 @@ export function Logs() {
           <nav class="space-y-1">
             <button
               onClick={() => navigate("/settings")}
-              class="w-full flex items-center gap-3 px-3 py-2.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] rounded-xl transition-all group"
+              title="Settings"
+              class="w-full flex items-center justify-center lg:justify-start gap-0 lg:gap-3 px-0 lg:px-3 py-2.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] rounded-xl transition-all group"
             >
               <div class="w-9 h-9 rounded-lg bg-[var(--color-bg-secondary)] group-hover:bg-[var(--color-border)] flex items-center justify-center transition-colors">
                 <SettingsIcon class="w-5 h-5 text-[var(--color-icon)]" strokeWidth={1.5} />
               </div>
-              <span class="font-medium">Settings</span>
+              <span class="hidden lg:inline font-medium">Settings</span>
             </button>
-            <button class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all">
+            <button title="Logs" class="w-full flex items-center justify-center lg:justify-start gap-0 lg:gap-3 px-0 lg:px-3 py-2.5 rounded-xl transition-all">
               <div class="w-9 h-9 rounded-lg bg-[var(--color-accent)] flex items-center justify-center">
                 <ScrollText class="w-5 h-5 text-white" strokeWidth={1.5} />
               </div>
-              <span class="font-medium text-[var(--color-text-primary)]">
+              <span class="hidden lg:inline font-medium text-[var(--color-text-primary)]">
                 Logs
               </span>
             </button>
-            <button class="w-full flex items-center gap-3 px-3 py-2.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] rounded-xl transition-all group">
+            <button title="Log out" class="w-full flex items-center justify-center lg:justify-start gap-0 lg:gap-3 px-0 lg:px-3 py-2.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] rounded-xl transition-all group">
               <div class="w-9 h-9 rounded-lg bg-[var(--color-bg-secondary)] group-hover:bg-[var(--color-border)] flex items-center justify-center transition-colors">
                 <LogOut class="w-5 h-5 text-[var(--color-icon)]" strokeWidth={1.5} />
               </div>
-              <span class="font-medium">Log out</span>
+              <span class="hidden lg:inline font-medium">Log out</span>
             </button>
           </nav>
         </div>
 
-        <div class="p-6 text-xs text-[var(--color-text-tertiary)] font-medium text-center">
+        <div class="hidden lg:block p-6 text-xs text-[var(--color-text-tertiary)] font-medium text-center">
           Poketto Version: {__APP_VERSION__}
         </div>
       </aside>
 
       <main class="flex-1 flex flex-col min-w-0 bg-[var(--color-bg-primary)]">
-        <header class="h-20 px-8 flex items-center justify-between gap-4 border-b border-[var(--color-border)]">
-          <h2 class="text-2xl font-bold text-[var(--color-text-primary)]">
+        <header class="min-h-20 px-4 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-3 border-b border-[var(--color-border)]">
+          <h2 class="shrink-0 text-xl lg:text-2xl font-bold text-[var(--color-text-primary)]">
             Logs
           </h2>
 
@@ -261,7 +262,7 @@ export function Logs() {
               title="Auto-scroll to bottom"
             >
               <IconArrowDown class="w-4 h-4" strokeWidth={1.5} />
-              <span class="font-medium">Auto-scroll</span>
+              <span class="hidden sm:inline font-medium">Auto-scroll</span>
             </button>
 
             <button
@@ -270,7 +271,7 @@ export function Logs() {
               title="Copy filtered logs"
             >
               <IconCopy class="w-4 h-4" strokeWidth={1.5} />
-              <span class="font-medium">{copied() ? "Copied" : "Copy"}</span>
+              <span class="hidden sm:inline font-medium">{copied() ? "Copied" : "Copy"}</span>
             </button>
 
             <button
@@ -279,7 +280,7 @@ export function Logs() {
               title="Open log folder"
             >
               <IconFolderOpen class="w-4 h-4" strokeWidth={1.5} />
-              <span class="font-medium">Open Folder</span>
+              <span class="hidden sm:inline font-medium">Open Folder</span>
             </button>
 
             <button
@@ -293,7 +294,7 @@ export function Logs() {
           </div>
         </header>
 
-        <div class="px-8 py-4 flex items-center gap-4 border-b border-[var(--color-border)]">
+        <div class="px-4 lg:px-8 py-4 flex flex-wrap items-center gap-2 lg:gap-4 border-b border-[var(--color-border)]">
           <div class="flex gap-1 bg-[var(--color-bg-secondary)] rounded-lg p-1">
             <For each={filterButtons}>
               {(btn) => (
@@ -314,7 +315,7 @@ export function Logs() {
             </For>
           </div>
 
-          <div class="flex-1 max-w-md relative group">
+          <div class="flex-1 min-w-[140px] max-w-md relative group">
             <IconSearch class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-icon)] group-focus-within:text-[var(--color-accent)] transition-colors" strokeWidth={1.5} />
             <input
               type="text"
@@ -333,7 +334,7 @@ export function Logs() {
             </Show>
           </div>
 
-          <span class="text-xs text-[var(--color-text-tertiary)] font-medium">
+          <span class="hidden sm:inline text-xs text-[var(--color-text-tertiary)] font-medium">
             {filteredLines().length} / {parsedLines().length} lines
           </span>
         </div>
@@ -379,7 +380,7 @@ export function Logs() {
           >
             <div
               ref={logContainerRef}
-              class="flex-1 overflow-y-auto px-8 py-4 custom-scrollbar"
+              class="flex-1 overflow-y-auto px-4 lg:px-8 py-4 custom-scrollbar"
             >
               <div class="space-y-px font-['JetBrains_Mono'] text-[13px] leading-6">
                 <For each={filteredLines()}>
@@ -395,7 +396,7 @@ export function Logs() {
                       >
                         {line.level.padEnd(5)}
                       </span>
-                      <span class="text-[var(--color-text-tertiary)] shrink-0 truncate max-w-[200px] select-none text-xs leading-6">
+                      <span class="text-[var(--color-text-tertiary)] shrink-0 truncate max-w-[100px] sm:max-w-[200px] select-none text-xs leading-6">
                         {line.target}
                       </span>
                       <span class="flex-1 break-all">{line.message}</span>

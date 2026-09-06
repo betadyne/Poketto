@@ -58,8 +58,8 @@ export function CharacterCard(props: CharacterCardProps) {
   const char = props.character;
 
   return (
-    <div class="flex gap-6 bg-[var(--color-bg-primary)] rounded-2xl p-6 hover:bg-[var(--color-bg-secondary)] transition-colors">
-      <div class="w-48 flex-shrink-0">
+    <div class="flex flex-col sm:flex-row gap-4 sm:gap-6 bg-[var(--color-bg-primary)] rounded-2xl p-4 sm:p-6 hover:bg-[var(--color-bg-secondary)] transition-colors">
+      <div class="w-32 sm:w-48 flex-shrink-0 self-start">
         <Show
           when={char.image?.url}
           fallback={
