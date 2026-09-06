@@ -1,8 +1,8 @@
 import { For, Show } from "solid-js";
-import { IconUser } from "@tabler/icons-solidjs";
+import { IconUser, IconGenderMale, IconGenderFemale } from "@tabler/icons-solidjs";
 import type { VndbCharacter, VndbTrait, VndbImage } from "../../types";
 import { ROLE_NAMES, TRAIT_ORDER } from "../../constants";
-import { stripBBCode } from "../../utils";
+import { stripBBCode, sexLabel } from "../../utils";
 
 interface CharacterCardProps {
   character: VndbCharacter;
@@ -53,7 +53,15 @@ export function CharacterCard(props: CharacterCardProps) {
   const vn = () => props.character.vns?.find((v) => v.id === props.vnId);
   const isSpoiler = () => (vn()?.spoiler || 0) > 0;
   const traits = () => groupTraits(props.character.traits, props.showSpoilers);
-  const sex = () => props.character.sex?.[0];
+  const apparentSex = () => props.character.sex?.[0] ?? null;
+  const actualSex = () => props.character.sex?.[1] ?? apparentSex();
+  const shownSex = () => (props.showSpoilers ? actualSex() : apparentSex());
+  const sexDiffers = () =>
+    props.showSpoilers && actualSex() !== null && actualSex() !== apparentSex();
+  const sexTooltip = () =>
+    sexDiffers()
+      ? `Gender: ${sexLabel(actualSex())} (spoiler; presented as ${sexLabel(apparentSex())})`
+      : `Gender: ${sexLabel(shownSex())}`;
   const role = () => vn()?.role || "appears";
   const char = props.character;
 
@@ -105,9 +113,23 @@ export function CharacterCard(props: CharacterCardProps) {
           >
             {ROLE_NAMES[role()] || role()}
           </span>
-          <Show when={sex()}>
-            <span class="text-[var(--color-accent)] text-sm ml-auto bg-[var(--color-accent)]/10 px-2 py-1 rounded">
-              {sex() === "m" ? "Male" : sex() === "f" ? "Female" : sex()}
+          <Show when={shownSex()}>
+            <span
+              title={sexTooltip()}
+              aria-label={sexTooltip()}
+              class="text-sm ml-auto bg-[var(--color-accent)]/10 text-[var(--color-text-secondary)] px-2 py-1 rounded flex items-center gap-1"
+            >
+              <Show when={shownSex() === "m" || shownSex() === "f"} fallback={shownSex()}>
+                <Show
+                  when={shownSex() === "m"}
+                  fallback={
+                    <IconGenderFemale class="w-4 h-4 text-pink-500" strokeWidth={1.5} />
+                  }
+                >
+                  <IconGenderMale class="w-4 h-4 text-blue-500" strokeWidth={1.5} />
+                </Show>
+              </Show>
+              <Show when={sexDiffers()}>({sexLabel(apparentSex())})</Show>
             </span>
           </Show>
           <Show when={isSpoiler()}>
