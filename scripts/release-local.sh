@@ -54,6 +54,10 @@ BUNDLE="src-tauri/target/release/bundle"
 WIN_BUNDLE="src-tauri/target/x86_64-pc-windows-gnu/release/bundle"
 LINUX_BIN="src-tauri/target/release/poketto"
 WIN_BIN="src-tauri/target/x86_64-pc-windows-gnu/release/poketto.exe"
+SIGN_ARGS=()
+if [[ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]]; then
+  SIGN_ARGS+=(--no-sign)
+fi
 
 if [[ "$DRY_RUN" == "1" ]]; then
   SKIP_UPLOAD=1
@@ -90,7 +94,7 @@ build_linux() {
   if [[ "$DRY_RUN" == "1" ]]; then
     log "dry-run: skipping npm run tauri build"
   else
-    NO_STRIP=1 npm run tauri build -- --bundles appimage,deb,rpm
+    NO_STRIP=1 npm run tauri build -- --bundles appimage,deb,rpm "${SIGN_ARGS[@]}"
   fi
   collect_first "$BUNDLE/appimage/*.AppImage" "$OUT/${BASE}-linux-x64.AppImage" "AppImage" || true
   collect_first "$BUNDLE/deb/*.deb" "$OUT/${BASE}-linux-x64.deb" "deb" || true
@@ -146,7 +150,7 @@ build_windows() {
     if [[ -z "${CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER:-}" ]] && command -v x86_64-w64-mingw32-gcc >/dev/null; then
       export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER="x86_64-w64-mingw32-gcc"
     fi
-    npm run tauri build -- --target x86_64-pc-windows-gnu --bundles nsis || \
+    npm run tauri build -- --target x86_64-pc-windows-gnu --bundles nsis "${SIGN_ARGS[@]}" || \
       warn "NSIS bundle failed (tauri auto-downloads NSIS on first run; retry or install nsis); continuing"
   else
     log "dry-run: skipping npm run tauri build --target x86_64-pc-windows-gnu"
@@ -188,6 +192,9 @@ upload_release() {
 
 rm -rf "$OUT"
 mkdir -p "$OUT"
+if [[ "$DRY_RUN" == "0" && "${#SIGN_ARGS[@]}" -gt 0 ]]; then
+  warn "TAURI_SIGNING_PRIVATE_KEY is unset; bundles will be unsigned and updater signatures unavailable"
+fi
 
 [[ "$ONLY" == "all" || "$ONLY" == "linux" ]] && build_linux
 [[ "$ONLY" == "all" || "$ONLY" == "windows" ]] && build_windows
