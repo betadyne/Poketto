@@ -63,7 +63,7 @@ export function CharacterList(props: CharacterListProps) {
             {(group) => (
               <div>
                 <div class="flex items-center gap-4 mb-6">
-                  <h3 class="text-xl font-bold text-[var(--color-text-primary)] font-['Plus_Jakarta_Sans']">
+                  <h3 class="text-xl font-bold text-[var(--color-text-primary)] font-['Nunito']">
                     {ROLE_NAMES[group.role] || group.role}
                   </h3>
                   <span class="text-sm text-[var(--color-text-tertiary)] bg-[var(--color-bg-secondary)] px-3 py-1 rounded-full">
