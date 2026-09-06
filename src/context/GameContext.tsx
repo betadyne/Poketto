@@ -69,6 +69,8 @@ export const GameProvider: ParentComponent = (props) => {
         const result = await api.launchGame(id);
         if (result.status === "ok") {
             setRunningGame(id);
+            const launchedAt = new Date().toISOString();
+            setGames((prev) => prev.map((g) => (g.id === id ? { ...g, last_played: launchedAt } : g)));
         }
     };
 

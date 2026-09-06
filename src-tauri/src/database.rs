@@ -172,7 +172,7 @@ impl AppDatabase {
         let conn = self.lock()?;
         conn.execute(
             "UPDATE games SET title = :title, exe_path = :exe_path, prefix_path = :prefix_path, \
-             runner = :runner, playtime_seconds = :playtime_seconds, last_played = :last_played, \
+             runner = :runner, playtime_seconds = :playtime_seconds, last_played = COALESCE(:last_played, last_played), \
              cover_path = :cover_path, vndb_id = :vndb_id, steam_app_id = :steam_app_id, \
              discord_status = :discord_status, is_finished = :is_finished, \
              is_hidden = :is_hidden, show_spoilers = :show_spoilers, \
@@ -202,6 +202,15 @@ impl AppDatabase {
     pub fn delete_game(&self, id: &str) -> AppResult<()> {
         let conn = self.lock()?;
         conn.execute("DELETE FROM games WHERE id = ?1", params![id])?;
+        Ok(())
+    }
+
+    pub fn touch_last_played(&self, game_id: &str) -> AppResult<()> {
+        let conn = self.lock()?;
+        conn.execute(
+            "UPDATE games SET last_played = ?1 WHERE id = ?2",
+            params![now_epoch(), game_id],
+        )?;
         Ok(())
     }
 
@@ -648,6 +657,46 @@ mod tests {
         let loaded = db.get_game_by_id("game-4").unwrap().expect("game exists");
         assert!(loaded.last_played.is_some());
         assert_eq!(loaded.play_time, 125);
+    }
+    #[test]
+    fn test_touch_last_played_stamps_launch_time() {
+        let db = AppDatabase::open_in_memory().expect("in-memory database");
+        let mut game = sample_game("game-touch");
+        game.last_played = None;
+        db.insert_game(&game).unwrap();
+        assert!(db
+            .get_game_by_id("game-touch")
+            .unwrap()
+            .expect("game exists")
+            .last_played
+            .is_none());
+        db.touch_last_played("game-touch").unwrap();
+        assert!(db
+            .get_game_by_id("game-touch")
+            .unwrap()
+            .expect("game exists")
+            .last_played
+            .is_some());
+    }
+
+    #[test]
+    fn test_update_game_preserves_last_played_when_none() {
+        let db = AppDatabase::open_in_memory().expect("in-memory database");
+        let game = sample_game("game-keep");
+        db.insert_game(&game).unwrap();
+        let stamped = db
+            .get_game_by_id("game-keep")
+            .unwrap()
+            .expect("game exists")
+            .last_played
+            .clone();
+        let mut updated = game.clone();
+        updated.title = "Renamed".to_string();
+        updated.last_played = None;
+        db.update_game(&updated).unwrap();
+        let loaded = db.get_game_by_id("game-keep").unwrap().expect("game exists");
+        assert_eq!(loaded.title, "Renamed");
+        assert_eq!(loaded.last_played, stamped);
     }
 
     #[test]

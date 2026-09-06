@@ -65,6 +65,9 @@ pub fn launch_game(
 
         Some(spawn_game_process(&game, &path, &settings)?)
     };
+    if let Err(e) = db.touch_last_played(&id) {
+        log::warn!("Failed to stamp last played for {id}: {e}");
+    }
 
     let game_title = game.title.clone();
     let cover_url = game.cover_url.clone();
