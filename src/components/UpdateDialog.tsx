@@ -74,7 +74,7 @@ export function UpdateDialog(props: UpdateDialogProps) {
                     {props.updateInfo!.body}
                   </p>
                 </div>
-                <div class="flex gap-3 pt-2">
+                <div class="flex flex-col sm:flex-row gap-3 pt-2">
                   <button
                     onClick={props.onDownload}
                     class="flex-1 px-4 py-2 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] rounded-lg text-white font-medium flex items-center justify-center gap-2"
@@ -112,7 +112,7 @@ export function UpdateDialog(props: UpdateDialogProps) {
                 <p class="text-[var(--color-text-secondary)]">
                   Update downloaded successfully! Restart to apply the update.
                 </p>
-                <div class="flex gap-3 pt-2">
+                <div class="flex flex-col sm:flex-row gap-3 pt-2">
                   <button
                     onClick={props.onRestart}
                     class="flex-1 px-4 py-2 bg-[var(--color-success)] hover:opacity-90 rounded-lg text-white font-medium flex items-center justify-center gap-2"
