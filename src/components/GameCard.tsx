@@ -1,9 +1,9 @@
-import { Show, createEffect, onCleanup } from "solid-js";
+import { Show, createSignal, createEffect, onCleanup } from "solid-js";
 import {
   IconPlayerPlayFilled,
   IconDeviceGamepad2,
   IconEyeOff,
-  IconDotsVertical,
+  IconDots,
 } from "@tabler/icons-solidjs";
 import type { Game } from "../types";
 
@@ -23,28 +23,29 @@ interface GameCardProps {
 
 export function GameCard(props: GameCardProps) {
   let menuRef: HTMLDivElement | undefined;
-  let cardRef: HTMLDivElement | undefined;
+  const [menuPos, setMenuPos] = createSignal({ x: 0, y: 0 });
 
   const showMenu = () => props.activeContextMenu === props.game.id;
 
-  const getMenuPosition = () => {
-    if (!cardRef) return { x: 0, y: 0 };
-    const rect = cardRef.getBoundingClientRect();
+  const menuStyle = () => {
+    const pos = menuPos();
     return {
-      x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2,
+      left: `${Math.max(8, Math.min(pos.x, window.innerWidth - 190))}px`,
+      top: `${Math.max(8, Math.min(pos.y, window.innerHeight - 220))}px`,
     };
   };
 
   const handleContextMenu = (e: MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    setMenuPos({ x: e.clientX, y: e.clientY });
     props.onContextMenuOpen(props.game.id);
   };
 
   const handleThreeDotsClick = (e: MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    setMenuPos({ x: e.clientX, y: e.clientY });
     props.onContextMenuOpen(props.game.id);
   };
 
@@ -77,7 +78,6 @@ export function GameCard(props: GameCardProps) {
   return (
     <>
       <div
-        ref={cardRef}
         class={`group relative aspect-[2/3] bg-[var(--color-bg-secondary)] rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-xl ${
           props.game.is_hidden && props.showHidden ? "opacity-50 grayscale" : ""
         } ${props.isRunning ? "ring-2 ring-[var(--color-success)] shadow-[0_0_20px_var(--color-success-light)]" : ""}`}
@@ -111,7 +111,7 @@ export function GameCard(props: GameCardProps) {
               onClick={handleThreeDotsClick}
               class="bg-black/80 rounded-full px-2 py-1 hover:bg-black/90 transition-colors"
             >
-              <IconDotsVertical class="w-4 h-4 text-white" strokeWidth={1.5} />
+              <IconDots class="w-4 h-4 text-white" strokeWidth={1.5} />
             </button>
           </div>
 
@@ -155,11 +155,7 @@ export function GameCard(props: GameCardProps) {
         <div
           ref={menuRef}
           class="fixed z-50 bg-[var(--color-bg-primary)] rounded-xl shadow-xl py-1.5 min-w-[180px] animate-in fade-in zoom-in-95 duration-100"
-          style={{
-            left: `${getMenuPosition().x}px`,
-            top: `${getMenuPosition().y}px`,
-            transform: "translate(-50%, -50%)",
-          }}
+          style={menuStyle()}
           onClick={(e) => e.stopPropagation()}
         >
           <button

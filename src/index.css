@@ -176,14 +176,7 @@ input[type="checkbox"]:hover {
 
 .custom-scrollbar {
     will-change: scroll-position;
-    transform: translateZ(0);
     -webkit-overflow-scrolling: touch;
-}
-
-.overflow-y-auto,
-.overflow-x-auto {
-    transform: translateZ(0);
-    backface-visibility: hidden;
 }
 
 .space-y-6 > * {
