@@ -16,6 +16,12 @@ import {
   localInputToEpoch,
   parseOptionalInt,
 } from "../../utils";
+
+interface PresenceTabProps {
+  game: Game;
+  onSave: (game: Game) => Promise<void>;
+  onBack: () => void;
+}
 const ACTIVITY_OPTIONS = [
   { value: "", label: "Default (Playing)" },
   { value: "Listening", label: "Listening to" },
