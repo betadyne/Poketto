@@ -174,6 +174,21 @@ impl AppDatabase {
 
     pub fn update_game(&self, game: &GameMetadata) -> AppResult<()> {
         let conn = self.lock()?;
+        let incoming = playtime_minutes_to_seconds(game.play_time);
+        let stored: i64 = conn
+            .query_row(
+                "SELECT playtime_seconds FROM games WHERE id = ?1",
+                params![game.id],
+                |row| row.get(0),
+            )
+            .optional()?
+            .unwrap_or(0);
+        if incoming < stored {
+            log::info!(
+                "Ignoring stale playtime write: game={} stored={stored}s incoming={incoming}s",
+                game.id
+            );
+        }
         conn.execute(
             "UPDATE games SET title = :title, exe_path = :exe_path, prefix_path = :prefix_path, \
              runner = :runner, playtime_seconds = MAX(playtime_seconds, :playtime_seconds), last_played = COALESCE(:last_played, last_played), \
@@ -187,7 +202,7 @@ impl AppDatabase {
                 ":exe_path": game.path,
                 ":prefix_path": wine_prefix(game),
                 ":runner": wine_runner(game),
-                ":playtime_seconds": playtime_minutes_to_seconds(game.play_time),
+                ":playtime_seconds": incoming,
                 ":last_played": last_played_to_epoch(game.last_played.as_deref()),
                 ":cover_path": game.cover_url,
                 ":vndb_id": game.vndb_id,
@@ -239,6 +254,15 @@ impl AppDatabase {
             params![game_id, now - seconds, now, seconds],
         )?;
         tx.commit()?;
+        let total: i64 = conn
+            .query_row(
+                "SELECT playtime_seconds FROM games WHERE id = ?1",
+                params![game_id],
+                |row| row.get(0),
+            )
+            .optional()?
+            .unwrap_or(0);
+        log::info!("Playtime total now: game={game_id} total={total}s");
         Ok(())
     }
 
@@ -744,6 +768,38 @@ mod tests {
         db.update_game(&fresh).unwrap();
         let loaded = db.get_game_by_id("game-stale").unwrap().expect("game exists");
         assert_eq!(loaded.play_time, 200);
+    }
+
+    #[test]
+    fn test_reported_flow_twelve_minutes_survives_restart_and_stale_save() {
+        let path =
+            std::env::temp_dir().join(format!("poketto-flow-{}.db", std::process::id()));
+        for suffix in ["db", "db-wal", "db-shm"] {
+            let _ = std::fs::remove_file(path.with_extension(suffix));
+        }
+        let mut fresh = sample_game("game-flow");
+        fresh.play_time = 0;
+        {
+            let db = AppDatabase::open_at(&path).expect("open database");
+            db.insert_game(&fresh).unwrap();
+            db.add_playtime("game-flow", 720).unwrap();
+            let mut exited = fresh.clone();
+            exited.play_time = 12;
+            db.update_game(&exited).unwrap();
+            let mut stale = fresh.clone();
+            stale.play_time = 0;
+            db.update_game(&stale).unwrap();
+            let loaded = db.get_game_by_id("game-flow").unwrap().expect("game exists");
+            assert_eq!(loaded.play_time, 12);
+        }
+        {
+            let db = AppDatabase::open_at(&path).expect("reopen database");
+            let loaded = db.get_game_by_id("game-flow").unwrap().expect("game exists");
+            assert_eq!(loaded.play_time, 12);
+        }
+        for suffix in ["db", "db-wal", "db-shm"] {
+            let _ = std::fs::remove_file(path.with_extension(suffix));
+        }
     }
 
     #[test]
