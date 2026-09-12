@@ -155,7 +155,7 @@ export function CharacterCard(props: CharacterCardProps) {
             </Show>
             <Show when={char.age || char.birthday}>
               <tr>
-                <td class="text-[var(--color-text-tertiary)] py-1.5 pr-6 align-top font-medium">
+                <td class="text-[var(--color-text-tertiary)] py-1.5 pr-6 align-top w-32 font-medium">
                   Age/Birthday
                 </td>
                 <td class="text-[var(--color-text-primary)] py-1.5">
@@ -175,7 +175,7 @@ export function CharacterCard(props: CharacterCardProps) {
               }
             >
               <tr>
-                <td class="text-[var(--color-text-tertiary)] py-1.5 pr-6 align-top font-medium">
+                <td class="text-[var(--color-text-tertiary)] py-1.5 pr-6 align-top w-32 font-medium">
                   Measurements
                 </td>
                 <td class="text-[var(--color-text-primary)] py-1.5 flex gap-4">
@@ -197,7 +197,7 @@ export function CharacterCard(props: CharacterCardProps) {
             <For each={traits()}>
               {([tgroup, items]) => (
                 <tr>
-                  <td class="text-[var(--color-text-tertiary)] py-1.5 pr-6 align-top font-medium">
+                  <td class="text-[var(--color-text-tertiary)] py-1.5 pr-6 align-top w-32 font-medium">
                     {tgroup}
                   </td>
                   <td class="py-1.5">
