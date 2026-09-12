@@ -572,14 +572,16 @@ mod tests {
                 custom_end: None,
                 large_image: None,
                 large_text: None,
+                large_url: None,
                 small_image: None,
                 small_text: None,
+                small_url: None,
                 button1_text: None,
                 button1_url: None,
                 button2_text: None,
                 button2_url: None,
             }),
-    }
+        }
     }
 
     fn assert_game_matches(expected: &GameMetadata, actual: &GameMetadata) {

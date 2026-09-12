@@ -136,13 +136,23 @@ pub fn launch_game(
             button_refs.iter().map(|(l, _)| *l).collect::<Vec<_>>()
         );
 
-        let _ = state.discord_rpc.set_activity(
-            &game_title,
-            cover_url.as_deref(),
-            custom_state,
-            button_refs,
-            discord_start,
-        );
+        if let Some(preset) = game.custom_presence.as_ref() {
+            let ctx = discord::PresenceContext {
+                title: &game_title,
+                state_fallback: custom_state,
+                cover_url: cover_url.as_deref(),
+                session_start_secs: discord_start,
+            };
+            let _ = state.discord_rpc.set_custom_activity(preset, &ctx);
+        } else {
+            let _ = state.discord_rpc.set_activity(
+                &game_title,
+                cover_url.as_deref(),
+                custom_state,
+                button_refs,
+                discord_start,
+            );
+        }
     }
 
     let app_handle_clone = app_handle.clone();

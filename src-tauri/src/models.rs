@@ -104,7 +104,7 @@ pub enum PresenceTimestampMode {
     Custom,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 pub struct CustomPresence {
     #[serde(default)]
     pub client_id: Option<String>,
@@ -135,9 +135,13 @@ pub struct CustomPresence {
     #[serde(default)]
     pub large_text: Option<String>,
     #[serde(default)]
+    pub large_url: Option<String>,
+    #[serde(default)]
     pub small_image: Option<String>,
     #[serde(default)]
     pub small_text: Option<String>,
+    #[serde(default)]
+    pub small_url: Option<String>,
     #[serde(default)]
     pub button1_text: Option<String>,
     #[serde(default)]
