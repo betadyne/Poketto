@@ -44,7 +44,7 @@ const VERB_PHRASE: Record<string, string> = {
 };
 
 const inputClass =
-  "w-full px-3 py-2 bg-[var(--color-bg-secondary)] rounded-lg text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/40";
+  "w-full min-w-0 px-3 py-2 bg-[var(--color-bg-secondary)] rounded-lg text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/40";
 
 function SectionTitle(props: { children: string }) {
   return (
@@ -315,7 +315,7 @@ export function PresenceTab(props: PresenceTabProps) {
                     min="0"
                     value={draft().party_size ?? ""}
                     onInput={(e) => set("party_size", parseOptionalInt(e.currentTarget.value))}
-                    class={inputClass}
+                    class={`${inputClass} [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
                   />
                 </label>
                 <label class="block space-y-1">
@@ -327,7 +327,7 @@ export function PresenceTab(props: PresenceTabProps) {
                     min="0"
                     value={draft().party_max ?? ""}
                     onInput={(e) => set("party_max", parseOptionalInt(e.currentTarget.value))}
-                    class={inputClass}
+                    class={`${inputClass} [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
                   />
                 </label>
               </div>
