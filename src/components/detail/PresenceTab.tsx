@@ -16,20 +16,13 @@ import {
   localInputToEpoch,
   parseOptionalInt,
 } from "../../utils";
-
-interface PresenceTabProps {
-  game: Game;
-  onSave: (game: Game) => Promise<void>;
-  onBack: () => void;
-}
-
 const ACTIVITY_OPTIONS = [
   { value: "", label: "Default (Playing)" },
-  { value: "Playing", label: "Playing" },
   { value: "Listening", label: "Listening to" },
   { value: "Watching", label: "Watching" },
   { value: "Competing", label: "Competing in" },
 ];
+
 
 const TIMESTAMP_OPTIONS = [
   { value: "SessionStart", label: "Session start" },
