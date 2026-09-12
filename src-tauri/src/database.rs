@@ -150,6 +150,8 @@ impl AppDatabase {
         let rows = stmt
             .query_map([], game_from_row)?
             .collect::<Result<Vec<_>, _>>()?;
+        let minutes: u64 = rows.iter().map(|game| game.play_time).sum();
+        log::info!("Loaded {} games ({} minutes total playtime)", rows.len(), minutes);
         Ok(rows)
     }
 
@@ -229,6 +231,7 @@ impl AppDatabase {
             params![seconds, now, game_id],
         )?;
         if affected == 0 {
+            log::warn!("Playtime session for unknown game ignored: {game_id}");
             return Ok(());
         }
         tx.execute(
@@ -741,6 +744,31 @@ mod tests {
         db.update_game(&fresh).unwrap();
         let loaded = db.get_game_by_id("game-stale").unwrap().expect("game exists");
         assert_eq!(loaded.play_time, 200);
+    }
+
+    #[test]
+    fn test_playtime_survives_database_reopen() {
+        let path =
+            std::env::temp_dir().join(format!("poketto-reopen-{}.db", std::process::id()));
+        for suffix in ["db", "db-wal", "db-shm"] {
+            let _ = std::fs::remove_file(path.with_extension(suffix));
+        }
+        {
+            let db = AppDatabase::open_at(&path).expect("open database");
+            db.insert_game(&sample_game("game-reopen")).unwrap();
+            db.add_playtime("game-reopen", 3600).unwrap();
+        }
+        {
+            let db = AppDatabase::open_at(&path).expect("reopen database");
+            let loaded = db
+                .get_game_by_id("game-reopen")
+                .unwrap()
+                .expect("game exists");
+            assert_eq!(loaded.play_time, 125 + 60);
+        }
+        for suffix in ["db", "db-wal", "db-shm"] {
+            let _ = std::fs::remove_file(path.with_extension(suffix));
+        }
     }
 
     #[test]
