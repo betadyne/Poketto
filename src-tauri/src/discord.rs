@@ -39,6 +39,31 @@ fn custom_buttons(preset: &CustomPresence) -> Vec<(String, String)> {
     .collect()
 }
 
+fn effective_client_id(client_id: &str) -> &str {
+    let trimmed = client_id.trim();
+    if trimmed.is_empty() {
+        DEFAULT_CLIENT_ID
+    } else {
+        trimmed
+    }
+}
+
+fn has_custom_client(preset: &CustomPresence) -> bool {
+    preset
+        .client_id
+        .as_deref()
+        .map(str::trim)
+        .is_some_and(|id| !id.is_empty())
+}
+
+fn display_name<'a>(preset: &'a CustomPresence) -> Option<&'a str> {
+    preset
+        .name
+        .as_deref()
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+}
+
 const DEFAULT_CLIENT_ID: &str = "1454731999637147732";
 
 pub struct DiscordRpc {
@@ -85,14 +110,7 @@ impl DiscordRpc {
     }
 
     fn ensure_connected(&self, client_id: &str) -> Result<(), String> {
-        let effective = {
-            let trimmed = client_id.trim();
-            if trimmed.is_empty() {
-                DEFAULT_CLIENT_ID.to_string()
-            } else {
-                trimmed.to_string()
-            }
-        };
+        let effective = effective_client_id(client_id).to_string();
         let same = self.connected.load(Ordering::Acquire)
             && self.active_client_id.lock().as_deref() == Some(effective.as_str());
         if same {
@@ -196,12 +214,6 @@ impl DiscordRpc {
             Some(PresenceActivityType::Competing) => ActivityType::Competing,
             _ => ActivityType::Playing,
         };
-        let name = preset
-            .name
-            .as_deref()
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .unwrap_or("Poketto");
         let details_raw = resolve_placeholders(preset.details.as_deref().unwrap_or(""), ctx);
         let details = if details_raw.trim().is_empty() {
             ctx.title.to_string()
@@ -214,9 +226,19 @@ impl DiscordRpc {
         } else {
             state_raw
         };
-
-        let mut activity_builder = activity::Activity::new()
-            .name(name)
+        let mut activity_builder = activity::Activity::new();
+        let log_name: &str = match display_name(preset) {
+            Some(name) => {
+                activity_builder = activity_builder.name(name);
+                name
+            }
+            None if !has_custom_client(preset) => {
+                activity_builder = activity_builder.name("Poketto");
+                "Poketto"
+            }
+            None => "<portal default>",
+        };
+        activity_builder = activity_builder
             .details(details)
             .state(state)
             .activity_type(activity_type)
@@ -301,7 +323,7 @@ impl DiscordRpc {
 
         match client.set_activity(activity_builder) {
             Ok(_) => {
-                log::info!("Discord custom activity set: {}", name);
+                log::info!("Discord custom activity set: {}", log_name);
                 Ok(())
             }
             Err(e) => {
@@ -397,5 +419,36 @@ mod tests {
             custom_buttons(&preset),
             vec![("VNDB".to_string(), "https://vndb.org".to_string())]
         );
+    }
+
+    #[test]
+    fn test_display_name_prefers_trimmed_custom_name() {
+        let preset = CustomPresence {
+            name: Some("  My VN Time  ".to_string()),
+            client_id: Some("123".to_string()),
+            ..Default::default()
+        };
+        assert_eq!(display_name(&preset), Some("My VN Time"));
+        assert!(has_custom_client(&preset));
+    }
+
+    #[test]
+    fn test_missing_name_omits_activity_name_for_custom_client() {
+        let preset = CustomPresence {
+            client_id: Some("123".to_string()),
+            ..Default::default()
+        };
+        assert_eq!(display_name(&preset), None);
+        assert!(has_custom_client(&preset));
+    }
+
+    #[test]
+    fn test_blank_client_id_falls_back_to_default() {
+        assert_eq!(effective_client_id(""), DEFAULT_CLIENT_ID);
+        assert_eq!(effective_client_id("   "), DEFAULT_CLIENT_ID);
+        assert_eq!(effective_client_id(" 123 "), "123");
+        let preset = CustomPresence::default();
+        assert_eq!(display_name(&preset), None);
+        assert!(!has_custom_client(&preset));
     }
 }

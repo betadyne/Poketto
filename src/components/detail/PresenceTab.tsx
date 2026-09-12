@@ -64,7 +64,13 @@ function PresencePreview(props: { game: Game; presence: CustomPresence }) {
   const activity = () => props.presence.activity_type ?? "Playing";
   const details = () => resolvePlaceholders(props.game, props.presence.details) || props.game.title;
   const state = () => resolvePlaceholders(props.game, props.presence.state);
-  const name = () => props.presence.name?.trim() || "Poketto";
+  const name = () => {
+    const custom = props.presence.name?.trim();
+    if (custom) return custom;
+    return props.presence.client_id?.trim()
+      ? "Your application"
+      : "Poketto";
+  };
   const largeImage = () => resolvePlaceholders(props.game, props.presence.large_image);
   const buttons = () =>
     [
@@ -276,7 +282,7 @@ export function PresenceTab(props: PresenceTabProps) {
                 </label>
                 <label class="block space-y-1">
                   <span class="text-xs font-medium text-[var(--color-text-tertiary)]">
-                    Display name (empty uses Poketto)
+                    Display name (empty uses the application name)
                   </span>
                   {text("name", "e.g. My VN Time")}
                 </label>
