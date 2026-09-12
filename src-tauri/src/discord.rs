@@ -242,7 +242,7 @@ impl DiscordRpc {
             .details(details)
             .state(state)
             .activity_type(activity_type)
-            .status_display_type(StatusDisplayType::Details);
+            .status_display_type(StatusDisplayType::Name);
 
         let details_url = resolve_placeholders(preset.details_url.as_deref().unwrap_or(""), ctx);
         if !details_url.trim().is_empty() {
