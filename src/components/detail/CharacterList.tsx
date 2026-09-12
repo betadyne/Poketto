@@ -73,7 +73,7 @@ export function CharacterList(props: CharacterListProps) {
                   <div class="flex-1 h-px bg-[var(--color-border)]" />
                 </div>
 
-                <div class="space-y-6">
+                <div class="space-y-6 cv-auto">
                   <For each={group.chars}>
                     {(char) => (
                       <CharacterCard

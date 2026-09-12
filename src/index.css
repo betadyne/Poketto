@@ -179,7 +179,7 @@ input[type="checkbox"]:hover {
     -webkit-overflow-scrolling: touch;
 }
 
-.space-y-6 > * {
+.cv-auto > * {
     content-visibility: auto;
     contain-intrinsic-size: auto 250px;
 }
