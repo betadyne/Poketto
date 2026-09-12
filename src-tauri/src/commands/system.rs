@@ -674,6 +674,7 @@ mod tests {
                 last_played: None,
                 game_type: Some(GameType::WindowsExe),
                 wine_settings,
+                custom_presence: None,
                 is_finished: false,
                 is_hidden: false,
                 show_spoilers: false,

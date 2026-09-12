@@ -31,7 +31,8 @@ CREATE TABLE IF NOT EXISTS games (
     is_hidden INTEGER NOT NULL DEFAULT 0,
     show_spoilers INTEGER NOT NULL DEFAULT 0,
     game_type TEXT,
-    wine_settings_json TEXT
+    wine_settings_json TEXT,
+    presence_json TEXT
 );
 CREATE TABLE IF NOT EXISTS playtime_sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,7 +52,7 @@ CREATE TABLE IF NOT EXISTS schema_meta (
 );
 ";
 
-const GAME_COLUMNS: &str = "id, title, exe_path, prefix_path, runner, playtime_seconds, last_played, cover_path, vndb_id, steam_app_id, discord_status, is_finished, is_hidden, show_spoilers, game_type, wine_settings_json";
+const GAME_COLUMNS: &str = "id, title, exe_path, prefix_path, runner, playtime_seconds, last_played, cover_path, vndb_id, steam_app_id, discord_status, is_finished, is_hidden, show_spoilers, game_type, wine_settings_json, presence_json";
 
 pub struct AppDatabase {
     pub conn: Mutex<Connection>,
@@ -105,6 +106,7 @@ impl AppDatabase {
         conn.execute_batch(SCHEMA_SQL)?;
         ensure_games_column(&conn, "steam_app_id", "TEXT")?;
         ensure_games_column(&conn, "discord_status", "TEXT")?;
+        ensure_games_column(&conn, "presence_json", "TEXT")?;
         Ok(())
     }
 
@@ -176,7 +178,7 @@ impl AppDatabase {
              cover_path = :cover_path, vndb_id = :vndb_id, steam_app_id = :steam_app_id, \
              discord_status = :discord_status, is_finished = :is_finished, \
              is_hidden = :is_hidden, show_spoilers = :show_spoilers, \
-             game_type = :game_type, wine_settings_json = :wine_settings_json WHERE id = :id",
+             game_type = :game_type, wine_settings_json = :wine_settings_json, presence_json = :presence_json WHERE id = :id",
             named_params! {
                 ":id": game.id,
                 ":title": game.title,
@@ -194,6 +196,7 @@ impl AppDatabase {
                 ":show_spoilers": game.show_spoilers,
                 ":game_type": game_type_json(game),
                 ":wine_settings_json": wine_settings_json(game),
+                ":presence_json": presence_json(game),
             },
         )?;
         Ok(())
@@ -289,10 +292,10 @@ fn insert_game_row(
     conn.execute(
         "INSERT INTO games (id, title, exe_path, prefix_path, runner, playtime_seconds, \
          last_played, cover_path, vndb_id, steam_app_id, discord_status, created_at, \
-         is_finished, is_hidden, show_spoilers, game_type, wine_settings_json) \
+         is_finished, is_hidden, show_spoilers, game_type, wine_settings_json, presence_json) \
          VALUES (:id, :title, :exe_path, :prefix_path, :runner, :playtime_seconds, \
          :last_played, :cover_path, :vndb_id, :steam_app_id, :discord_status, :created_at, \
-         :is_finished, :is_hidden, :show_spoilers, :game_type, :wine_settings_json)",
+         :is_finished, :is_hidden, :show_spoilers, :game_type, :wine_settings_json, :presence_json)",
         named_params! {
             ":id": game.id,
             ":title": game.title,
@@ -311,6 +314,7 @@ fn insert_game_row(
             ":show_spoilers": game.show_spoilers,
             ":game_type": game_type_json(game),
             ":wine_settings_json": wine_settings_json(game),
+            ":presence_json": presence_json(game),
         },
     )?;
     Ok(())
@@ -340,11 +344,18 @@ fn wine_settings_json(game: &GameMetadata) -> Option<String> {
         .and_then(|w| serde_json::to_string(w).ok())
 }
 
+fn presence_json(game: &GameMetadata) -> Option<String> {
+    game.custom_presence
+        .as_ref()
+        .and_then(|p| serde_json::to_string(p).ok())
+}
+
 fn game_from_row(row: &Row) -> rusqlite::Result<GameMetadata> {
     let playtime_seconds: i64 = row.get("playtime_seconds")?;
     let last_played_epoch: Option<i64> = row.get("last_played")?;
     let game_type_json: Option<String> = row.get("game_type")?;
     let wine_settings_json: Option<String> = row.get("wine_settings_json")?;
+    let presence_json: Option<String> = row.get("presence_json")?;
     Ok(GameMetadata {
         id: row.get("id")?,
         title: row.get("title")?,
@@ -360,6 +371,7 @@ fn game_from_row(row: &Row) -> rusqlite::Result<GameMetadata> {
         show_spoilers: row.get::<_, i64>("show_spoilers")? != 0,
         game_type: game_type_json.and_then(|s| serde_json::from_str(&s).ok()),
         wine_settings: wine_settings_json.and_then(|s| serde_json::from_str(&s).ok()),
+        custom_presence: presence_json.and_then(|s| serde_json::from_str(&s).ok()),
     })
 }
 
@@ -518,7 +530,7 @@ pub fn create_http_client() -> reqwest::Client {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{GameType, WineSettings, WineType};
+    use crate::models::{CustomPresence, GameType, PresenceActivityType, PresenceTimestampMode, WineSettings, WineType};
 
     fn sample_game(id: &str) -> GameMetadata {
         GameMetadata {
@@ -545,7 +557,29 @@ mod tests {
                     .into_iter()
                     .collect(),
             }),
-        }
+            custom_presence: Some(CustomPresence {
+                client_id: Some("123456789".to_string()),
+                activity_type: Some(PresenceActivityType::Playing),
+                name: None,
+                details: Some("{{title}}".to_string()),
+                details_url: None,
+                state: Some("Idle".to_string()),
+                state_url: None,
+                party_size: None,
+                party_max: None,
+                timestamp_mode: Some(PresenceTimestampMode::SessionStart),
+                custom_start: None,
+                custom_end: None,
+                large_image: None,
+                large_text: None,
+                small_image: None,
+                small_text: None,
+                button1_text: None,
+                button1_url: None,
+                button2_text: None,
+                button2_url: None,
+            }),
+    }
     }
 
     fn assert_game_matches(expected: &GameMetadata, actual: &GameMetadata) {
@@ -561,16 +595,6 @@ mod tests {
         assert_eq!(actual.is_hidden, expected.is_hidden);
         assert_eq!(actual.show_spoilers, expected.show_spoilers);
         assert_eq!(actual.game_type, expected.game_type);
-        assert_eq!(
-            actual
-                .last_played
-                .as_deref()
-                .map(|s| last_played_to_epoch(Some(s))),
-            expected
-                .last_played
-                .as_deref()
-                .map(|s| last_played_to_epoch(Some(s)))
-        );
         let actual_wine = actual.wine_settings.as_ref().map(|w| {
             (
                 w.use_global_prefix,
@@ -592,6 +616,7 @@ mod tests {
             )
         });
         assert_eq!(actual_wine, expected_wine);
+        assert_eq!(actual.custom_presence, expected.custom_presence);
     }
 
     #[test]

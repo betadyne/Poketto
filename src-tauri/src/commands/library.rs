@@ -43,6 +43,7 @@ pub fn add_local_game(path: String, db: State<AppDatabase>) -> AppResult<GameMet
         show_spoilers: false,
         game_type: None,
         wine_settings: None,
+        custom_presence: None,
     };
 
     db.insert_game(&game)?;

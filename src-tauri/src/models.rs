@@ -86,6 +86,66 @@ pub struct GameMetadata {
     pub game_type: Option<GameType>,
     #[serde(default)]
     pub wine_settings: Option<WineSettings>,
+    #[serde(default)]
+    pub custom_presence: Option<CustomPresence>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+pub enum PresenceActivityType {
+    Playing,
+    Listening,
+    Watching,
+    Competing,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+pub enum PresenceTimestampMode {
+    SessionStart,
+    Custom,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+pub struct CustomPresence {
+    #[serde(default)]
+    pub client_id: Option<String>,
+    #[serde(default)]
+    pub activity_type: Option<PresenceActivityType>,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub details: Option<String>,
+    #[serde(default)]
+    pub details_url: Option<String>,
+    #[serde(default)]
+    pub state: Option<String>,
+    #[serde(default)]
+    pub state_url: Option<String>,
+    #[serde(default)]
+    pub party_size: Option<u32>,
+    #[serde(default)]
+    pub party_max: Option<u32>,
+    #[serde(default)]
+    pub timestamp_mode: Option<PresenceTimestampMode>,
+    #[serde(default)]
+    pub custom_start: Option<i64>,
+    #[serde(default)]
+    pub custom_end: Option<i64>,
+    #[serde(default)]
+    pub large_image: Option<String>,
+    #[serde(default)]
+    pub large_text: Option<String>,
+    #[serde(default)]
+    pub small_image: Option<String>,
+    #[serde(default)]
+    pub small_text: Option<String>,
+    #[serde(default)]
+    pub button1_text: Option<String>,
+    #[serde(default)]
+    pub button1_url: Option<String>,
+    #[serde(default)]
+    pub button2_text: Option<String>,
+    #[serde(default)]
+    pub button2_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, specta::Type)]

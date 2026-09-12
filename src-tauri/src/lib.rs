@@ -97,6 +97,9 @@ pub fn run() {
         .typ::<GameType>()
         .typ::<WineVersion>()
         .typ::<WineSettings>()
+        .typ::<CustomPresence>()
+        .typ::<PresenceActivityType>()
+        .typ::<PresenceTimestampMode>()
         .dangerously_cast_bigints_to_number();
 
     #[cfg(debug_assertions)]
