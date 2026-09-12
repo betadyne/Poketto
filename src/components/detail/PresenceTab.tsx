@@ -66,6 +66,25 @@ function PresencePreview(props: { game: Game; presence: CustomPresence }) {
   const state = () => resolvePlaceholders(props.game, props.presence.state);
   const name = () => props.presence.name?.trim() || "Poketto";
   const largeImage = () => resolvePlaceholders(props.game, props.presence.large_image);
+  const large = () => largeImage().trim();
+  const small = () => (props.presence.small_image ?? "").trim();
+  const hasLargeUrl = () => large().startsWith("http");
+  const hasLargeKey = () => large() !== "" && !hasLargeUrl();
+  const hasSmallUrl = () => small().startsWith("http");
+  const hasSmallKey = () => small() !== "" && !hasSmallUrl();
+  const mainSlot = (): "large-url" | "large-key" | "small-url" | "small-key" | null => {
+    if (hasLargeUrl()) return "large-url";
+    if (hasLargeKey()) return "large-key";
+    if (hasSmallUrl()) return "small-url";
+    if (hasSmallKey()) return "small-key";
+    return null;
+  };
+  const overlaySlot = (): "url" | "key" | null => {
+    if (!hasLargeUrl() && !hasLargeKey()) return null;
+    if (hasSmallUrl()) return "url";
+    if (hasSmallKey()) return "key";
+    return null;
+  };
   const buttons = () =>
     [
       props.presence.button1_text?.trim() || null,
@@ -79,32 +98,61 @@ function PresencePreview(props: { game: Game; presence: CustomPresence }) {
       </p>
       <p class="text-sm font-bold mb-2">{name()}</p>
       <div class="flex gap-3">
-        <div class="relative shrink-0">
-          <Show
-            when={largeImage().startsWith("http")}
-            fallback={
-              <div class="w-[60px] h-[60px] rounded-lg bg-[#5865F2] flex items-center justify-center text-lg font-bold">
-                {(details().trim()[0] ?? "?").toUpperCase()}
+        <Show when={mainSlot() !== null}>
+          <div class="relative shrink-0">
+            <Show when={mainSlot() === "large-url"}>
+              <img
+                src={large()}
+                alt=""
+                title={props.presence.large_text ?? ""}
+                class="w-[60px] h-[60px] rounded-lg object-cover"
+                loading="lazy"
+              />
+            </Show>
+            <Show when={mainSlot() === "large-key"}>
+              <div
+                title="Asset key — resolves in Discord"
+                class="w-[60px] h-[60px] rounded-lg border border-dashed border-[#72767d] text-[#b5bac1] flex items-center justify-center text-[10px] px-1 text-center break-all overflow-hidden"
+              >
+                {large()}
               </div>
-            }
-          >
-            <img
-              src={largeImage()}
-              alt=""
-              class="w-[60px] h-[60px] rounded-lg object-cover"
-              loading="lazy"
-            />
-          </Show>
-          <Show when={(props.presence.small_image ?? "").startsWith("http")}>
-            <img
-              src={props.presence.small_image!}
-              alt=""
-              title={props.presence.small_text ?? ""}
-              class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full object-cover border-2 border-[#2b2d31]"
-              loading="lazy"
-            />
-          </Show>
-        </div>
+            </Show>
+            <Show when={mainSlot() === "small-url"}>
+              <img
+                src={small()}
+                alt=""
+                title={props.presence.small_text ?? ""}
+                class="w-[60px] h-[60px] rounded-full object-cover"
+                loading="lazy"
+              />
+            </Show>
+            <Show when={mainSlot() === "small-key"}>
+              <div
+                title="Asset key — resolves in Discord"
+                class="w-[60px] h-[60px] rounded-full border border-dashed border-[#72767d] text-[#b5bac1] flex items-center justify-center text-[10px] px-1 text-center break-all overflow-hidden"
+              >
+                {small()}
+              </div>
+            </Show>
+            <Show when={overlaySlot() === "url"}>
+              <img
+                src={small()}
+                alt=""
+                title={props.presence.small_text ?? ""}
+                class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full object-cover border-2 border-[#2b2d31]"
+                loading="lazy"
+              />
+            </Show>
+            <Show when={overlaySlot() === "key"}>
+              <div
+                title="Asset key — resolves in Discord"
+                class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border border-dashed border-[#72767d] bg-[#2b2d31] text-[#b5bac1] flex items-center justify-center text-[8px] overflow-hidden"
+              >
+                {(small().trim()[0] ?? "?").toUpperCase()}
+              </div>
+            </Show>
+          </div>
+        </Show>
         <div class="min-w-0 text-[13px] leading-5">
           <p class="truncate">{details()}</p>
           <Show when={state()}>
