@@ -160,9 +160,37 @@ export function PresenceTab(props: PresenceTabProps) {
   const setText =
     (key: "name" | "details" | "details_url" | "state" | "state_url" | "client_id" | "large_image" | "large_text" | "small_image" | "small_text" | "button1_text" | "button1_url" | "button2_text" | "button2_url") =>
     (event: InputEvent & { currentTarget: HTMLInputElement }) => {
-      const value = event.currentTarget.value.trim();
+      const value = event.currentTarget.value;
       set(key, value === "" ? null : value);
     };
+
+  const TEXT_KEYS = [
+    "name",
+    "details",
+    "details_url",
+    "state",
+    "state_url",
+    "client_id",
+    "large_image",
+    "large_text",
+    "small_image",
+    "small_text",
+    "button1_text",
+    "button1_url",
+    "button2_text",
+    "button2_url",
+  ] as const;
+  const normalized = (): CustomPresence => {
+    const out: CustomPresence = { ...draft() };
+    for (const key of TEXT_KEYS) {
+      const value = out[key];
+      if (typeof value === "string") {
+        const trimmed = value.trim();
+        out[key] = trimmed === "" ? null : trimmed;
+      }
+    }
+    return out;
+  };
 
   const save = async (presence: CustomPresence | null) => {
     if (isSaving()) return;
@@ -442,7 +470,7 @@ export function PresenceTab(props: PresenceTabProps) {
 
             <div class="flex flex-col sm:flex-row gap-3 pt-2">
               <button
-                onClick={() => save(draft())}
+                onClick={() => save(normalized())}
                 disabled={isSaving()}
                 class="px-6 py-2.5 bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-50 rounded-full text-white font-bold text-sm transition-colors flex items-center justify-center gap-2"
               >
