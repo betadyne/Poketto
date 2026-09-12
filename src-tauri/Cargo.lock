@@ -2963,7 +2963,7 @@ dependencies = [
 
 [[package]]
 name = "poketto"
-version = "0.1.4-hotfix"
+version = "0.1.5-beta"
 dependencies = [
  "chrono",
  "dirs",
