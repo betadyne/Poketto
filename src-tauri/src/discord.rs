@@ -56,7 +56,7 @@ fn has_custom_client(preset: &CustomPresence) -> bool {
         .is_some_and(|id| !id.is_empty())
 }
 
-fn display_name<'a>(preset: &'a CustomPresence) -> Option<&'a str> {
+fn display_name(preset: &CustomPresence) -> Option<&str> {
     preset
         .name
         .as_deref()
