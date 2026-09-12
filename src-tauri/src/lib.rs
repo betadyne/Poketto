@@ -1,4 +1,4 @@
-use database::{create_http_client, load_settings, AppDatabase};
+use database::{create_http_client, load_settings, record_daily_playtime, AppDatabase};
 use parking_lot::Mutex;
 use std::collections::HashMap;
 use tauri::Manager;
@@ -143,6 +143,27 @@ pub fn run() {
                 log::info!("Wine runner scan finished: {count} versions");
             });
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if matches!(event, tauri::WindowEvent::CloseRequested { .. }) {
+                let running = {
+                    let state: tauri::State<AppState> = window.state();
+                    let taken = state.running_game.lock().take();
+                    taken
+                };
+                if let Some(running) = running {
+                    let db: tauri::State<AppDatabase> = window.state();
+                    let seconds =
+                        running.start_time.elapsed().as_secs().min(i64::MAX as u64) as i64;
+                    let game_id = running.id.clone();
+                    if db.add_playtime(&game_id, seconds).is_ok() {
+                        record_daily_playtime(&game_id, seconds.max(0) as u64 / 60);
+                        log::info!(
+                            "Flushed running session on exit: game={game_id} seconds={seconds}"
+                        );
+                    }
+                }
+            }
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
