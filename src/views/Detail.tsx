@@ -3,6 +3,7 @@ import { IconPlayerPlayFilled, IconClock, IconLoader2 } from "@tabler/icons-soli
 import { Sidebar } from "../components/Sidebar";
 import { GameInfoTab } from "../components/detail/GameInfoTab";
 import { CharacterList } from "../components/detail/CharacterList";
+import { PresenceTab } from "../components/detail/PresenceTab";
 import type {
   Game,
   VndbVnDetail,
@@ -13,8 +14,8 @@ import type {
 } from "../types";
 
 interface DetailProps {
-  page: "detail" | "detail-chars";
-  setPage: (page: "detail" | "detail-chars") => void;
+  page: "detail" | "detail-chars" | "detail-presence";
+  setPage: (page: "detail" | "detail-chars" | "detail-presence") => void;
   game: Game;
   vnDetail: VndbVnDetail;
   characters: VndbCharacter[];
@@ -27,6 +28,7 @@ interface DetailProps {
   onBack: () => void;
   onRefresh: () => void;
   onLaunchGame: (id: string) => void;
+  onSavePresence: (game: Game) => Promise<void>;
   onSetStatus: (labelId: number) => void;
   onSetVote: (vote: number) => void;
   formatPlayTime: (m: number) => string;
@@ -78,6 +80,16 @@ export function Detail(props: DetailProps) {
             >
               Characters
             </button>
+            <button
+              onClick={() => props.setPage("detail-presence")}
+              class={`px-4 lg:px-6 py-2 rounded-full text-sm font-bold transition-colors ${
+                props.page === "detail-presence"
+                  ? "bg-[var(--color-accent)] text-white shadow-lg"
+                  : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+              }`}
+            >
+              Presence
+            </button>
           </div>
 
           <div class="flex-1"></div>
@@ -125,6 +137,14 @@ export function Detail(props: DetailProps) {
               vnId={props.vnDetail.id}
               showSpoilers={props.showSpoilers}
               shouldBlur={props.shouldBlur}
+            />
+          </Show>
+
+          <Show when={props.page === "detail-presence"}>
+            <PresenceTab
+              game={props.game}
+              onSave={props.onSavePresence}
+              onBack={() => props.setPage("detail")}
             />
           </Show>
         </div>

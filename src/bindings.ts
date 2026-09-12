@@ -87,9 +87,37 @@ export type GameMetadata = {
 	show_spoilers?: boolean,
 	game_type?: GameType | null,
 	wine_settings?: WineSettings | null,
+	custom_presence?: CustomPresence | null,
 };
 
 export type GameType = "WindowsExe" | "LinuxNative";
+
+export type CustomPresence = {
+	client_id?: string | null,
+	activity_type?: PresenceActivityType | null,
+	name?: string | null,
+	details?: string | null,
+	details_url?: string | null,
+	state?: string | null,
+	state_url?: string | null,
+	party_size?: number | null,
+	party_max?: number | null,
+	timestamp_mode?: PresenceTimestampMode | null,
+	custom_start?: number | null,
+	custom_end?: number | null,
+	large_image?: string | null,
+	large_text?: string | null,
+	small_image?: string | null,
+	small_text?: string | null,
+	button1_text?: string | null,
+	button1_url?: string | null,
+	button2_text?: string | null,
+	button2_url?: string | null,
+};
+
+export type PresenceActivityType = "Playing" | "Listening" | "Watching" | "Competing";
+
+export type PresenceTimestampMode = "SessionStart" | "Custom";
 
 export type VndbAuthInfo = {
 	id: string,

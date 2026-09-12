@@ -146,7 +146,7 @@ function DetailPage() {
 
   const [showSpoilers, setShowSpoilers] = createSignal(false);
   const [isRefreshing, setIsRefreshing] = createSignal(false);
-  const [currentTab, setCurrentTab] = createSignal<"detail" | "detail-chars">(
+  const [currentTab, setCurrentTab] = createSignal<"detail" | "detail-chars" | "detail-presence">(
     "detail",
   );
 
@@ -239,6 +239,7 @@ function DetailPage() {
           onBack={goBack}
           onRefresh={refreshDetail}
           onLaunchGame={game.launchGame}
+          onSavePresence={game.updateGame}
           onSetStatus={setStatus}
           onSetVote={setVote}
           formatPlayTime={formatPlayTime}

@@ -18,6 +18,9 @@ export type {
   GameType,
   WineVersion,
   WineSettings,
+  CustomPresence,
+  PresenceActivityType,
+  PresenceTimestampMode,
 } from "./bindings";
 
 export interface GameExitedPayload {
