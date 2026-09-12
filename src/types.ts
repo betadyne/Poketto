@@ -27,3 +27,8 @@ export interface GameExitedPayload {
   game_id: string;
   play_minutes: number;
 }
+
+export interface PlaytimeUpdatedPayload {
+  game_id: string;
+  duration_seconds: number;
+}

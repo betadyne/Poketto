@@ -305,6 +305,12 @@ pub struct GameExitedPayload {
     pub play_minutes: u64,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct PlaytimeUpdatedPayload {
+    pub game_id: String,
+    pub duration_seconds: u64,
+}
+
 pub struct RunningGame {
     pub id: String,
     pub start_time: Instant,

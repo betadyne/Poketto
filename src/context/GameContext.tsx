@@ -1,7 +1,7 @@
 import { createContext, createSignal, useContext, onCleanup, ParentComponent } from "solid-js";
 import { listen } from "@tauri-apps/api/event";
 import type { GameMetadata } from "../bindings";
-import type { GameExitedPayload } from "../types";
+import type { GameExitedPayload, PlaytimeUpdatedPayload } from "../types";
 import * as api from "../api";
 
 interface GameContextValue {
@@ -61,7 +61,13 @@ export const GameProvider: ParentComponent = (props) => {
     const updateGame = async (game: GameMetadata) => {
         const result = await api.updateGame(game);
         if (result.status === "ok") {
-            setGames((prev) => prev.map((g) => (g.id === game.id ? game : g)));
+            setGames((prev) =>
+                prev.map((g) =>
+                    g.id === game.id
+                        ? { ...game, play_time: g.play_time, last_played: g.last_played ?? game.last_played }
+                        : g
+                )
+            );
         }
     };
 
@@ -92,6 +98,16 @@ export const GameProvider: ParentComponent = (props) => {
                     : g
             )
         );
+    }).then((unlisten) => {
+        onCleanup(unlisten);
+    });
+
+    listen<PlaytimeUpdatedPayload>("playtime-updated", async () => {
+        try {
+            setGames(await api.getAllGames());
+        } catch (e) {
+            console.error("Failed to refresh games after playtime update:", e);
+        }
     }).then((unlisten) => {
         onCleanup(unlisten);
     });

@@ -11,7 +11,7 @@ use crate::models::{
     AppSettings, GameExitedPayload, GameMetadata, GameType, RunningGame, WineSettings, WineType,
 };
 use crate::state::{AppState, Settle};
-use crate::steam_watch::{NATIVE_HANDOVER_SECS, binary_file_name, kill_session_processes, persist_session, spawn_steam_watcher};
+use crate::steam_watch::{NATIVE_HANDOVER_SECS, binary_file_name, emit_playtime_updated, kill_session_processes, persist_session, spawn_steam_watcher};
 
 #[cfg(target_os = "linux")]
 use crate::wine;
@@ -179,6 +179,8 @@ pub fn launch_game(
             }
             match state.settle_running(&game_id, start_time) {
                 Settle::Mine => {
+                    persist_session(&app_handle_clone, &game_id, seconds);
+                    emit_playtime_updated(&app_handle, &game_id, seconds);
                     if let Err(e) = state.discord_rpc.clear_activity() {
                         log::warn!("Failed to clear Discord activity: {}", e);
                     }
@@ -194,6 +196,7 @@ pub fn launch_game(
                 }
                 Settle::Replaced => {
                     persist_session(&app_handle_clone, &game_id, seconds);
+                    emit_playtime_updated(&app_handle, &game_id, seconds);
                 }
                 Settle::Gone => {}
             }
@@ -539,7 +542,11 @@ fn session_durations(elapsed_secs: u64) -> (u64, i64) {
 
 #[tauri::command]
 #[specta::specta]
-pub fn stop_tracking(state: State<AppState>, db: State<AppDatabase>) -> AppResult<u64> {
+pub fn stop_tracking(
+    app_handle: tauri::AppHandle,
+    state: State<AppState>,
+    db: State<AppDatabase>,
+) -> AppResult<u64> {
     let taken = state.running_game.lock().take();
     if let Some(game) = taken {
         kill_session_processes(game.pid, game.binary.as_deref());
@@ -551,6 +558,7 @@ pub fn stop_tracking(state: State<AppState>, db: State<AppDatabase>) -> AppResul
 
         db.add_playtime(&game_id, seconds)?;
         log::info!("Stopped tracking: game={game_id} seconds={seconds}");
+        emit_playtime_updated(&app_handle, &game_id, seconds);
 
         record_daily_playtime(&game_id, minutes);
 

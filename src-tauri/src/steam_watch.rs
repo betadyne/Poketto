@@ -5,7 +5,7 @@ use sysinfo::{Pid, ProcessesToUpdate, System};
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::database::{record_daily_playtime, AppDatabase};
-use crate::models::GameExitedPayload;
+use crate::models::{GameExitedPayload, PlaytimeUpdatedPayload};
 use crate::state::{AppState, Settle};
 
 const WAIT_TIMEOUT: Duration = Duration::from_secs(60);
@@ -38,11 +38,13 @@ pub fn spawn_steam_watcher(
         match app_handle.state::<AppState>().settle_running(&game_id, start_time) {
             Settle::Mine => {
                 persist_session(&app_handle, &game_id, seconds);
+                emit_playtime_updated(&app_handle, &game_id, seconds);
                 clear_presence(&app_handle);
                 emit_exited(&app_handle, &game_id, seconds.max(0) as u64 / 60);
             }
             Settle::Replaced => {
                 persist_session(&app_handle, &game_id, seconds);
+                emit_playtime_updated(&app_handle, &game_id, seconds);
             }
             Settle::Gone => {}
         }
@@ -120,6 +122,18 @@ fn emit_exited(app_handle: &AppHandle, game_id: &str, play_minutes: u64) {
         },
     ) {
         log::error!("Failed to emit game-exited event: {e}");
+    }
+}
+
+pub(crate) fn emit_playtime_updated(app_handle: &AppHandle, game_id: &str, seconds: i64) {
+    if let Err(e) = app_handle.emit(
+        "playtime-updated",
+        PlaytimeUpdatedPayload {
+            game_id: game_id.to_string(),
+            duration_seconds: seconds.max(0) as u64,
+        },
+    ) {
+        log::error!("Failed to emit playtime-updated event: {e}");
     }
 }
 
